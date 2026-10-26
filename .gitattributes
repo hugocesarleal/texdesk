@@ -1,5 +1,15 @@
 # fixtures dos testes ficam exatamente como foram gerados (o leitor de log depende da largura das linhas)
 tests/fixtures/** -text
+# fora dos pacotes de release (git archive): só interessam a quem desenvolve
+.github export-ignore
+tests export-ignore
+scripts export-ignore
+requirements-dev.txt export-ignore
+.gitattributes export-ignore
+# scripts: LF para Linux/macOS, CRLF para Windows, independente de quem fizer o checkout
+*.sh text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
 # binários
 *.bcmap binary
 *.gz binary

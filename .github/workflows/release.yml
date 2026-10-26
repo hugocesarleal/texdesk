@@ -1,0 +1,141 @@
+name: Release
+
+# Uma release por versão, com um pacote para cada sistema (já com o Tectonic e o biber).
+# - Tag "v*" (ex.: v0.1.0): monta, testa cada pacote no próprio sistema e publica a release.
+# - Mudanças nos instaladores/empacotamento, ou execução manual: monta e testa, sem publicar.
+on:
+  push:
+    tags: ["v*"]
+    branches: [main]
+    paths:
+      - setup.sh
+      - setup.ps1
+      - iniciar.sh
+      - iniciar.bat
+      - scripts/empacotar.sh
+      - .github/workflows/release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  empacotar:
+    runs-on: ubuntu-latest
+    outputs:
+      versao: ${{ steps.v.outputs.versao }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        name: Versão
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then v="${GITHUB_REF_NAME#v}"; else v="dev-${GITHUB_SHA::7}"; fi
+          echo "versao=$v" >> "$GITHUB_OUTPUT"
+      - name: Montar os pacotes
+        run: |
+          for alvo in windows-x64 linux-x64 linux-arm64 macos-arm64 macos-x64; do
+            bash scripts/empacotar.sh "$alvo" "${{ steps.v.outputs.versao }}" dist
+          done
+          ls -lh dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pacotes
+          path: dist/*
+
+  # Cada pacote é extraído e instalado no seu sistema, compila os modelos e roda os testes.
+  testar:
+    needs: empacotar
+    name: testar ${{ matrix.alvo }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { alvo: windows-x64, os: windows-latest }
+          - { alvo: linux-x64, os: ubuntu-latest }
+          - { alvo: linux-arm64, os: ubuntu-24.04-arm }
+          - { alvo: macos-arm64, os: macos-latest }
+          # macos-x64 é montado igual, mas não há mais máquina Intel gratuita no GitHub para testá-lo
+    env:
+      PACOTE: texdesk-${{ needs.empacotar.outputs.versao }}
+    steps:
+      - uses: actions/checkout@v4   # só para usar a pasta tests/ contra o pacote
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: pacotes
+          path: dist
+
+      - name: Extrair e instalar (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p "$RUNNER_TEMP/pkg"
+          tar -xzf "dist/$PACOTE-${{ matrix.alvo }}.tar.gz" -C "$RUNNER_TEMP/pkg"
+          cd "$RUNNER_TEMP/pkg/$PACOTE"
+          test -x setup.sh && test -x iniciar.sh && test -x tools/tectonic   # permissões preservadas
+          PYTHON=python ./setup.sh
+
+      - name: Extrair e instalar (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Expand-Archive "dist/$env:PACOTE-${{ matrix.alvo }}.zip" "$env:RUNNER_TEMP/pkg"
+          Set-Location "$env:RUNNER_TEMP/pkg/$env:PACOTE"
+          if (-not (Test-Path tools/tectonic.exe) -or -not (Test-Path tools/biber.exe)) { throw "ferramentas faltando no pacote" }
+          powershell -NoProfile -ExecutionPolicy Bypass -File setup.ps1
+
+      - name: Testar o pacote (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          cd "$RUNNER_TEMP/pkg/$PACOTE"
+          cp -R "$GITHUB_WORKSPACE/tests" .
+          .venv/bin/python -m pip install --quiet pytest
+          .venv/bin/python -m pytest tests -v -rs
+
+      - name: Testar o pacote (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Set-Location "$env:RUNNER_TEMP/pkg/$env:PACOTE"
+          Copy-Item -Recurse "$env:GITHUB_WORKSPACE/tests" .
+          python -m pip install --quiet pytest
+          python -m pytest tests -v -rs
+
+  publicar:
+    needs: [empacotar, testar]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: pacotes
+          path: dist
+      - name: Criar a release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ needs.empacotar.outputs.versao }}
+        run: |
+          cat > notas.md <<EOF
+          ## Qual arquivo baixar
+
+          | Sistema | Arquivo |
+          |---|---|
+          | Windows 10/11 (64 bits) | \`texdesk-$V-windows-x64.zip\` |
+          | Linux (Intel/AMD 64 bits) | \`texdesk-$V-linux-x64.tar.gz\` |
+          | Linux (ARM 64 bits, ex.: Raspberry Pi 4/5) | \`texdesk-$V-linux-arm64.tar.gz\` |
+          | macOS (Apple Silicon: M1, M2, M3…) | \`texdesk-$V-macos-arm64.tar.gz\` |
+          | macOS (Intel) | \`texdesk-$V-macos-x64.tar.gz\` |
+
+          Em todos é preciso ter o [Python 3.10 ou mais novo](https://www.python.org/downloads/).
+
+          - **Windows:** extraia o .zip e dê dois cliques em \`iniciar.bat\`.
+          - **Linux e macOS:** extraia o .tar.gz e rode \`./iniciar.sh\` no terminal.
+
+          Na primeira vez a instalação prepara os pacotes LaTeX (1 a 2 minutos). Os pacotes já trazem o Tectonic e o biber.
+          EOF
+          gh release create "$GITHUB_REF_NAME" dist/* --title "TexDesk $V" --notes-file notas.md --generate-notes
