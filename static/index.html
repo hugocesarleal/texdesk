@@ -98,15 +98,37 @@ function showPop(img) {
   const top = Math.min(Math.max(12, r.top + r.height / 2 - h / 2), innerHeight - h - 12);
   const pi = pop.querySelector("img");
   pi.src = img.src;
-  Object.assign(pop.style, { width: w + "px", height: h + "px", left: left + "px", top: top + "px" });
+  // a prévia "cresce" a partir da miniatura: começa do tamanho dela, no lugar dela
+  const originX = r.left + r.width / 2 - left, originY = r.top + r.height / 2 - top;
+  clearTimeout(popHideTimer);
+  Object.assign(pop.style, {
+    width: w + "px", height: h + "px", left: left + "px", top: top + "px",
+    transformOrigin: `${originX}px ${originY}px`, transition: "none",
+    transform: `scale(${r.width / w})`, opacity: "0.4",
+  });
   pop.hidden = false;
+  void pop.offsetWidth;  // aplica o estado inicial antes de animar
+  pop.style.transition = "";
+  pop.style.transform = "scale(1)";
+  pop.style.opacity = "1";
+  popFrom = r.width / w;
 }
+
+let popHideTimer = 0, popFrom = 0.2;
+function hidePop(animated = true) {
+  if (pop.hidden) return;
+  if (!animated) { pop.hidden = true; return; }
+  pop.style.transform = `scale(${popFrom})`;  // encolhe de volta para a miniatura
+  pop.style.opacity = "0";
+  popHideTimer = setTimeout(() => { pop.hidden = true; }, 160);
+}
+
 $("#list").addEventListener("mouseover", (e) => {
   const img = e.target.closest("td.thumb img");
   if (img && img.complete && img.naturalWidth) showPop(img);
 });
-$("#list").addEventListener("mouseout", (e) => { if (e.target.closest("td.thumb img")) pop.hidden = true; });
-addEventListener("scroll", () => { pop.hidden = true; }, { passive: true });
+$("#list").addEventListener("mouseout", (e) => { if (e.target.closest("td.thumb img")) hidePop(); });
+addEventListener("scroll", () => hidePop(false), { passive: true });
 
 // Gera (uma vez) as miniaturas que faltam ou ficaram mais velhas que o PDF compilado.
 let thumbQueueRunning = false;
@@ -498,6 +520,7 @@ $("#new").onclick = async () => {
             <input type="radio" name="template" value="${esc(t.id)}" ${i === 0 ? "checked" : ""}>
             <span class="tpl-ic">${icon(TEMPLATE_ICONS[t.id] || "file")}</span>
             <b>${esc(t.name)}</b><small>${esc(t.description)}</small>
+            ${t.source ? `<a class="tpl-src" href="${esc(t.source)}" target="_blank" rel="noopener" title="Repositório original do modelo">${icon("external")}${esc(t.source.replace("https://github.com/", ""))}</a>` : ""}
           </label>`).join("")}
       </div>
       <div class="actions"><button type="button" class="btn" data-cancel>Cancelar</button>

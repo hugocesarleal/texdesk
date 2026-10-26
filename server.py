@@ -30,8 +30,11 @@ from latexlog import parse_log
 from synctex import SyncTex
 
 ROOT = Path(__file__).resolve().parent
-PROJECTS = ROOT / "projects"
-OUTPUT = ROOT / "output"
+# dados do usuário (projetos, PDFs, conexão com o Drive); TEXDESK_DATA permite outra pasta,
+# usada pelos testes para não tocar nos projetos reais
+DATA = Path(os.environ.get("TEXDESK_DATA", ROOT)).resolve()
+PROJECTS = DATA / "projects"
+OUTPUT = DATA / "output"
 TEMPLATES = ROOT / "templates"
 TECTONIC = ROOT / "tools" / ("tectonic.exe" if os.name == "nt" else "tectonic")
 SETTINGS_FILE = ".project.json"
@@ -40,6 +43,7 @@ TEXT_EXT = {".tex", ".bib", ".cls", ".sty", ".bst", ".txt", ".md", ".csv", ".dat
             ".tikz", ".cfg", ".def", ".ltx", ".dtx", ".ins", ".bbx", ".cbx", ".lbx",
             ".json", ".xml", ".py", ".m", ".r", ".gp", ".asy", ".lua", ".bbl", ".log"}
 COMPILE_TIMEOUT = 600
+MAX_UPLOAD_MB = 500  # limite por requisição (upload de arquivos ou de projeto .zip)
 
 PORT = int(os.environ.get("PORT", 5050))
 URL = f"http://127.0.0.1:{PORT}"
@@ -63,12 +67,58 @@ if __name__ == "__main__" and already_running():
         webbrowser.open(URL)
     sys.exit(3)
 
-PROJECTS.mkdir(exist_ok=True)
-OUTPUT.mkdir(exist_ok=True)
+PROJECTS.mkdir(parents=True, exist_ok=True)
+OUTPUT.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
+app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
 _locks: dict[str, threading.Lock] = {}
 _locks_guard = threading.Lock()
+
+
+# ---------------------------------------------------------------- segurança
+# O servidor só escuta em 127.0.0.1, mas qualquer site aberto no navegador consegue
+# mandar requisições para ele. Sem as barreiras abaixo, um site poderia ligar o
+# shell-escape, enviar um .tex com \write18 e compilar, executando comandos no computador.
+
+ALLOWED_HOSTS = {f"{h}:{PORT}" for h in ("127.0.0.1", "localhost", "[::1]")}
+CSRF_HEADER = "X-TexDesk"  # enviado pelo front-end em toda requisição que altera algo
+
+
+@app.before_request
+def security_checks():
+    # DNS rebinding: um domínio do atacante que resolve para 127.0.0.1 chega com outro Host
+    if request.host.lower() not in ALLOWED_HOSTS:
+        abort(403, "Host não permitido")
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return None  # leituras: a política de mesma origem do navegador já impede outro site de ler
+    # CSRF: requisições vindas de outro site (o navegador informa nesses cabeçalhos)
+    if request.headers.get("Sec-Fetch-Site", "same-origin") not in ("same-origin", "none"):
+        abort(403, "Requisição de outro site recusada")
+    origin = request.headers.get("Origin")
+    if origin and origin.lower().split("://", 1)[-1] not in ALLOWED_HOSTS:
+        abort(403, "Origem não permitida")
+    # um cabeçalho próprio não pode ser enviado por outro site sem permissão (preflight de
+    # CORS), e este servidor nunca concede essa permissão
+    if request.headers.get(CSRF_HEADER) != "1":
+        abort(403, "Requisição sem o cabeçalho do TexDesk")
+    return None
+
+
+@app.after_request
+def security_headers(resp):
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")  # não pode ser embutido em sites de terceiros
+    resp.headers.setdefault("Referrer-Policy", "same-origin")
+    return resp
+
+
+def json_body():
+    """Corpo JSON da requisição; recusa outros tipos de conteúdo (ex.: text/plain)."""
+    data = request.get_json(silent=True) if request.is_json else None
+    if not isinstance(data, dict):
+        abort(415, "Envie um JSON (Content-Type: application/json)")
+    return data
 
 
 def project_lock(name):
@@ -164,7 +214,7 @@ def drive_enabled(name):
         return False
 
 
-drive = drive_sync.DriveClient(ROOT / ".drive")
+drive = drive_sync.DriveClient(DATA / ".drive")
 syncer = drive_sync.SyncManager(drive, PROJECTS, drive_enabled)
 syncer.mark_all()  # envia o que mudou enquanto o servidor estava desligado
 
@@ -270,14 +320,14 @@ def list_templates():
         except (OSError, ValueError):
             pass
         out.append({"id": p.name, "name": meta.get("name", p.name), "description": meta.get("description", ""),
-                    "order": meta.get("order", 99)})
+                    "order": meta.get("order", 99), "source": meta.get("source")})
     out.sort(key=lambda t: (t["order"], t["name"]))
     return jsonify(out)
 
 
 @app.post("/api/projects")
 def create_project():
-    data = request.get_json(force=True)
+    data = json_body()
     name = (data.get("name") or "").strip()
     if not NAME_RE.match(name) or name.startswith("."):
         abort(400, "Nome inválido (use letras, números, espaço, - _ .)")
@@ -338,7 +388,7 @@ def delete_project(name):
 @app.post("/api/projects/<name>/rename")
 def rename_project(name):
     d = project_dir(name)
-    new = (request.get_json(force=True).get("name") or "").strip()
+    new = (json_body().get("name") or "").strip()
     if not NAME_RE.match(new) or new.startswith("."):
         abort(400, "Nome inválido")
     if (PROJECTS / new).exists():
@@ -354,7 +404,7 @@ def rename_project(name):
 @app.post("/api/projects/<name>/clone")
 def clone_project(name):
     d = project_dir(name)
-    new = (request.get_json(force=True).get("name") or "").strip()
+    new = (json_body().get("name") or "").strip()
     if not NAME_RE.match(new) or (PROJECTS / new).exists():
         abort(400, "Nome inválido ou já existente")
     shutil.copytree(d, PROJECTS / new)
@@ -386,7 +436,7 @@ def get_settings(name):
 def set_settings(name):
     d = project_dir(name)
     s = load_settings(d)
-    data = request.get_json(force=True)
+    data = json_body()
     for k in ("main", "autoCompile", "shellEscape", "driveSync"):
         if k in data:
             s[k] = data[k]
@@ -421,7 +471,7 @@ def read_file(name):
 @app.put("/api/projects/<name>/file")
 def write_file(name):
     d = project_dir(name)
-    data = request.get_json(force=True)
+    data = json_body()
     p = safe_path(d, data.get("path"))
     p.parent.mkdir(parents=True, exist_ok=True)
     with open(p, "w", encoding="utf-8", newline="") as fh:
@@ -433,7 +483,7 @@ def write_file(name):
 @app.post("/api/projects/<name>/folder")
 def make_folder(name):
     d = project_dir(name)
-    safe_path(d, request.get_json(force=True).get("path")).mkdir(parents=True, exist_ok=True)
+    safe_path(d, json_body().get("path")).mkdir(parents=True, exist_ok=True)
     changed(name)
     return jsonify({"ok": True})
 
@@ -456,7 +506,7 @@ def upload_files(name):
 @app.post("/api/projects/<name>/move")
 def move_file(name):
     d = project_dir(name)
-    data = request.get_json(force=True)
+    data = json_body()
     src, dst = safe_path(d, data.get("from")), safe_path(d, data.get("to"))
     if not src.exists():
         abort(404, "Origem não existe")
@@ -756,7 +806,7 @@ def drive_disconnect():
 @app.post("/api/drive/sync-all")
 def drive_sync_all():
     """Liga/desliga a sincronização de todos os projetos (e dos novos)."""
-    enabled = bool(request.get_json(force=True).get("enabled"))
+    enabled = bool(json_body().get("enabled"))
     s = drive.state()
     s["syncAll"] = enabled
     drive.save_state(s)
@@ -781,7 +831,7 @@ def drive_remote():
 
 @app.post("/api/drive/restore")
 def drive_restore():
-    data = request.get_json(force=True)
+    data = json_body()
     name = (data.get("name") or "").strip()
     if not NAME_RE.match(name) or name.startswith("."):
         abort(400, "Nome inválido")
@@ -831,7 +881,7 @@ def drive_import_candidates():
 @app.post("/api/drive/offered")
 def drive_offered():
     """Marca projetos do Drive como já oferecidos (importados ou recusados): não pergunta de novo."""
-    ids = request.get_json(force=True).get("ids") or []
+    ids = json_body().get("ids") or []
     s = drive.state()
     s["offered"] = sorted(set(s.get("offered", [])) | set(ids))
     drive.save_state(s)
@@ -841,7 +891,7 @@ def drive_offered():
 @app.post("/api/drive/import")
 def drive_import():
     """Importa um projeto do Drive com um nome local livre e liga a sincronização."""
-    data = request.get_json(force=True)
+    data = json_body()
     fid, remote_name = data.get("id"), data.get("name") or "Projeto"
     if fid in local_folder_ids():
         abort(409, "Esse projeto já está neste computador")
@@ -871,11 +921,18 @@ def project_drive_sync(name):
 
 
 @app.errorhandler(400)
+@app.errorhandler(403)
 @app.errorhandler(404)
+@app.errorhandler(405)
 @app.errorhandler(409)
 @app.errorhandler(415)
 def json_error(e):
     return jsonify({"error": e.description}), e.code
+
+
+@app.errorhandler(413)
+def too_large(e):
+    return jsonify({"error": f"Arquivo grande demais (limite de {MAX_UPLOAD_MB} MB por envio)"}), 413
 
 
 if __name__ == "__main__":

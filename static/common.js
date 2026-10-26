@@ -4,11 +4,15 @@
 
 // Utilidades compartilhadas: chamadas à API, ícones, modais e avisos.
 
+// O servidor recusa requisições que alteram algo sem este cabeçalho: outro site não
+// consegue enviá-lo, o que protege contra CSRF (veja security_checks em server.py).
+const TEXDESK_HEADER = { "X-TexDesk": "1" };
+
 async function api(url, opts = {}) {
-  const o = { ...opts };
+  const o = { ...opts, headers: { ...TEXDESK_HEADER, ...(opts.headers || {}) } };
   if (o.json !== undefined) {
     o.method = o.method || "POST";
-    o.headers = { "Content-Type": "application/json", ...(o.headers || {}) };
+    o.headers["Content-Type"] = "application/json";
     o.body = JSON.stringify(o.json);
     delete o.json;
   }
@@ -49,6 +53,7 @@ const ICONS = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   fileText: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>',
   slides: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  external: '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/>',
   cloud: '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>',
   cloudCheck: '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><path d="M9 14l2 2 4-4"/>',
   cloudUp: '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><path d="M12 17v-5M9.5 14.5L12 12l2.5 2.5"/>',
@@ -138,7 +143,7 @@ async function saveThumbnail(project, pdfOrUrl) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     await page.render({ canvasContext: ctx, viewport: vp }).promise;
     const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
-    await fetch(`/api/projects/${encodeURIComponent(project)}/thumbnail`, { method: "POST", body: blob, headers: { "Content-Type": "image/png" } });
+    await api(`/api/projects/${encodeURIComponent(project)}/thumbnail`, { method: "POST", body: blob, headers: { "Content-Type": "image/png" } });
     return { width: canvas.width, height: canvas.height };
   } finally {
     if (typeof pdfOrUrl === "string") doc.destroy();

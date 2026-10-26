@@ -19,7 +19,7 @@ Na instalação, o `setup.ps1` compila os três modelos uma vez para já baixar 
 
 | Área | O que faz |
 |---|---|
-| Painel de projetos | Criar (em branco, Slides IFMG ou Artigo IFMG), renomear, duplicar, excluir, baixar/enviar `.zip`, miniatura da 1ª página |
+| Painel de projetos | Criar (em branco, [Slides IFMG](https://github.com/ribeiromarcos/ifslides2024) ou [Artigo IFMG](https://github.com/ribeiromarcos/iftex2024)), renomear, duplicar, excluir, baixar/enviar `.zip`, miniatura da 1ª página |
 | Árvore de arquivos | Pastas, upload (botão ou arrastar e soltar), renomear/mover, definir documento principal |
 | Editor | CodeMirror com realce LaTeX, autocompletar (`\comandos`, ambientes, `\ref`, `\cite`, pacotes), busca, Ctrl+/ comenta, Ctrl+B/Ctrl+I, salvamento automático |
 | Compilador | Tectonic (XeTeX + BibTeX/biber automáticos, reexecuta até estabilizar as referências), gera o PDF mesmo com erros, shell-escape opcional |
