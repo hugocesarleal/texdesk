@@ -1,12 +1,12 @@
 # Avisos de terceiros
 
-O TexDesk usa os componentes abaixo. Nenhum deles é modificado. A tabela diz como cada um chega ao usuário e qual licença se aplica.
+O TexDesk usa os componentes abaixo. Nenhum deles é modificado. A tabela diz como cada um chega ao usuário e qual licença se aplica. As bibliotecas da interface vêm junto com o projeto, então o editor funciona sem internet.
 
 | Componente | Uso no TexDesk | Como é obtido | Licença |
 |---|---|---|---|
 | [Feather Icons](https://github.com/feathericons/feather) | Desenhos dos ícones da interface (`static/common.js`) | Incluído no repositório (traçados SVG adaptados) | MIT |
-| [CodeMirror 5](https://codemirror.net/5/) | Editor de código | Carregado de CDN (cdnjs) pelo navegador | MIT |
-| [PDF.js](https://mozilla.github.io/pdf.js/) | Visualizador de PDF e miniaturas | Carregado de CDN (cdnjs) pelo navegador | Apache-2.0 |
+| [CodeMirror](https://codemirror.net/5/) 5.65.16 | Editor de código | Incluído no repositório em `static/vendor/codemirror-5.65.16/`, sem modificações (licença no `LICENSE` da pasta) | MIT |
+| [PDF.js](https://mozilla.github.io/pdf.js/) 3.11.174 | Visualizador de PDF e miniaturas | Incluído no repositório em `static/vendor/pdfjs-3.11.174/`, sem modificações (licença no `LICENSE` da pasta) | Apache-2.0 |
 | [Flask](https://flask.palletsprojects.com/) | Servidor web | Instalado via `pip` (`requirements.txt`) | BSD-3-Clause |
 | [Tectonic](https://tectonic-typesetting.github.io/) | Motor de compilação LaTeX (XeTeX) | Baixado pelo `setup.ps1` para `tools/` | MIT |
 | [Biber](https://github.com/plk/biber) | Processamento de bibliografia do `biblatex` | Baixado pelo `setup.ps1` para `tools/` | Artistic License 2.0 |

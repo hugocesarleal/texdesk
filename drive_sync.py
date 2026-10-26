@@ -477,15 +477,23 @@ def _parents(rel_dir):
     return ["/".join(parts[:i]) for i in range(1, len(parts) + 1)]
 
 
+def _safe_name(name):
+    """Nome de arquivo/pasta do Drive que pode ser gravado com segurança dentro do projeto."""
+    return (bool(name) and name not in (".", "..") and not any(c in name for c in '/\\:*?"<>|\0')
+            and name == name.strip())
+
+
 def remote_tree(client: DriveClient, folder_id: str):
     """Arquivos e subpastas de uma pasta do Drive: ({caminho: {id, md5}}, {caminho: id})."""
     files, folders = {}, {}
 
     def walk(fid, rel):
         for f in client.list_children(fid):
+            if not _safe_name(f["name"]):
+                continue  # nome que não pode virar arquivo local (ex.: "..", "a/b", "C:x")
             child = f"{rel}/{f['name']}" if rel else f["name"]
-            if any(x in ("..", "", ".") for x in child.split("/")) or child in files or child in folders:
-                continue  # caminhos estranhos ou nomes repetidos no Drive: fica o primeiro
+            if child in files or child in folders:
+                continue  # nomes repetidos no Drive: fica o primeiro
             if f["mimeType"] == FOLDER_MIME:
                 folders[child] = f["id"]
                 walk(f["id"], child)
@@ -508,10 +516,11 @@ def restore_project(client: DriveClient, folder_id: str, dest: Path, remote_name
     lock = threading.Lock()
 
     def fetch(item):
+        # o nome de cada parte do caminho já foi validado em remote_tree (_safe_name), então
+        # dest / rel fica dentro de dest. (Não usar resolve() aqui: com outra thread criando
+        # a mesma pasta ao mesmo tempo, no Windows ele dá resultados inconsistentes.)
         rel, info = item
         target = dest / rel
-        if dest.resolve() not in target.resolve().parents:
-            return
         data = client.download(info["id"])
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)

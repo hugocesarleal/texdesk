@@ -7,7 +7,7 @@
 const $ = (s, el = document) => el.querySelector(s);
 const PROJECT = decodeURIComponent(location.pathname.split("/").pop());
 const P = `/api/projects/${encodeURIComponent(PROJECT)}`;
-pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+pdfjsLib.GlobalWorkerOptions.workerSrc = "/static/vendor/pdfjs-3.11.174/pdf.worker.min.js";
 
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -541,7 +541,7 @@ async function loadPdf(url) {
   const token = ++renderToken;
   let doc;
   try {
-    doc = await pdfjsLib.getDocument({ url, cMapUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/", cMapPacked: true }).promise;
+    doc = await pdfjsLib.getDocument({ url, cMapUrl: "/static/vendor/pdfjs-3.11.174/cmaps/", cMapPacked: true }).promise;
   } catch (e) {
     toast("Erro ao abrir PDF: " + e.message);
     return;

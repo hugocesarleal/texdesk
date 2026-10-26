@@ -12,6 +12,7 @@ import re
 LOG_WRAP = 79  # o TeX quebra linhas do log nessa largura
 
 FILE_RE = re.compile(r'^\(\s*"?((?:\.{0,2}/|[A-Za-z]:[/\\]|/)?[^\s()"]*?\.[A-Za-z0-9]{1,8})"?')
+BARE_RE = re.compile(r'^\(\s*"?((?:\.{0,2}/)?[\w\-]+(?:/[\w\-.]+)*)"?(?=[\s)]|$)')  # nome sem extensão
 LINE_RE = re.compile(r"^l\.(\d+)\s?(.*)$")
 INPUT_LINE_RE = re.compile(r"on input line (\d+)")
 BADBOX_RE = re.compile(r"^(Over|Under)full \\[hv]box .*? (?:at lines? (\d+)(?:--(\d+))?|has occurred while \\output is active|detected at line (\d+))")
@@ -47,7 +48,32 @@ def _is_project_file(path):
     return path is not None and not re.match(r"^([A-Za-z]:)?/", path) and "texmf" not in path.lower()
 
 
-def parse_log(log: str, main_dir: str = "", main_file: str = "main.tex"):
+def _opened_file(text, main_dir, known):
+    """Se o '(' no início de text abre um arquivo, devolve (caminho, tamanho do trecho).
+
+    O TeX registra o nome como foi escrito no documento: \\input{capitulos/intro} aparece
+    como "(capitulos/intro", sem extensão. Por isso aceita também nomes sem extensão
+    quando são arquivos do projeto (known) ou quando têm uma pasta no caminho.
+    """
+    fm = FILE_RE.match(text)
+    if fm:
+        return _norm(fm.group(1), main_dir), len(fm.group(0))
+    bm = BARE_RE.match(text)
+    if not bm:
+        return None
+    path = _norm(bm.group(1), main_dir)
+    if known is not None:
+        for candidate in (path + ".tex", path):
+            if candidate in known:
+                return candidate, len(bm.group(0))
+    if "/" in bm.group(1).lstrip("./"):
+        return path + ".tex", len(bm.group(0))
+    return None
+
+
+def parse_log(log: str, main_dir: str = "", main_file: str = "main.tex", known=None):
+    """Erros e avisos do log. known: caminhos (relativos ao projeto) dos arquivos do projeto."""
+    known = set(known) if known is not None else None
     lines = unwrap(log)
     stack = []  # pilha de arquivos abertos
     entries = []
@@ -134,10 +160,11 @@ def parse_log(log: str, main_dir: str = "", main_file: str = "main.tex"):
         while k < L:
             c = line[k]
             if c == "(":
-                fm = FILE_RE.match(line[k:])
-                if fm:
-                    stack.append(_norm(fm.group(1), main_dir))
-                    k += len(fm.group(0))
+                opened = _opened_file(line[k:], main_dir, known)
+                if opened:
+                    path, size = opened
+                    stack.append(path)
+                    k += size
                     continue
                 stack.append(None)
             elif c == ")":

@@ -1,0 +1,7 @@
+# fixtures dos testes ficam exatamente como foram gerados (o leitor de log depende da largura das linhas)
+tests/fixtures/** -text
+# binários
+*.bcmap binary
+*.gz binary
+*.png binary
+*.pdf binary

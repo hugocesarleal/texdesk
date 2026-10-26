@@ -1,0 +1,44 @@
+name: Testes
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    name: ${{ matrix.os }} · Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.10", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Instalar dependências
+        run: python -m pip install -r requirements-dev.txt
+
+      # No Linux, baixa o Tectonic para rodar também os testes de compilação
+      # (no Windows eles são pulados, para o CI ficar rápido)
+      - name: Baixar o Tectonic (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p tools
+          curl -sSfL "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.15.0/tectonic-0.15.0-x86_64-unknown-linux-musl.tar.gz" \
+            | tar -xz -C tools
+          tools/tectonic --version
+
+      - name: Rodar os testes
+        run: python -m pytest tests -v

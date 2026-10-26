@@ -6,9 +6,14 @@
 
 <p align="center"><a href="https://github.com/hugocesarleal/texdesk">github.com/hugocesarleal/texdesk</a></p>
 
+<p align="center">
+  <a href="https://github.com/hugocesarleal/texdesk/actions/workflows/tests.yml"><img src="https://github.com/hugocesarleal/texdesk/actions/workflows/tests.yml/badge.svg" alt="Testes"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licen%C3%A7a-MIT-green" alt="Licença MIT"></a>
+</p>
+
 ## Como usar
 
-1. Baixe o código (`git clone https://github.com/hugocesarleal/texdesk.git`, ou **Code → Download ZIP** no GitHub). É preciso ter o [Python 3](https://www.python.org/downloads/) instalado.
+1. Baixe o código (`git clone https://github.com/hugocesarleal/texdesk.git`, ou **Code → Download ZIP** no GitHub). É preciso ter o [Python 3.10 ou mais novo](https://www.python.org/downloads/) instalado.
 2. Dê dois cliques em `iniciar.bat` (na primeira vez ele instala o Flask e baixa o Tectonic e o Biber).
 3. O navegador abre em http://127.0.0.1:5050.
 4. Crie um projeto e escreva. Use **Ctrl+S** ou **Ctrl+Enter** para compilar.
@@ -46,6 +51,15 @@ Como funciona:
 - O token de acesso fica em `.drive/`. Não compartilhe essa pasta.
 - A sincronização vai do computador para o Drive. Editar o mesmo projeto em dois computadores ao mesmo tempo não é mesclado: vale a última versão enviada.
 
+## Testes
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest tests
+```
+
+Os testes usam uma pasta de dados temporária e um Google Drive falso, então não tocam nos seus projetos nem na sua conta. Os de compilação rodam só se o Tectonic estiver em `tools/`. O GitHub Actions roda tudo a cada push, no Windows e no Linux.
+
 ## Estrutura
 
 ```
@@ -53,7 +67,8 @@ server.py      servidor web: API de projetos/arquivos e compilação
 latexlog.py    leitor do log do TeX (erros, avisos e caixas, com arquivo e linha)
 synctex.py     busca direta/inversa no .synctex.gz
 drive_sync.py  sincronização com o Google Drive (OAuth, envio incremental, restauração)
-static/        interface (HTML/CSS/JS)
+static/        interface (HTML/CSS/JS); static/vendor/ tem o CodeMirror e o PDF.js
+tests/         testes automáticos (pytest) e fixtures
 templates/     modelos de projeto
 projects/      seus projetos (um diretório por projeto)
 output/        PDFs e arquivos de compilação
@@ -66,6 +81,7 @@ tools/         tectonic.exe e biber.exe (baixados pelo setup.ps1)
 - `biblatex` usa o `biber` 2.17 em `tools/` (o `setup.ps1` baixa), que casa com o biblatex 3.17 do pacote do Tectonic.
 - `minted` precisa de shell-escape (ligue nas opções de compilação do projeto) e do Pygments (`pip install pygments`).
 - EPS não é suportado sem Ghostscript; converta as figuras para PDF ou PNG.
+- Depois da instalação, funciona sem internet: o editor e o visualizador de PDF vêm junto com o projeto (`static/vendor/`). A internet só é necessária para baixar pacotes LaTeX que ainda não estão no cache e para o Google Drive.
 - Ele roda só em `127.0.0.1` e é feito para uso local, por uma pessoa.
 
 ## Licença

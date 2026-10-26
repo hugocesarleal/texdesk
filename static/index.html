@@ -11,7 +11,7 @@
 <title>TexDesk — Projetos</title>
 <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/static/app.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="/static/vendor/pdfjs-3.11.174/pdf.min.js"></script>
 <script src="/static/common.js"></script>
 </head>
 <body>
@@ -66,7 +66,7 @@ function render() {
       </td></tr>`).join("")}</tbody></table>`;
 }
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+pdfjsLib.GlobalWorkerOptions.workerSrc = "/static/vendor/pdfjs-3.11.174/pdf.worker.min.js";
 
 function thumbHtml(p) {
   if (!p.thumb) return `<span class="thumb-empty">${icon("file")}</span>`;

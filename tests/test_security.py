@@ -8,17 +8,10 @@ Cada teste reproduz um ataque que um site aberto no navegador conseguiria fazer.
 """
 import io
 import json
-import os
-import sys
-import tempfile
-from pathlib import Path
 
 import pytest
 
-# pasta de dados temporária: os testes nunca tocam nos projetos nem no Drive reais
-os.environ["TEXDESK_DATA"] = tempfile.mkdtemp(prefix="texdesk-test-")
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import server  # noqa: E402
+import server  # a pasta de dados temporária é configurada em conftest.py
 
 HOST = f"127.0.0.1:{server.PORT}"
 OK = {server.CSRF_HEADER: "1"}

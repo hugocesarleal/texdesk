@@ -16,6 +16,11 @@ REC_RE = re.compile(r"^([\[\(hvxkg$])(\d+),(\d+):(-?\d+),(-?\d+)(?::(-?\d+),(-?\
 
 _cache = {}
 
+# faixa (em pontos PDF) em volta da linha de base em que um nó conta como "da linha clicada":
+# o clique costuma cair no corpo das letras, acima da linha de base
+LINE_BAND_ABOVE = 4
+LINE_BAND_BELOW = 12
+
 
 class SyncTex:
     def __init__(self, path: Path, project_root: Path, main_dir: Path):
@@ -107,23 +112,32 @@ class SyncTex:
         return out[:6]
 
     def edit(self, page, x, y):
-        """PDF -> código: arquivo e linha mais próximos do ponto clicado."""
-        best, bestd = None, None
+        """PDF -> código: arquivo e linha mais próximos do ponto clicado.
+
+        Prefere os nós de conteúdo (glifos, kerns, glue, matemática) da mesma linha do
+        clique: eles carregam o arquivo e a linha exatos de onde o texto veio. As caixas de
+        linha não servem para isso, porque o TeX as atribui ao ponto em que o parágrafo
+        termina (que pode ser outro arquivo, quando o texto vem de um \\input).
+        """
         rels = {tag: self._rel(name) if name else None for tag, name in self.inputs.items()}
+        best, best_score = None, None
         for r in self.records:
             if r[0] != page or r[2] <= 0 or not rels.get(r[1]):
                 continue
             rx, ry = self._bp(r[4], self.scale[1]), self._bp(r[5], self.scale[2])
-            if r[3] in "[(" and r[6] > 0:
-                w, h, dd = self._bp(r[6]), self._bp(r[7]), self._bp(r[8])
-                if rx <= x <= rx + w and ry - h <= y <= ry + dd:
-                    dist = (h + dd) / 20.0  # a menor caixa que contém o clique ganha
-                else:
+            if r[3] in "[(":
+                if r[6] <= 0:
                     continue
+                w, h, dd = self._bp(r[6]), self._bp(r[7]), self._bp(r[8])
+                if not (rx <= x <= rx + w and ry - h <= y <= ry + dd):
+                    continue
+                score = (h + dd) / 20.0  # caixa que contém o clique: a menor ganha (~0,5 numa linha)
+            elif -LINE_BAND_ABOVE <= ry - y <= LINE_BAND_BELOW:
+                score = (abs(rx - x) + 3 * abs(ry - y)) * 0.005  # nó na linha clicada: prioridade
             else:
-                dist = abs(ry - y) + abs(rx - x) * 0.05 + 1
-            if bestd is None or dist < bestd:
-                best, bestd = r, dist
+                score = abs(ry - y) + abs(rx - x) * 0.05 + 1  # nó em outra linha: só se nada melhor
+            if best_score is None or score < best_score:
+                best, best_score = r, score
         if not best:
             return None
         return {"file": rels[best[1]], "line": best[2]}

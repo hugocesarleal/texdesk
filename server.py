@@ -141,7 +141,10 @@ def project_dir(name):
 
 
 def safe_path(base: Path, rel: str) -> Path:
-    rel = (rel or "").replace("\\", "/").strip("/")
+    rel = (rel or "").replace("\\", "/")
+    if rel.startswith("/") or re.match(r"^[A-Za-z]:", rel):  # caminho absoluto
+        abort(400, "Caminho inválido")
+    rel = rel.rstrip("/")
     if not rel or any(part in ("..", "") for part in rel.split("/")):
         abort(400, "Caminho inválido")
     p = (base / rel).resolve()
@@ -614,7 +617,8 @@ def compile_project(name):
         log_file = out / (stem + ".log")
         log = log_file.read_text(encoding="utf-8", errors="replace") if log_file.exists() else ""
         main_dir_rel = main_path.parent.relative_to(d).as_posix()
-        entries = parse_log(log, main_dir_rel if main_dir_rel != "." else "", Path(main).as_posix())
+        known = {f["path"] for f in tree(d) if f["type"] == "file"}
+        entries = parse_log(log, main_dir_rel if main_dir_rel != "." else "", Path(main).as_posix(), known)
         entries += parse_tectonic_stderr(stderr, entries, main_dir_rel)
         pdf = out / (stem + ".pdf")
         has_pdf = pdf.exists()  # o PDF anterior foi apagado antes de compilar
