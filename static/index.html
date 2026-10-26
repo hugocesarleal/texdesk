@@ -1,4 +1,9 @@
 <!doctype html>
+<!--
+  TexDesk — https://github.com/hugocesarleal/texdesk
+  Copyright (c) 2026 Hugo César Leal (https://github.com/hugocesarleal)
+  SPDX-License-Identifier: MIT
+-->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -24,6 +29,11 @@
   </div>
   <div id="list"></div>
 </main>
+<footer class="dash-foot">
+  TexDesk · código aberto sob a licença MIT ·
+  <a href="https://github.com/hugocesarleal/texdesk" target="_blank" rel="noopener">github.com/hugocesarleal/texdesk</a><br>
+  © 2026 <a href="https://github.com/hugocesarleal" target="_blank" rel="noopener">Hugo César Leal</a>
+</footer>
 <script>
 const $ = (s) => document.querySelector(s);
 $("#new").innerHTML = icon("plus") + "Novo projeto";
@@ -59,10 +69,44 @@ function render() {
 pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 function thumbHtml(p) {
-  return p.thumb
-    ? `<img src="/api/projects/${encodeURIComponent(p.name)}/thumbnail?v=${p.thumb}" alt="" loading="lazy">`
-    : `<span class="thumb-empty">${icon("file")}</span>`;
+  if (!p.thumb) return `<span class="thumb-empty">${icon("file")}</span>`;
+  const wide = p.thumbW && p.thumbH && p.thumbW > p.thumbH;
+  return `<img class="${wide ? "wide" : "tall"}" src="/api/projects/${encodeURIComponent(p.name)}/thumbnail?v=${p.thumb}" alt="" loading="lazy">`;
 }
+
+// miniatura de baixa resolução (versões antigas geravam 240 px): regera uma vez
+const thumbOutdated = (x) => !x.thumb || x.thumb < x.pdf || (x.thumbW && Math.max(x.thumbW, x.thumbH) < THUMB_SIZE);
+
+// ------------------------------------------------------------ prévia ampliada ao passar o mouse
+const pop = document.createElement("div");
+pop.className = "thumb-pop";
+pop.hidden = true;
+pop.innerHTML = "<img alt=''>";
+document.body.appendChild(pop);
+
+function showPop(img) {
+  const wide = img.naturalWidth > img.naturalHeight;
+  const ratio = img.naturalWidth / img.naturalHeight || 0.707;
+  // em pé: até 380 px de altura; deitado: até 460 px de largura (sempre dentro da janela)
+  let h = wide ? 460 / ratio : 380;
+  h = Math.min(h, innerHeight - 24);
+  let w = h * ratio;
+  if (w > innerWidth - 24) { w = innerWidth - 24; h = w / ratio; }
+  const r = img.getBoundingClientRect();
+  let left = r.right + 14;
+  if (left + w > innerWidth - 12) left = Math.max(12, r.left - 14 - w);  // sem espaço à direita: abre à esquerda
+  const top = Math.min(Math.max(12, r.top + r.height / 2 - h / 2), innerHeight - h - 12);
+  const pi = pop.querySelector("img");
+  pi.src = img.src;
+  Object.assign(pop.style, { width: w + "px", height: h + "px", left: left + "px", top: top + "px" });
+  pop.hidden = false;
+}
+$("#list").addEventListener("mouseover", (e) => {
+  const img = e.target.closest("td.thumb img");
+  if (img && img.complete && img.naturalWidth) showPop(img);
+});
+$("#list").addEventListener("mouseout", (e) => { if (e.target.closest("td.thumb img")) pop.hidden = true; });
+addEventListener("scroll", () => { pop.hidden = true; }, { passive: true });
 
 // Gera (uma vez) as miniaturas que faltam ou ficaram mais velhas que o PDF compilado.
 let thumbQueueRunning = false;
@@ -70,10 +114,12 @@ async function fillThumbnails() {
   if (thumbQueueRunning) return;
   thumbQueueRunning = true;
   try {
-    for (const p of projects.filter((x) => x.pdf && (!x.thumb || x.thumb < x.pdf))) {
+    for (const p of projects.filter((x) => x.pdf && thumbOutdated(x))) {
       try {
-        await saveThumbnail(p.name, p.pdfUrl);
+        const size = await saveThumbnail(p.name, p.pdfUrl);
         p.thumb = Date.now() / 1000;
+        p.thumbW = size.width;
+        p.thumbH = size.height;
         const cell = document.querySelector(`tr[data-name="${CSS.escape(p.name)}"] td.thumb a`);
         if (cell) cell.innerHTML = thumbHtml(p);
       } catch (e) { p.thumb = p.pdf; /* PDF ilegível: não tenta de novo nesta visita */ }
@@ -303,6 +349,88 @@ async function openDrivePanel() {
   refresh();
 }
 
+// ------------------------------------------------------------ importar projetos que já estão no Drive
+// Ao conectar (ou abrir o painel já conectado), se o Drive tiver projetos do TexDesk que não
+// existem neste computador, pergunta se o usuário quer importá-los. Os importados ficam com a
+// sincronização ligada. A resposta é lembrada: os recusados não são oferecidos de novo
+// (continuam na aba "Só no Drive" do painel do Google Drive).
+let importPromptShown = false;
+
+async function offerDriveImport() {
+  if (importPromptShown) return;
+  let cands;
+  try { cands = await api("/api/drive/import-candidates"); } catch (e) { return; }
+  if (!cands.length || importPromptShown) return;
+  importPromptShown = true;
+
+  const bg = document.createElement("div");
+  bg.className = "modal-bg";
+  bg.innerHTML = `<div class="modal wide">
+      <h2>Projetos encontrados no seu Google Drive</h2>
+      <p class="note" style="font-size:13.5px">Seu Drive tem ${cands.length === 1 ? "1 projeto" : cands.length + " projetos"} do TexDesk que não ${cands.length === 1 ? "está" : "estão"} neste computador. Quer importar? Os projetos importados continuam sincronizados com o Drive: o que você alterar aqui é salvo lá.</p>
+      <div class="imp-head"><label class="imp-all"><input type="checkbox" checked> Selecionar todos</label></div>
+      <div class="dp-list imp-list">${cands.map((c) => `<label class="dp-row imp-row">
+          <input type="checkbox" value="${esc(c.id)}" data-name="${esc(c.name)}" checked>
+          <span class="drive-ind drive-ok">${icon("folder")}</span>
+          <span class="nm">${esc(c.name)}</span>
+          <span class="st drive-off">${c.modified ? "alterado " + timeAgo(Date.parse(c.modified) / 1000) : ""}</span>
+        </label>`).join("")}</div>
+      <div id="imp-progress" hidden></div>
+      <div class="actions"><button class="btn" data-later>Agora não</button>
+        <button class="btn primary" data-import>Importar</button></div>
+    </div>`;
+  document.body.appendChild(bg);
+  const boxes = [...bg.querySelectorAll(".imp-list input")];
+  const all = bg.querySelector(".imp-all input");
+  const btn = bg.querySelector("[data-import]");
+  const refreshCount = () => {
+    const n = boxes.filter((b) => b.checked).length;
+    btn.textContent = n ? `Importar ${n === 1 ? "1 projeto" : n + " projetos"}` : "Importar";
+    btn.disabled = !n;
+    all.checked = n === boxes.length;
+    all.indeterminate = n > 0 && n < boxes.length;
+  };
+  boxes.forEach((b) => (b.onchange = refreshCount));
+  all.onchange = () => { boxes.forEach((b) => (b.checked = all.checked)); refreshCount(); };
+  refreshCount();
+
+  const markOffered = () => api("/api/drive/offered", { json: { ids: cands.map((c) => c.id) } }).catch(() => {});
+  bg.querySelector("[data-later]").onclick = async () => {
+    await markOffered();
+    bg.remove();
+    toast("Tudo bem. Os projetos continuam no Drive: use Google Drive → Só no Drive para baixar depois.", 6000);
+  };
+
+  btn.onclick = async () => {
+    const chosen = boxes.filter((b) => b.checked).map((b) => ({ id: b.value, name: b.dataset.name }));
+    bg.querySelector(".imp-head").hidden = true;
+    bg.querySelector(".imp-list").hidden = true;
+    bg.querySelector(".actions").hidden = true;
+    const prog = bg.querySelector("#imp-progress");
+    prog.hidden = false;
+    const done = [], failed = [];
+    for (const [i, c] of chosen.entries()) {
+      prog.innerHTML = `<div class="dp-progress busy">${icon("cloudUp")}<div class="grow">
+          <b>Importando ${i + 1} de ${chosen.length}: ${esc(c.name)}</b>
+          <small>Baixando os arquivos do Drive…</small>
+          <div class="bar"><span style="width:${Math.round((i / chosen.length) * 100)}%"></span></div></div></div>`;
+      try {
+        const r = await api("/api/drive/import", { json: c });
+        done.push(r);
+      } catch (e) { failed.push({ name: c.name, error: e.message }); }
+    }
+    await markOffered();
+    prog.innerHTML = `<div class="dp-progress ${failed.length ? "err" : "ok"}">${icon(failed.length ? "cloudOff" : "cloudCheck")}<div class="grow">
+        <b>${done.length} ${done.length === 1 ? "projeto importado" : "projetos importados"}${failed.length ? `, ${failed.length} com erro` : ""}</b>
+        <small>${done.length ? "Eles já aparecem na sua lista e continuam sincronizados com o Drive." : ""}</small></div></div>
+      ${failed.map((f) => `<div class="err-box" style="margin-top:8px">${esc(f.name)}: ${esc(f.error)}</div>`).join("")}
+      ${done.some((d) => !chosen.find((c) => c.name === d.name)) ? `<p class="note" style="margin-top:8px">Alguns nomes foram ajustados porque já existia um projeto com o mesmo nome neste computador.</p>` : ""}
+      <div class="actions" style="margin-top:12px"><button class="btn primary" data-close>Fechar</button></div>`;
+    prog.querySelector("[data-close]").onclick = () => bg.remove();
+    load();
+  };
+}
+
 // volta do login do Google
 (function () {
   const q = new URLSearchParams(location.search).get("drive");
@@ -312,6 +440,7 @@ async function openDrivePanel() {
   else toast(q, 6000);
   openDrivePanel();
 })();
+offerDriveImport();
 
 // atualiza os ícones de sincronização enquanto há envio pendente
 setInterval(async () => {
@@ -351,22 +480,52 @@ $("#list").onclick = async (e) => {
   } catch (err) { toast(err.message); }
 };
 
+// ------------------------------------------------------------ novo projeto (nome + escolha do modelo)
+const TEMPLATE_ICONS = { blank: "file", "ifmg-slides": "slides", "ifmg-artigo": "fileText" };
+
 $("#new").onclick = async () => {
-  const tpls = await api("/api/templates");
-  const labels = { blank: "Em branco", artigo: "Artigo (com bibliografia)", beamer: "Apresentação (Beamer)", relatorio: "Relatório (vários arquivos)" };
-  const r = await modal({
-    title: "Novo projeto",
-    fields: [
-      { name: "name", label: "Nome do projeto", value: "" },
-      { name: "template", label: "Modelo", type: "select", value: "blank", options: tpls.map((t) => ({ value: t, label: labels[t] || t })) },
-    ],
-    ok: "Criar",
-  });
-  if (!r || !r.name.trim()) return;
-  try {
-    const p = await api("/api/projects", { json: r });
-    location.href = `/project/${encodeURIComponent(p.name)}`;
-  } catch (err) { toast(err.message); }
+  let tpls;
+  try { tpls = await api("/api/templates"); } catch (e) { toast(e.message); return; }
+  const bg = document.createElement("div");
+  bg.className = "modal-bg";
+  bg.innerHTML = `<form class="modal wide" novalidate>
+      <h2>Novo projeto</h2>
+      <label>Nome do projeto<input type="text" name="name" autocomplete="off" placeholder="Ex.: Trabalho de Redes"></label>
+      <div class="field-error" id="np-err" hidden></div>
+      <div class="tpl-label">Modelo</div>
+      <div class="tpl-grid" role="radiogroup">
+        ${tpls.map((t, i) => `<label class="tpl-card">
+            <input type="radio" name="template" value="${esc(t.id)}" ${i === 0 ? "checked" : ""}>
+            <span class="tpl-ic">${icon(TEMPLATE_ICONS[t.id] || "file")}</span>
+            <b>${esc(t.name)}</b><small>${esc(t.description)}</small>
+          </label>`).join("")}
+      </div>
+      <div class="actions"><button type="button" class="btn" data-cancel>Cancelar</button>
+        <button type="submit" class="btn primary">Criar projeto</button></div>
+    </form>`;
+  const form = bg.querySelector("form");
+  const nameEl = form.elements.name;
+  const err = form.querySelector("#np-err");
+  const close = () => bg.remove();
+  bg.addEventListener("mousedown", (e) => { if (e.target === bg) close(); });
+  form.querySelector("[data-cancel]").onclick = close;
+  form.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+  nameEl.oninput = () => { err.hidden = true; };
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const name = nameEl.value.trim();
+    if (!name) { err.textContent = "Digite um nome para o projeto."; err.hidden = false; nameEl.focus(); return; }
+    const btn = form.querySelector("[type=submit]");
+    btn.disabled = true;
+    try {
+      const p = await api("/api/projects", { json: { name, template: form.elements.template.value } });
+      location.href = `/project/${encodeURIComponent(p.name)}`;
+    } catch (ex) {
+      err.textContent = ex.message; err.hidden = false; btn.disabled = false;
+    }
+  };
+  document.body.appendChild(bg);
+  nameEl.focus();
 };
 
 $("#upload").onclick = () => $("#zipfile").click();

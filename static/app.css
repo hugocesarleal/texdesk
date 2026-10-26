@@ -1,3 +1,8 @@
+/*
+ * TexDesk — https://github.com/hugocesarleal/texdesk
+ * Copyright (c) 2026 Hugo César Leal (https://github.com/hugocesarleal)
+ * SPDX-License-Identifier: MIT
+ */
 :root {
   --bg: #f4f5f6;
   --panel: #ffffff;
@@ -104,6 +109,31 @@ input[type=text]:focus, select:focus { outline: 2px solid var(--accent); outline
 .remote-list .row small { color: var(--muted); }
 .note { font-size: 12.5px; color: var(--muted); margin: 0; }
 
+/* importação de projetos do Drive */
+.imp-head { display: flex; align-items: center; justify-content: space-between; }
+.modal label.imp-all { flex-direction: row; align-items: center; gap: 8px; color: var(--text); cursor: pointer; }
+.modal label.imp-row { flex-direction: row; cursor: pointer; color: var(--text); }
+.imp-row input { flex: none; }
+
+/* novo projeto: escolha do modelo */
+.field-error { color: var(--error); font-size: 13px; margin-top: -6px; }
+.tpl-label { font-size: 13px; color: var(--muted); margin-bottom: -6px; }
+.tpl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.modal label.tpl-card {
+  position: relative; display: flex; flex-direction: column; gap: 4px; padding: 14px; cursor: pointer;
+  border: 1.5px solid var(--border); border-radius: 10px; color: var(--text); background: var(--panel);
+  transition: border-color .12s, background .12s;
+}
+.tpl-card:hover { border-color: var(--accent); }
+.tpl-card input { position: absolute; opacity: 0; pointer-events: none; }
+.tpl-card:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.tpl-card:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tpl-card .tpl-ic { width: 36px; height: 36px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; margin-bottom: 4px; }
+.tpl-card:has(input:checked) .tpl-ic { background: var(--accent); color: #fff; }
+.tpl-card .tpl-ic svg { width: 20px; height: 20px; }
+.tpl-card b { font-size: 14px; }
+.tpl-card small { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+
 /* painel do Drive (conectado) */
 .dp-account { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); flex-wrap: wrap; }
 .dp-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 17px; flex: none; }
@@ -169,13 +199,20 @@ input[type=text]:focus, select:focus { outline: 2px solid var(--accent); outline
 .proj-table td.name a { font-weight: 600; text-decoration: none; color: var(--text); }
 .proj-table td.name a:hover { color: var(--accent); }
 .proj-table td.when { color: var(--muted); white-space: nowrap; }
-.proj-table td.thumb { width: 64px; padding: 6px 0 6px 12px; }
-.proj-table td.thumb a { display: block; width: 46px; height: 62px; }
+.proj-table td.thumb { width: 84px; padding: 6px 0 6px 12px; }
+/* caixa fixa de 72x64; a miniatura cabe inteira nela, em pé ou deitada */
+.proj-table td.thumb a { display: flex; align-items: center; justify-content: center; width: 72px; height: 64px; }
 .proj-table td.thumb img {
-  width: 46px; height: 62px; object-fit: cover; object-position: top; display: block;
-  border: 1px solid var(--border); border-radius: 3px; background: #fff; transition: transform .15s;
+  display: block; max-width: 72px; max-height: 64px; width: auto; height: auto;
+  border: 1px solid var(--border); border-radius: 3px; background: #fff; cursor: zoom-in;
 }
-.proj-table td.thumb img:hover { transform: scale(2.6); transform-origin: left center; position: relative; z-index: 5; box-shadow: var(--shadow); }
+.proj-table td.thumb img.tall { height: 64px; }
+.proj-table td.thumb img.wide { width: 72px; }
+.thumb-pop {
+  position: fixed; z-index: 150; pointer-events: none; background: #fff; border-radius: 6px; overflow: hidden;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, .35); border: 1px solid var(--border);
+}
+.thumb-pop img { width: 100%; height: 100%; display: block; object-fit: contain; }
 .thumb-empty {
   width: 46px; height: 62px; display: flex; align-items: center; justify-content: center;
   border: 1px dashed var(--border); border-radius: 3px; color: var(--muted);
@@ -183,6 +220,9 @@ input[type=text]:focus, select:focus { outline: 2px solid var(--accent); outline
 .thumb-empty svg { width: 18px; height: 18px; }
 .proj-table td.acts { text-align: right; white-space: nowrap; }
 .empty { text-align: center; color: var(--muted); padding: 48px 16px; }
+.dash-foot { max-width: 980px; margin: 0 auto; padding: 8px 16px 32px; text-align: center; font-size: 12.5px; color: var(--muted); line-height: 1.7; }
+.dash-foot a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+.dash-foot a:hover { color: var(--accent); }
 @media (max-width: 640px) { .proj-table td.when, .proj-table th.when { display: none; } }
 
 /* ---------------- editor layout */
@@ -277,6 +317,12 @@ input[type=text]:focus, select:focus { outline: 2px solid var(--accent); outline
 .badge.err { background: var(--error); }
 .badge.warn { background: var(--warning); }
 .zoom-label { font-size: 12px; min-width: 42px; text-align: center; color: var(--muted); }
+.page-nav { display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+.page-nav input[type=text] {
+  width: 3.2em; padding: 2px 4px; text-align: center; font-size: 12.5px; border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.page-nav input.invalid { outline: 2px solid var(--error); outline-offset: -1px; }
 .pdf-body { flex: 1; min-height: 0; position: relative; }
 .pdf-view { position: absolute; inset: 0; overflow: auto; padding: 12px 0; }
 .pdf-page { position: relative; margin: 0 auto 12px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.35); }

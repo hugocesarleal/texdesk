@@ -1,0 +1,109 @@
+\documentclass[aspectratio=169]{beamer}
+
+% Tema de slides do IFMG (ifslides2024, por Marcos Roberto Ribeiro)
+\usepackage{ifslides2024}
+\usepackage{graphicx}
+\usepackage{booktabs}
+
+\addbibresource{referencias.bib}
+
+% --------------------------------------------------
+% Dados da apresentação
+% --------------------------------------------------
+\titulo{Título da Apresentação}
+\subtitulo{Subtítulo ou nome da disciplina}
+\autor{Seu Nome}
+\email{seu.email@ifmg.edu.br}
+\info{%
+  Nome do Curso \\%
+  \textbf{Professor(a):} Nome do Professor(a)%
+}
+\campus{Campus Bambuí}
+\data{\today}
+
+\begin{document}
+
+% Capa (o "plain" usa o fundo verde)
+\begin{frame}[plain]
+  \titlepage
+\end{frame}
+
+\begin{frame}{Sumário}
+  \tableofcontents
+\end{frame}
+
+% --------------------------------------------------
+\section{Introdução}
+
+\begin{frame}{Contexto}
+  \begin{itemize} \itemsep1em
+    \item Primeiro ponto da introdução.
+    \item Segundo ponto, com um termo em \textbf{destaque}.
+    \item Uma citação no formato ABNT \cite{ifmg:2020:manual}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Colunas e blocos}
+  \begin{columns}[T]
+    \begin{column}{0.48\linewidth}
+      \begin{block}{Bloco padrão}
+        Texto do bloco, com a barra verde à esquerda do título.
+      \end{block}
+      \begin{exampleblock}{Bloco de exemplo}
+        Use para exemplos e observações.
+      \end{exampleblock}
+    \end{column}
+    \begin{column}{0.48\linewidth}
+      \begin{alertblock}{Bloco de alerta}
+        Fundo verde, para chamar a atenção.
+      \end{alertblock}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% --------------------------------------------------
+\section{Desenvolvimento}
+
+\begin{frame}{Uma tabela}
+  \centering
+  \begin{tabular}{lcr}
+    \toprule
+    Item & Quantidade & Valor \\
+    \midrule
+    A & 1 & 10,00 \\
+    B & 2 & 20,00 \\
+    \bottomrule
+  \end{tabular}
+\end{frame}
+
+\begin{frame}[plain]{Slide de destaque}
+  \begin{center}
+    \Large Uma mensagem importante em um slide verde.
+  \end{center}
+\end{frame}
+
+% --------------------------------------------------
+\section{Conclusão}
+
+\begin{frame}{Conclusão}
+  \begin{itemize} \itemsep1em
+    \item Principal resultado.
+    \item Trabalhos futuros.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Referências}
+  \printbibliography
+\end{frame}
+
+% Encerramento com o logo do IFMG
+\begin{frame}[plain]
+  \begin{center}
+    {\Large\bfseries Obrigado!}\par\vspace{1em}
+    \insertauthor\par
+    {\small\insertemail}\par\vspace{2em}
+    \adjustbox{scale=0.25}{\iflogo}
+  \end{center}
+\end{frame}
+
+\end{document}

@@ -1,3 +1,7 @@
+// TexDesk — https://github.com/hugocesarleal/texdesk
+// Copyright (c) 2026 Hugo César Leal (https://github.com/hugocesarleal)
+// SPDX-License-Identifier: MIT
+
 // Editor do TexDesk: árvore de arquivos, CodeMirror, compilação, PDF.js e SyncTeX.
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -555,6 +559,7 @@ async function loadPdf(url) {
   if (state.pdf && state.pdf !== doc) state.pdf.destroy();
   state.pdf = doc;
   state.pageSizes = sizes;
+  $("#page-count").textContent = sizes.length;  // o total aparece já, antes de desenhar as páginas
   await layoutPages(ratio, scrollLeft);
 }
 
@@ -593,7 +598,69 @@ async function layoutPages(scrollRatio = null, scrollLeft = 0) {
     ents.forEach((en) => { if (en.isIntersecting) renderPage(en.target, token); });
   }, { root: view, rootMargin: "300px 0px" });
   container.querySelectorAll(".pdf-page").forEach((d) => observer.observe(d));
+  updatePageNav();
 }
+
+// ------------------------------------------------------------ contagem e troca de página
+const pageInput = $("#page-input");
+
+function currentPage() {
+  // a página com mais área visível (no fim do documento a rolagem trava, e uma regra
+  // de "topo da tela" nunca chegaria às últimas páginas)
+  const top = view.scrollTop, bottom = top + view.clientHeight;
+  let best = 1, bestArea = -1;
+  for (const p of view.querySelectorAll(".pdf-page")) {
+    const visible = Math.min(bottom, p.offsetTop + p.offsetHeight) - Math.max(top, p.offsetTop);
+    if (visible > bestArea) { best = +p.dataset.page; bestArea = visible; }
+    if (p.offsetTop > bottom) break;
+  }
+  return best;
+}
+
+// página escolhida no campo: continua mostrada até o usuário rolar (com zoom pequeno
+// várias páginas cabem na tela e a "mais visível" poderia ser outra)
+let pinnedPage = null;
+
+function updatePageNav() {
+  const total = state.pageSizes.length;
+  $("#page-nav").hidden = !total;
+  $("#page-count").textContent = total;
+  if (pinnedPage && Math.abs(view.scrollTop - pinnedPage.top) > 2) pinnedPage = null;
+  if (document.activeElement !== pageInput) pageInput.value = total ? (pinnedPage ? pinnedPage.n : currentPage()) : "";
+}
+
+function goToPage(n) {
+  const pg = view.querySelector(`.pdf-page[data-page="${n}"]`);
+  if (!pg) return;
+  view.scrollTo({ top: pg.offsetTop - 8 });
+  pinnedPage = { n, top: view.scrollTop };
+}
+
+let pageNavFrame = 0;
+view.addEventListener("scroll", () => {
+  cancelAnimationFrame(pageNavFrame);
+  pageNavFrame = requestAnimationFrame(updatePageNav);
+}, { passive: true });
+
+pageInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    const n = parseInt(pageInput.value, 10);
+    const total = state.pageSizes.length;
+    if (!Number.isInteger(n) || n < 1 || n > total) {
+      pageInput.classList.add("invalid");
+      pageInput.title = `Digite um número de 1 a ${total}`;
+      return;
+    }
+    goToPage(n);
+    pageInput.blur();
+  } else if (e.key === "Escape") {
+    pageInput.blur();
+  }
+});
+pageInput.addEventListener("input", () => { pageInput.classList.remove("invalid"); pageInput.title = "Digite uma página e aperte Enter"; });
+pageInput.addEventListener("focus", () => pageInput.select());
+pageInput.addEventListener("blur", () => { pageInput.classList.remove("invalid"); updatePageNav(); });
 
 async function renderPage(div, token) {
   if (div.dataset.rendered === String(token)) return;

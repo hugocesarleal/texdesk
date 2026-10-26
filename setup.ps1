@@ -1,3 +1,7 @@
+﻿# TexDesk — https://github.com/hugocesarleal/texdesk
+# Copyright (c) 2026 Hugo César Leal (https://github.com/hugocesarleal)
+# SPDX-License-Identifier: MIT
+
 # Instala as dependências do TexDesk: Flask (Python) e o motor Tectonic.
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
@@ -26,4 +30,31 @@ if (-not (Test-Path $biber)) {
     Remove-Item $zip
 }
 & $biber --version
+
+# Compila os modelos uma vez para o Tectonic já baixar os pacotes LaTeX que eles usam.
+# Os pacotes ficam no cache do Tectonic (compartilhado por todos os projetos), então o
+# primeiro documento criado a partir de um modelo compila em segundos.
+Write-Host "`nPreparando os pacotes LaTeX dos modelos (só na primeira vez; pode levar alguns minutos)..."
+$env:PATH = (Join-Path $PSScriptRoot "tools") + ";" + $env:PATH  # para o Tectonic achar o biber
+$work = Join-Path $env:TEMP ("texdesk-modelos-" + [guid]::NewGuid().ToString("N").Substring(0, 8))
+foreach ($tpl in Get-ChildItem (Join-Path $PSScriptRoot "templates") -Directory) {
+    $dir = Join-Path $work $tpl.Name
+    Copy-Item -Recurse $tpl.FullName $dir
+    New-Item -ItemType Directory (Join-Path $dir "out") | Out-Null
+    Write-Host ("  {0,-14}" -f $tpl.Name) -NoNewline
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    $p = Start-Process -FilePath $exe -WorkingDirectory $dir -NoNewWindow -Wait -PassThru `
+        -ArgumentList "--keep-logs", "--outdir", "out", "--chatter", "minimal", "main.tex" `
+        -RedirectStandardOutput (Join-Path $dir "out\stdout.txt") -RedirectStandardError (Join-Path $dir "out\stderr.txt")
+    if ($p.ExitCode -eq 0) {
+        Write-Host ("pronto ({0:N0} s)" -f $sw.Elapsed.TotalSeconds) -ForegroundColor Green
+    } else {
+        # não impede a instalação: os pacotes que faltarem são baixados na primeira compilação
+        Write-Host "não foi possível (sem internet?); os pacotes serão baixados na primeira compilação" -ForegroundColor Yellow
+    }
+}
+Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
+
+# marca a instalação como completa (o iniciar.bat roda este script enquanto o marcador não existir)
+Set-Content -Path (Join-Path $PSScriptRoot "tools\.setup-ok") -Value (Get-Date -Format s)
 Write-Host "`nPronto! Rode iniciar.bat para abrir o TexDesk."

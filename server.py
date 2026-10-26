@@ -1,3 +1,7 @@
+# TexDesk — https://github.com/hugocesarleal/texdesk
+# Copyright (c) 2026 Hugo César Leal (https://github.com/hugocesarleal)
+# SPDX-License-Identifier: MIT
+
 """TexDesk — editor e compilador LaTeX local.
 
 Servidor Flask que gerencia projetos e arquivos, compila com o Tectonic
@@ -205,15 +209,29 @@ def list_projects():
             thumb = d / THUMB_FILE
             settings = load_settings(d)
             pdf = OUTPUT / d.name / (Path(settings["main"]).stem + ".pdf")
+            tw, th = png_size(thumb)
             items.append({
                 "name": d.name, "modified": mtime,
                 "thumb": thumb.stat().st_mtime if thumb.exists() else None,
+                "thumbW": tw, "thumbH": th,
                 "pdf": pdf.stat().st_mtime if pdf.exists() else None,
                 "pdfUrl": f"/api/projects/{quote(d.name)}/output/{quote(pdf.name)}" if pdf.exists() else None,
                 "drive": syncer.get_status(d.name) if settings["driveSync"] else None,
             })
     items.sort(key=lambda x: -x["modified"])
     return jsonify(items)
+
+
+def png_size(p: Path):
+    """Largura e altura lidas do cabeçalho IHDR do PNG (sem abrir a imagem inteira)."""
+    try:
+        with open(p, "rb") as f:
+            head = f.read(24)
+        if head[:8] == b"\x89PNG\r\n\x1a\n":
+            return int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big")
+    except OSError:
+        pass
+    return None, None
 
 
 @app.get("/api/projects/<name>/thumbnail")
@@ -237,9 +255,24 @@ def put_thumbnail(name):
     return jsonify({"ok": True})
 
 
+TEMPLATE_META = ".template.json"
+
+
 @app.get("/api/templates")
 def list_templates():
-    return jsonify(sorted(p.name for p in TEMPLATES.iterdir() if p.is_dir()))
+    out = []
+    for p in TEMPLATES.iterdir():
+        if not p.is_dir():
+            continue
+        meta = {}
+        try:
+            meta = json.loads((p / TEMPLATE_META).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            pass
+        out.append({"id": p.name, "name": meta.get("name", p.name), "description": meta.get("description", ""),
+                    "order": meta.get("order", 99)})
+    out.sort(key=lambda t: (t["order"], t["name"]))
+    return jsonify(out)
 
 
 @app.post("/api/projects")
@@ -253,7 +286,7 @@ def create_project():
         abort(409, "Já existe um projeto com esse nome")
     tpl = TEMPLATES / (data.get("template") or "blank")
     if tpl.is_dir() and TEMPLATES in tpl.resolve().parents:
-        shutil.copytree(tpl, d)
+        shutil.copytree(tpl, d, ignore=shutil.ignore_patterns(TEMPLATE_META))
     else:
         d.mkdir()
         (d / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nOlá, mundo!\n\\end{document}\n",
@@ -508,6 +541,9 @@ def compile_project(name):
             # (necessário p/ caminhos relativos em \inputminted etc.)
             cmd.append(f"-Zshell-escape-cwd={main_path.parent}")
         cmd.append(main_path.name)
+        # com shell-escape o Tectonic grava os intermediários (.aux, .xdv, .pyg…) na pasta
+        # do documento; eles são apagados depois para não sujar o projeto (nem o Drive)
+        before = snapshot(d) if s.get("shellEscape") else None
         t0 = time.time()
         try:
             # tools/ no PATH para o Tectonic achar o biber (biblatex)
@@ -520,6 +556,9 @@ def compile_project(name):
         except subprocess.TimeoutExpired:
             return jsonify({"status": "timedout", "message": f"Tempo limite de {COMPILE_TIMEOUT}s excedido",
                             "entries": [], "log": ""})
+        finally:
+            if before is not None:
+                remove_created(d, before)
         elapsed = time.time() - t0
 
         log_file = out / (stem + ".log")
@@ -541,6 +580,36 @@ def compile_project(name):
         })
     finally:
         lock.release()
+
+
+def snapshot(d: Path):
+    return {p for p in d.rglob("*")}
+
+
+INTERMEDIATE_EXT = {".aux", ".bbl", ".bcf", ".blg", ".idx", ".ilg", ".ind", ".log", ".out", ".toc", ".lof",
+                    ".lot", ".xdv", ".fls", ".nav", ".snm", ".vrb", ".glo", ".gls", ".ist", ".pyg", ".aex",
+                    ".pygtex", ".pygstyle", ".synctex", ".gz", ".xml"}
+
+
+def remove_created(d: Path, before):
+    """Apaga os intermediários do TeX que a compilação criou na pasta do projeto.
+
+    Só mexe no que não existia antes E é intermediário (pela extensão ou por estar numa
+    pasta _minted*): um arquivo que o usuário criar durante a compilação fica intacto.
+    """
+    def is_intermediate(p):
+        rel = p.relative_to(d).parts
+        return any(x.startswith("_minted") for x in rel) or p.suffix.lower() in INTERMEDIATE_EXT
+
+    created = [p for p in d.rglob("*") if p not in before and is_intermediate(p)]
+    for p in sorted(created, key=lambda x: len(x.parts), reverse=True):  # conteúdo antes das pastas
+        try:
+            if p.is_dir():
+                p.rmdir()  # só remove se ficou vazia
+            else:
+                p.unlink()
+        except OSError:
+            pass
 
 
 def parse_tectonic_stderr(stderr, existing, main_dir):
@@ -704,12 +773,7 @@ def drive_sync_all():
 def drive_remote():
     """Pastas de projeto existentes no Drive, marcando as que já existem localmente."""
     root = drive.root_folder()
-    local = {}
-    for d in PROJECTS.iterdir():
-        if d.is_dir():
-            fid = drive_sync.load_manifest(d).get("folderId")
-            if fid:
-                local[fid] = d.name
+    local = local_folder_ids()
     items = [{"id": f["id"], "name": f["name"], "modified": f.get("modifiedTime"), "local": local.get(f["id"])}
              for f in drive.list_children(root) if f["mimeType"] == drive_sync.FOLDER_MIME]
     return jsonify(sorted(items, key=lambda x: x["name"].lower()))
@@ -728,6 +792,68 @@ def drive_restore():
     s["driveSync"] = True
     save_settings(PROJECTS / name, s)
     changed(name)  # se o nome local difere, a pasta no Drive é renomeada
+    return jsonify({"name": name, "files": n})
+
+
+def local_folder_ids():
+    """{id da pasta no Drive: nome do projeto local} dos projetos já ligados ao Drive."""
+    out = {}
+    for d in PROJECTS.iterdir():
+        if d.is_dir():
+            fid = drive_sync.load_manifest(d).get("folderId")
+            if fid:
+                out[fid] = d.name
+    return out
+
+
+def free_project_name(remote_name):
+    """Nome de projeto local válido e livre para uma pasta vinda do Drive."""
+    base = re.sub(r"\s+", " ", re.sub(r"[^\w\-. ]", " ", remote_name)).strip(" .")[:76] or "Projeto"
+    name, i = base, 2
+    while (PROJECTS / name).exists():
+        name, i = f"{base}-{i}", i + 1
+    return name
+
+
+@app.get("/api/drive/import-candidates")
+def drive_import_candidates():
+    """Projetos no Drive que não existem neste computador e ainda não foram oferecidos."""
+    if not drive.connected:
+        return jsonify([])
+    offered = set(drive.state().get("offered", []))
+    local = local_folder_ids()
+    items = [{"id": f["id"], "name": f["name"], "modified": f.get("modifiedTime")}
+             for f in drive.list_children(drive.root_folder())
+             if f["mimeType"] == drive_sync.FOLDER_MIME and f["id"] not in local and f["id"] not in offered]
+    return jsonify(sorted(items, key=lambda x: x["name"].lower()))
+
+
+@app.post("/api/drive/offered")
+def drive_offered():
+    """Marca projetos do Drive como já oferecidos (importados ou recusados): não pergunta de novo."""
+    ids = request.get_json(force=True).get("ids") or []
+    s = drive.state()
+    s["offered"] = sorted(set(s.get("offered", [])) | set(ids))
+    drive.save_state(s)
+    return jsonify({"ok": True})
+
+
+@app.post("/api/drive/import")
+def drive_import():
+    """Importa um projeto do Drive com um nome local livre e liga a sincronização."""
+    data = request.get_json(force=True)
+    fid, remote_name = data.get("id"), data.get("name") or "Projeto"
+    if fid in local_folder_ids():
+        abort(409, "Esse projeto já está neste computador")
+    name = free_project_name(remote_name)
+    n = drive_sync.restore_project(drive, fid, PROJECTS / name, remote_name)
+    s = load_settings(PROJECTS / name)
+    s["driveSync"] = True
+    save_settings(PROJECTS / name, s)
+    changed(name)  # se o nome local precisou mudar, a pasta no Drive acompanha
+    st = drive.state()
+    st["offered"] = sorted(set(st.get("offered", [])) | {fid})
+    drive.save_state(st)
     return jsonify({"name": name, "files": n})
 
 

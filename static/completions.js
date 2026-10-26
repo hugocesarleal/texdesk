@@ -1,3 +1,7 @@
+// TexDesk — https://github.com/hugocesarleal/texdesk
+// Copyright (c) 2026 Hugo César Leal (https://github.com/hugocesarleal)
+// SPDX-License-Identifier: MIT
+
 // Autocompletar de LaTeX: comandos, ambientes, \ref, \cite e pacotes.
 
 const LATEX_COMMANDS = [

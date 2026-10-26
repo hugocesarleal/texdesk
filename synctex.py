@@ -1,3 +1,7 @@
+# TexDesk — https://github.com/hugocesarleal/texdesk
+# Copyright (c) 2026 Hugo César Leal (https://github.com/hugocesarleal)
+# SPDX-License-Identifier: MIT
+
 """Leitor mínimo de arquivos .synctex.gz para busca direta e inversa.
 
 Coordenadas devolvidas em pontos PDF (bp), origem no canto superior esquerdo

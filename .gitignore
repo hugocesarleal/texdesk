@@ -1,0 +1,25 @@
+# --- Dados pessoais e segredos (NUNCA publicar) ---
+# credenciais OAuth e token de acesso ao Google Drive
+.drive/
+# projetos do usuário e PDFs compilados
+projects/
+output/
+# exportações e backups de projetos
+*.zip
+
+# --- Binários de terceiros (baixados pelo setup.ps1) ---
+tools/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# --- Sistema / editores ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.tmp

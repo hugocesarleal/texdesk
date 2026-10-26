@@ -1,4 +1,9 @@
 <!doctype html>
+<!--
+  TexDesk — https://github.com/hugocesarleal/texdesk
+  Copyright (c) 2026 Hugo César Leal (https://github.com/hugocesarleal)
+  SPDX-License-Identifier: MIT
+-->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -77,6 +82,10 @@
         </div>
         <button class="btn small" id="btn-logs" title="Logs e mensagens"></button>
         <span class="grow"></span>
+        <span class="page-nav" id="page-nav" hidden>
+          <input type="text" id="page-input" inputmode="numeric" aria-label="Página atual (digite um número e Enter)" title="Digite uma página e aperte Enter">
+          <span class="page-total">/ <span id="page-count">0</span></span>
+        </span>
         <button class="icon-btn" id="zoom-out" title="Diminuir zoom"></button>
         <span class="zoom-label" id="zoom-label">100%</span>
         <button class="icon-btn" id="zoom-in" title="Aumentar zoom"></button>

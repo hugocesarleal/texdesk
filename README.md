@@ -4,19 +4,22 @@
 
 <p align="center">Editor e compilador LaTeX que roda no seu computador, com interface no navegador.</p>
 
+<p align="center"><a href="https://github.com/hugocesarleal/texdesk">github.com/hugocesarleal/texdesk</a></p>
+
 ## Como usar
 
-1. Dê dois cliques em `iniciar.bat` (na primeira vez ele instala o Flask e baixa o Tectonic).
-2. O navegador abre em http://127.0.0.1:5050.
-3. Crie um projeto e escreva. Use **Ctrl+S** ou **Ctrl+Enter** para compilar.
+1. Baixe o código (`git clone https://github.com/hugocesarleal/texdesk.git`, ou **Code → Download ZIP** no GitHub). É preciso ter o [Python 3](https://www.python.org/downloads/) instalado.
+2. Dê dois cliques em `iniciar.bat` (na primeira vez ele instala o Flask e baixa o Tectonic e o Biber).
+3. O navegador abre em http://127.0.0.1:5050.
+4. Crie um projeto e escreva. Use **Ctrl+S** ou **Ctrl+Enter** para compilar.
 
-A primeira compilação baixa os pacotes LaTeX necessários, o que pode levar alguns minutos. Depois disso eles ficam em cache e as compilações levam poucos segundos.
+Na instalação, o `setup.ps1` compila os três modelos uma vez para já baixar os pacotes LaTeX que eles usam (cerca de 20 MB, 1 a 2 minutos). Os pacotes ficam num cache do Tectonic compartilhado por todos os projetos, em `%LOCALAPPDATA%\TectonicProject`. Um documento que use um pacote novo baixa só esse pacote, na primeira compilação.
 
 ## Recursos
 
 | Área | O que faz |
 |---|---|
-| Painel de projetos | Criar (com modelos), renomear, duplicar, excluir, baixar/enviar `.zip`, miniatura da 1ª página |
+| Painel de projetos | Criar (em branco, Slides IFMG ou Artigo IFMG), renomear, duplicar, excluir, baixar/enviar `.zip`, miniatura da 1ª página |
 | Árvore de arquivos | Pastas, upload (botão ou arrastar e soltar), renomear/mover, definir documento principal |
 | Editor | CodeMirror com realce LaTeX, autocompletar (`\comandos`, ambientes, `\ref`, `\cite`, pacotes), busca, Ctrl+/ comenta, Ctrl+B/Ctrl+I, salvamento automático |
 | Compilador | Tectonic (XeTeX + BibTeX/biber automáticos, reexecuta até estabilizar as referências), gera o PDF mesmo com erros, shell-escape opcional |
@@ -66,5 +69,7 @@ tools/         tectonic.exe e biber.exe (baixados pelo setup.ps1)
 - Ele roda só em `127.0.0.1` e é feito para uso local, por uma pessoa.
 
 ## Licença
+
+Copyright (c) 2026 [Hugo César Leal](https://github.com/hugocesarleal). Código-fonte: [github.com/hugocesarleal/texdesk](https://github.com/hugocesarleal/texdesk).
 
 O TexDesk é distribuído sob a [licença MIT](LICENSE). As licenças das ferramentas e bibliotecas de terceiros usadas pelo projeto estão em [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

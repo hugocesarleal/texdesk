@@ -1,3 +1,7 @@
+# TexDesk — https://github.com/hugocesarleal/texdesk
+# Copyright (c) 2026 Hugo César Leal (https://github.com/hugocesarleal)
+# SPDX-License-Identifier: MIT
+
 """Sincronização de projetos com o Google Drive.
 
 - OAuth 2.0 (app instalado, loopback + PKCE) com escopo drive.file: o app só
@@ -11,6 +15,7 @@ import hashlib
 import json
 import os
 import secrets
+import shutil
 import threading
 import time
 import urllib.error
@@ -368,9 +373,21 @@ def sync_project(client: DriveClient, d: Path, name: str):
         else:  # apagada no Drive: recria do zero
             folder, m = None, {}
     if not folder:
-        folder = client.find_child(root, name, folder=True) or client.create_folder(name, root)
+        m = {"folderName": name, "files": {}, "folders": {}}
+        folder = client.find_child(root, name, folder=True)
+        if folder:
+            # já existe uma pasta com esse nome no Drive (ex.: outro computador): em vez de
+            # reenviar tudo como cópia, registra os arquivos que já estão lá pelo caminho.
+            # Os de mesmo conteúdo não são reenviados; os diferentes são atualizados no lugar
+            # (a versão anterior fica no histórico do Drive); os que só existem no Drive
+            # ficam intactos, porque não entram no manifesto.
+            remote, _ = remote_tree(client, folder)
+            local = local_files(d)
+            m["files"] = {rel: info for rel, info in remote.items() if rel in local}
+        else:
+            folder = client.create_folder(name, root)
         client.verified.add(folder)
-        m = {"folderId": folder, "folderName": name, "files": {}, "folders": {}}
+        m["folderId"] = folder
         ops += 1
     elif m.get("folderName") != name:  # projeto renomeado localmente
         client.rename(folder, name)
@@ -460,34 +477,56 @@ def _parents(rel_dir):
     return ["/".join(parts[:i]) for i in range(1, len(parts) + 1)]
 
 
+def remote_tree(client: DriveClient, folder_id: str):
+    """Arquivos e subpastas de uma pasta do Drive: ({caminho: {id, md5}}, {caminho: id})."""
+    files, folders = {}, {}
+
+    def walk(fid, rel):
+        for f in client.list_children(fid):
+            child = f"{rel}/{f['name']}" if rel else f["name"]
+            if any(x in ("..", "", ".") for x in child.split("/")) or child in files or child in folders:
+                continue  # caminhos estranhos ou nomes repetidos no Drive: fica o primeiro
+            if f["mimeType"] == FOLDER_MIME:
+                folders[child] = f["id"]
+                walk(f["id"], child)
+            elif not f["mimeType"].startswith("application/vnd.google-apps"):
+                # (documentos nativos do Google não são arquivos binários)
+                files[child] = {"id": f["id"], "md5": f.get("md5Checksum")}
+
+    walk(folder_id, "")
+    return files, folders
+
+
 def restore_project(client: DriveClient, folder_id: str, dest: Path, remote_name: str):
     """Baixa uma pasta de projeto do Drive para dest e grava o manifesto.
 
     Se o nome local for diferente, a próxima sincronização renomeia a pasta no Drive.
     """
+    files, folders = remote_tree(client, folder_id)
     dest.mkdir(parents=True)
-    m = {"folderId": folder_id, "folderName": remote_name, "files": {}, "folders": {}}
+    m = {"folderId": folder_id, "folderName": remote_name, "files": {}, "folders": folders}
+    lock = threading.Lock()
 
-    def walk(fid, rel):
-        for f in client.list_children(fid):
-            child = f"{rel}/{f['name']}" if rel else f["name"]
-            if any(x in ("..", "") for x in child.split("/")):
-                continue
-            if f["mimeType"] == FOLDER_MIME:
-                m["folders"][child] = f["id"]
-                walk(f["id"], child)
-            elif f["mimeType"].startswith("application/vnd.google-apps"):
-                continue  # documentos nativos do Google não são arquivos binários
-            else:
-                target = dest / child
-                if dest.resolve() not in target.resolve().parents:
-                    continue
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(client.download(f["id"]))
-                st = target.stat()
-                m["files"][child] = {"id": f["id"], "md5": f.get("md5Checksum"), "mtime": st.st_mtime, "size": st.st_size}
+    def fetch(item):
+        rel, info = item
+        target = dest / rel
+        if dest.resolve() not in target.resolve().parents:
+            return
+        data = client.download(info["id"])
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+        st = target.stat()
+        with lock:
+            m["files"][rel] = {"id": info["id"], "md5": info["md5"], "mtime": st.st_mtime, "size": st.st_size}
 
-    walk(folder_id, "")
+    try:
+        if files:
+            with ThreadPoolExecutor(max_workers=min(UPLOAD_WORKERS, len(files))) as pool:
+                for fut in [pool.submit(fetch, it) for it in files.items()]:
+                    fut.result()
+    except Exception:
+        shutil.rmtree(dest, ignore_errors=True)  # importação pela metade não vira projeto
+        raise
     save_manifest(dest, m)
     return len(m["files"])
 

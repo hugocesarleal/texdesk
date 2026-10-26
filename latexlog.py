@@ -1,3 +1,7 @@
+# TexDesk — https://github.com/hugocesarleal/texdesk
+# Copyright (c) 2026 Hugo César Leal (https://github.com/hugocesarleal)
+# SPDX-License-Identifier: MIT
+
 """Leitor do log do TeX.
 
 Extrai erros, avisos e "badboxes" (overfull/underfull) com arquivo e linha,

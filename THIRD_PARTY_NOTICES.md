@@ -11,10 +11,21 @@ O TexDesk usa os componentes abaixo. Nenhum deles é modificado. A tabela diz co
 | [Tectonic](https://tectonic-typesetting.github.io/) | Motor de compilação LaTeX (XeTeX) | Baixado pelo `setup.ps1` para `tools/` | MIT |
 | [Biber](https://github.com/plk/biber) | Processamento de bibliografia do `biblatex` | Baixado pelo `setup.ps1` para `tools/` | Artistic License 2.0 |
 | [Pygments](https://pygments.org/) | Realce de código do pacote `minted` (opcional) | Instalado pelo usuário via `pip` | BSD-2-Clause |
+| IFTeX2024 (`iftex2024.cls`, `biblatexfix.sty`), por Marcos Roberto Ribeiro (IFMG) | Modelo "Artigo IFMG" (`templates/ifmg-artigo/`) | Incluído no repositório, sem modificações | GPL-3.0 |
+| IFSlides2024 (`ifslides2024.sty`, `biblatexfix.sty`), por Marcos Roberto Ribeiro (IFMG) | Modelo "Slides IFMG" (`templates/ifmg-slides/`) | Incluído no repositório, sem modificações | GPL-3.0 |
 
 Os pacotes LaTeX (classes, estilos, fontes) usados nas compilações são baixados pelo Tectonic sob demanda e seguem as licenças de cada pacote, em geral a LPPL.
 
 Os binários do Tectonic e do Biber não fazem parte deste repositório: o `setup.ps1` baixa cada um do site oficial do respectivo projeto.
+
+### Modelos do IFMG (GPL-3.0)
+
+Os arquivos de classe e estilo dos modelos "Artigo IFMG" e "Slides IFMG" são obra de Marcos Roberto Ribeiro (IFMG) e continuam sob a GNU General Public License v3. O texto completo da licença acompanha cada modelo, no arquivo `LICENSE` da pasta. Eles são distribuídos junto com o TexDesk como obras separadas: a licença MIT do TexDesk não se aplica a eles, e a GPL deles não se aplica ao restante do TexDesk.
+
+- `templates/ifmg-artigo/main.tex` é o exemplo de artigo original do pacote IFTeX2024 (`exemplo_artigo.tex`), e `referencias.bib` é o arquivo de referências de exemplo do mesmo pacote.
+- `templates/ifmg-slides/main.tex` é um documento inicial escrito para o TexDesk, que usa o tema IFSlides2024.
+
+Os projetos que você criar a partir desses modelos são seus. A GPL só se aplica se você redistribuir os próprios arquivos `.cls`/`.sty`.
 
 ---
 

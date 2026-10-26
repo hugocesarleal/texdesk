@@ -1,7 +1,10 @@
 @echo off
+rem TexDesk - https://github.com/hugocesarleal/texdesk
+rem Copyright (c) 2026 Hugo César Leal (https://github.com/hugocesarleal)
+rem SPDX-License-Identifier: MIT
 title TexDesk
 cd /d "%~dp0"
-if not exist tools\tectonic.exe powershell -ExecutionPolicy Bypass -File setup.ps1
+if not exist tools\.setup-ok powershell -ExecutionPolicy Bypass -File setup.ps1
 
 python server.py --abrir
 

@@ -1,3 +1,7 @@
+// TexDesk — https://github.com/hugocesarleal/texdesk
+// Copyright (c) 2026 Hugo César Leal (https://github.com/hugocesarleal)
+// SPDX-License-Identifier: MIT
+
 // Utilidades compartilhadas: chamadas à API, ícones, modais e avisos.
 
 async function api(url, opts = {}) {
@@ -43,6 +47,8 @@ const ICONS = {
   star: '<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/>',
   menu: '<path d="M3 12h18M3 6h18M3 18h18"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  fileText: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>',
+  slides: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
   cloud: '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>',
   cloudCheck: '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><path d="M9 14l2 2 4-4"/>',
   cloudUp: '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><path d="M12 17v-5M9.5 14.5L12 12l2.5 2.5"/>',
@@ -114,13 +120,16 @@ function modal({ title, fields = [], ok = "OK", danger = false, body = "" }) {
   });
 }
 
+const THUMB_SIZE = 480;
+
 // Renderiza a 1ª página de um PDF (documento do PDF.js ou URL) e salva como miniatura do projeto.
 async function saveThumbnail(project, pdfOrUrl) {
   const doc = typeof pdfOrUrl === "string" ? await pdfjsLib.getDocument(pdfOrUrl).promise : pdfOrUrl;
   try {
     const page = await doc.getPage(1);
     const base = page.getViewport({ scale: 1 });
-    const vp = page.getViewport({ scale: 240 / base.width });
+    // lado maior com THUMB_SIZE px: nítido na prévia ampliada, em pé ou deitado
+    const vp = page.getViewport({ scale: THUMB_SIZE / Math.max(base.width, base.height) });
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(vp.width);
     canvas.height = Math.round(vp.height);
@@ -130,6 +139,7 @@ async function saveThumbnail(project, pdfOrUrl) {
     await page.render({ canvasContext: ctx, viewport: vp }).promise;
     const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
     await fetch(`/api/projects/${encodeURIComponent(project)}/thumbnail`, { method: "POST", body: blob, headers: { "Content-Type": "image/png" } });
+    return { width: canvas.width, height: canvas.height };
   } finally {
     if (typeof pdfOrUrl === "string") doc.destroy();
   }
