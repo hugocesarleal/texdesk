@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TexDesk — Editor</title>
+<link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/dialog/dialog.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/foldgutter.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+<link rel="stylesheet" href="/static/app.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/stex/stex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/dialog/dialog.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/search.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/jump-to-line.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/comment/comment.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/foldcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/foldgutter.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="/static/common.js"></script>
+</head>
+<body>
+<div class="ide" id="ide" data-view="editor">
+  <header class="toolbar">
+    <a class="icon-btn home-logo" href="/" title="TexDesk — voltar aos projetos" id="home"></a>
+    <button class="icon-btn" id="toggle-files" title="Arquivos"></button>
+    <span class="title" id="title"></span>
+    <button class="tb-btn drive-ind" id="drive-state" hidden></button>
+    <span class="save-state" id="save-state"></span>
+    <button class="tb-btn hide-sm" id="btn-zip" title="Baixar projeto .zip"></button>
+    <button class="tb-btn" id="btn-settings" title="Configurações"></button>
+  </header>
+
+  <div class="panes">
+    <aside class="pane pane-files" id="pane-files">
+      <div class="pane-head">
+        <span class="grow">Arquivos</span>
+        <button class="icon-btn" id="new-file" title="Novo arquivo"></button>
+        <button class="icon-btn" id="new-folder" title="Nova pasta"></button>
+        <button class="icon-btn" id="upload-files" title="Enviar arquivos"></button>
+        <input type="file" id="upload-input" multiple hidden>
+      </div>
+      <div class="tree" id="tree"></div>
+      <div class="outline" id="outline"></div>
+    </aside>
+    <div class="splitter" id="split-1"></div>
+
+    <section class="pane pane-editor" id="pane-editor">
+      <div class="pane-head">
+        <span class="grow" id="current-file"></span>
+        <button class="icon-btn" id="btn-search" title="Buscar (Ctrl+F)"></button>
+      </div>
+      <div class="editor-wrap" id="editor-wrap"></div>
+      <div class="preview" id="preview" hidden></div>
+    </section>
+
+    <div class="splitter" id="split-2">
+      <div class="sync">
+        <button id="sync-to-pdf" title="Ir para a posição no PDF (código → PDF)"></button>
+        <button id="sync-to-code" title="Ir para o código (PDF → código)"></button>
+      </div>
+    </div>
+
+    <section class="pane pane-pdf" id="pane-pdf">
+      <div class="pane-head pdf-head">
+        <div class="compile-group">
+          <button class="btn primary small" id="btn-compile" title="Compilar (Ctrl+S / Ctrl+Enter)"></button>
+          <button class="btn primary small drop" id="btn-compile-menu" title="Opções de compilação"></button>
+        </div>
+        <button class="btn small" id="btn-logs" title="Logs e mensagens"></button>
+        <span class="grow"></span>
+        <button class="icon-btn" id="zoom-out" title="Diminuir zoom"></button>
+        <span class="zoom-label" id="zoom-label">100%</span>
+        <button class="icon-btn" id="zoom-in" title="Aumentar zoom"></button>
+        <button class="icon-btn" id="zoom-fit" title="Ajustar à largura"></button>
+        <a class="icon-btn" id="btn-download" title="Baixar PDF" download></a>
+      </div>
+      <div class="pdf-body">
+        <div class="pdf-view" id="pdf-view"><div class="pdf-empty" id="pdf-empty">Compile o projeto para ver o PDF aqui.</div></div>
+        <div class="logs" id="logs"></div>
+      </div>
+    </section>
+  </div>
+
+  <nav class="mobile-tabs">
+    <button data-view="editor" class="on">Código</button>
+    <button data-view="pdf">PDF</button>
+  </nav>
+</div>
+<script src="/static/completions.js"></script>
+<script src="/static/editor.js"></script>
+</body>
+</html>

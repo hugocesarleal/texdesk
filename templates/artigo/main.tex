@@ -1,0 +1,52 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[brazilian]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{hyperref}
+
+\title{Um artigo de exemplo}
+\author{Seu Nome}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Este é um modelo de artigo com seções, equações, tabela e referências.
+\end{abstract}
+
+\section{Introdução}
+\label{sec:intro}
+O \LaTeX{} é ótimo para documentos científicos~\cite{lamport1994}.
+Veja a Equação~\eqref{eq:euler} e a Seção~\ref{sec:resultados}.
+
+\begin{equation}
+  e^{i\pi} + 1 = 0
+  \label{eq:euler}
+\end{equation}
+
+\section{Resultados}
+\label{sec:resultados}
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{lcr}
+    \hline
+    Item & Quantidade & Valor \\
+    \hline
+    A & 1 & 10,00 \\
+    B & 2 & 20,00 \\
+    \hline
+  \end{tabular}
+  \caption{Uma tabela simples.}
+\end{table}
+
+\[
+  \int_0^\infty e^{-x^2}\,dx = \frac{\sqrt{\pi}}{2}
+\]
+
+\bibliographystyle{plain}
+\bibliography{referencias}
+
+\end{document}

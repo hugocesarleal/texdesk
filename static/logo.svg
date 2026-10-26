@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="TexDesk">
+  <rect width="96" height="96" rx="20" fill="#138a36"/>
+  <rect x="18" y="20" width="60" height="42" rx="4" fill="#fff"/>
+  <path d="M10 68h76l-6 10H16z" fill="#fff"/>
+  <g fill="#138a36">
+    <path d="M28 28h27v4.2h-2.2V36h-2.2v-3.8h-6.7v18.2h3.7v2.2H35.6v-2.2h3.7V32.2h-6.7V36h-2.2v-3.8H28z"/>
+    <path d="M50.2 42.2h3.8l10.4 14.2h-3.8z"/>
+    <path d="M61.6 42.2h1.8L53.2 56.4h-1.8z"/>
+    <path d="M49 40.6h6.6v1.6H49zM59.6 40.6h5.6v1.6h-5.6zM49.6 56.4h5.6V58h-5.6zM58.8 56.4h6.8V58h-6.8z"/>
+  </g>
+</svg>
