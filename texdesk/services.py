@@ -14,7 +14,7 @@ from pathlib import Path
 
 from . import drive_sync
 from .config import DRIVE_STATE, PROJECTS, SETTINGS_FILE
-from .storage import load_settings, save_settings
+from .storage import load_settings, save_settings, touch
 
 drive: drive_sync.DriveClient = None
 syncer: drive_sync.SyncManager = None
@@ -39,6 +39,7 @@ def drive_enabled(name):
 
 def changed(name):
     """Chamado após qualquer alteração nos arquivos do projeto."""
+    touch(name)
     syncer.mark_dirty(name)
 
 

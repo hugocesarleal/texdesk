@@ -89,6 +89,30 @@ def test_zip_ida_e_volta(api, proj):
     api.delete("/api/projects/Volta API")
 
 
+def test_data_de_modificacao_com_cache(api, proj, monkeypatch):
+    import os
+    import time
+
+    from texdesk import storage
+
+    def modified():
+        return next(p["modified"] for p in api.get("/api/projects").get_json() if p["name"] == proj)
+
+    before = modified()
+    time.sleep(0.05)
+    api.put(f"/api/projects/{proj}/file", json={"path": "main.tex", "content": "mudou"})
+    assert modified() > before  # alteração pela API: atualiza na hora, sem reler o disco
+
+    # alteração feita fora do TexDesk: aparece na próxima releitura (aqui, forçada com TTL 0)
+    f = config.PROJECTS / proj / "externo.tex"
+    f.write_text("x")
+    future = time.time() + 3600
+    os.utime(f, (future, future))
+    assert modified() < future  # ainda no cache
+    monkeypatch.setattr(storage, "MTIME_TTL", 0)
+    assert modified() == pytest.approx(future)
+
+
 # ---------------------------------------------------------------- arquivos
 
 

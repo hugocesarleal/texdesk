@@ -661,8 +661,10 @@ class SyncManager:
         st["enabled"] = self.is_enabled(name)
         st["connected"] = self.client.connected
         st.setdefault("state", "idle")
-        if not st.get("lastSync"):  # após reiniciar o servidor
+        if "lastSync" not in st:  # após reiniciar o servidor: lê do manifesto uma vez só
             st["lastSync"] = load_manifest(self.projects / name).get("lastSync")
+            with self.lock:
+                self.status.setdefault(name, {}).setdefault("lastSync", st["lastSync"])
         return st
 
     def _run(self):

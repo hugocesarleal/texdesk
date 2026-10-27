@@ -91,6 +91,7 @@ input[type=text]:focus, select:focus { outline: 2px solid var(--accent); outline
 .drive-ind svg { width: 16px; height: 16px; }
 .drive-ind.drive-busy svg { animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .35; } }
+@keyframes spin { to { transform: rotate(360deg); } }
 .modal.wide { width: min(620px, 100%); max-height: 88vh; overflow: auto; }
 .modal ol { margin: 0; padding-left: 20px; line-height: 1.6; font-size: 13.5px; }
 .modal ol.steps li { margin-bottom: 10px; }

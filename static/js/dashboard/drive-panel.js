@@ -68,45 +68,68 @@ async function openDrivePanel() {
     renderConnected(st);
   }
 
-  // ---- painel conectado: conta, opção global, progresso e lista de projetos
+  // ---- painel conectado: conta, situação da sincronização, opção global e lista de projetos
   let tab = "local";
   let remoteCache = null;
+  let query = "";
+  let onlyProblems = false;
 
   function renderConnected(st) {
     const u = st.user || {};
     const initial = (u.displayName || u.emailAddress || "?").trim()[0].toUpperCase();
+    const safe = st.tokenStorage === "keyring";
     body.innerHTML = `
       <div class="dp-account">
         <div class="dp-avatar">${esc(initial)}</div>
-        <div class="who"><b>${esc(u.displayName || "Conta Google")}</b><small>${esc(u.emailAddress || "")}</small></div>
-        <a class="btn small" id="dp-open" target="_blank" rel="noopener" hidden>${icon("folderOpen")}Abrir no Drive</a>
-        <button class="btn small danger" id="drive-disconnect">Desconectar</button>
+        <div class="who">
+          <b>${esc(u.displayName || "Conta Google")}</b>
+          <small>${esc(u.emailAddress || "")}</small>
+          <small class="dp-secure ${safe ? "" : "warn"}" title="${safe
+            ? "O token de acesso fica no Gerenciador de Credenciais (Windows), nas Chaves (macOS) ou no Secret Service (Linux)."
+            : "Sem cofre de senhas neste computador: o acesso está num arquivo protegido em .drive/. Não compartilhe essa pasta."}">
+            ${icon("lock")}${safe ? "Acesso no cofre de senhas do sistema" : "Acesso em arquivo (sem cofre de senhas)"}</small>
+        </div>
+        <div class="dp-account-actions">
+          <a class="btn small" id="dp-open" target="_blank" rel="noopener" hidden>${icon("external")}Abrir no Drive</a>
+          <button class="btn small danger" id="drive-disconnect">Desconectar</button>
+        </div>
       </div>
-      ${st.tokenStorage === "keyring"
-        ? `<p class="note dp-secure">${icon("lock")}O acesso à sua conta está guardado no cofre de senhas do sistema.</p>`
-        : `<p class="note dp-secure warn">${icon("lock")}Este computador não tem um cofre de senhas disponível: o acesso à sua conta está num arquivo protegido em <code>.drive/</code>. Não compartilhe essa pasta.</p>`}
+
+      <div class="dp-status" id="dp-progress"></div>
 
       <label class="dp-toggle">
         <span class="txt"><b>Sincronizar todos os projetos</b>
-          <small>Inclui os projetos criados daqui em diante. Para ligar ou desligar um projeto só, use as Configurações dentro do editor.</small></span>
+          <small>Inclui os criados daqui em diante. Para um projeto só, use as Configurações do editor.</small></span>
         <input type="checkbox" id="sync-all" ${st.syncAll ? "checked" : ""}><span class="track" aria-hidden="true"></span>
       </label>
 
-      <div class="dp-progress" id="dp-progress"></div>
-
-      <div class="dp-head">
-        <div class="dp-tabs" role="tablist">
-          <button role="tab" data-tab="local">Neste computador <span id="dp-n-local"></span></button>
-          <button role="tab" data-tab="remote">Só no Drive <span id="dp-n-remote"></span></button>
+      <div class="dp-section">
+        <div class="dp-head">
+          <div class="dp-tabs" role="tablist">
+            <button role="tab" data-tab="local">Neste computador <span id="dp-n-local"></span></button>
+            <button role="tab" data-tab="remote">Só no Drive <span id="dp-n-remote"></span></button>
+          </div>
+          <div class="dp-tools">
+            <input type="search" id="dp-search" placeholder="Buscar projeto…" aria-label="Buscar projeto">
+            <button class="icon-btn dp-sync-now" id="dp-sync-now" title="Sincronizar agora: confere todos os projetos e envia o que mudou" aria-label="Sincronizar agora">${icon("refresh")}</button>
+          </div>
         </div>
-        <button class="btn small" id="dp-sync-now" title="Verifica todos os projetos e envia o que mudou">${icon("refresh")}Sincronizar agora</button>
+        <div class="dp-list" id="dp-list"><div class="dp-empty">Carregando…</div></div>
       </div>
-      <div class="dp-list" id="dp-list"><div class="dp-empty">Carregando…</div></div>
 
-      <p class="note">Os projetos ficam na pasta <b>TexDesk</b> do seu Drive. Enquanto você edita, as alterações são enviadas a cada 5 segundos. Arquivos apagados aqui vão para a lixeira do Drive. Excluir um projeto aqui não o apaga do Drive.</p>`;
+      <details class="dp-help">
+        <summary>Como funciona a sincronização</summary>
+        <ul>
+          <li>Os projetos ficam na pasta <b>TexDesk</b> do seu Drive, uma subpasta por projeto.</li>
+          <li>Enquanto você edita, as alterações são enviadas a cada 5 segundos, só dos arquivos que mudaram.</li>
+          <li>Arquivos apagados aqui vão para a lixeira do Drive (dá para recuperar por 30 dias).</li>
+          <li>Excluir um projeto aqui não o apaga do Drive: ele aparece em <b>Só no Drive</b> e pode ser baixado de novo.</li>
+          <li>O envio vai do computador para o Drive. Se você editar o mesmo projeto em outro computador, baixe-o de novo para ver as mudanças.</li>
+        </ul>
+      </details>`;
 
     body.querySelector("#drive-disconnect").onclick = async () => {
-      const ok = await modal({ title: "Desconectar o Google Drive?", body: "<p>A sincronização para. Nada é apagado do Drive nem do computador.</p>", ok: "Desconectar", danger: true });
+      const ok = await modal({ title: "Desconectar o Google Drive?", body: "<p>A sincronização para e o acesso à sua conta é apagado deste computador. Nada é apagado do Drive nem dos seus projetos.</p>", ok: "Desconectar", danger: true });
       if (ok) { await api("/api/drive/disconnect", { method: "POST" }); refresh(); }
     };
     body.querySelector("#sync-all").onchange = async (e) => {
@@ -114,9 +137,19 @@ async function openDrivePanel() {
       toast(e.target.checked ? "Sincronização ligada para todos os projetos" : "Sincronização desligada para todos os projetos");
       poll();
     };
-    body.querySelector("#dp-sync-now").onclick = async () => { await api("/api/drive/sync-now", { method: "POST" }); poll(); };
+    const syncBtn = body.querySelector("#dp-sync-now");
+    syncBtn.onclick = async () => {
+      syncBtn.classList.add("spinning");
+      await api("/api/drive/sync-now", { method: "POST" }).catch((e) => toast(e.message));
+      await poll();
+      setTimeout(() => syncBtn.classList.remove("spinning"), 600);
+    };
+    body.querySelector("#dp-search").oninput = (e) => { query = e.target.value.trim().toLowerCase(); drawList(); };
     body.querySelectorAll("[data-tab]").forEach((b) => (b.onclick = () => { tab = b.dataset.tab; drawList(); if (tab === "remote") loadRemote(); }));
     body.querySelector("#dp-list").onclick = onListClick;
+    body.querySelector("#dp-progress").onclick = (e) => {
+      if (e.target.closest("[data-problems]")) { onlyProblems = !onlyProblems; tab = "local"; drawProgress(); drawList(); }
+    };
     poll();
     loadRemote();
   }
@@ -139,65 +172,75 @@ async function openDrivePanel() {
     const c = ov.counts || {};
     const open = body.querySelector("#dp-open");
     if (open && ov.rootId) { open.href = `https://drive.google.com/drive/folders/${ov.rootId}`; open.hidden = false; }
-    if (ov.error) { el.className = "dp-progress err"; el.innerHTML = `${icon("cloudOff")}<div><b>Não foi possível consultar o Drive</b><small>${esc(ov.error)}</small></div>`; return; }
-    if (!c.total) {
-      el.className = "dp-progress idle";
-      el.innerHTML = `${icon("cloudOff")}<div><b>Nenhum projeto sincronizado</b><small>Ligue a opção acima ou ative projetos nas configurações do editor.</small></div>`;
-      return;
-    }
-    const pct = Math.round((c.synced / c.total) * 100);
-    const last = Math.max(0, ...ov.projects.map((p) => p.lastSync || 0));
-    let cls, ic, title, sub;
+    const card = (cls, ic, title, sub, extra = "") => {
+      el.className = `dp-status ${cls}`;
+      el.innerHTML = `<span class="ic">${icon(ic)}</span><div class="grow"><b>${esc(title)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}${extra}</div>`;
+    };
+    if (ov.error) return card("err", "cloudOff", "Não foi possível consultar o Drive", ov.error);
+    if (!c.total) return card("idle", "cloudOff", "Nenhum projeto sincronizado", "Ligue a opção abaixo ou ative projetos nas configurações do editor.");
+    const plural = (n, s) => `${n} projeto${n > 1 ? "s" : ""}${s ? " " + s : ""}`;
     if (c.error) {
-      cls = "err"; ic = "cloudOff";
-      title = `${c.error} projeto${c.error > 1 ? "s" : ""} com erro`;
-      sub = "Será tentado de novo automaticamente. Veja os detalhes na lista abaixo.";
-    } else if (c.pending) {
-      cls = "busy"; ic = "cloudUp";
-      title = `Enviando para o Drive… ${c.synced} de ${c.total}`;
-      sub = "Pode continuar usando normalmente. O projeto que você estiver editando tem prioridade.";
-    } else {
-      cls = "ok"; ic = "cloudCheck";
-      title = `Tudo salvo no Drive · ${c.total} projeto${c.total > 1 ? "s" : ""}`;
-      sub = last ? `Última sincronização ${timeAgo(last)}` : "";
+      return card("err", "cloudOff", `${plural(c.error)} com erro`, "Será tentado de novo automaticamente.",
+        `<button class="btn small" data-problems>${onlyProblems ? "Mostrar todos" : "Ver quais"}</button>`);
     }
-    el.className = `dp-progress ${cls}`;
-    el.innerHTML = `${icon(ic)}<div class="grow"><b>${esc(title)}</b><small>${esc(sub)}</small>
-      <div class="bar"><span style="width:${pct}%"></span></div></div>`;
+    if (c.pending) {
+      const pct = Math.round((c.synced / c.total) * 100);
+      return card("busy", "cloudUp", `Enviando para o Drive… ${c.synced} de ${c.total}`,
+        "Pode continuar usando normalmente; o projeto em edição tem prioridade.",
+        `<div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div>`);
+    }
+    const last = Math.max(0, ...ov.projects.map((p) => p.lastSync || 0));
+    card("ok", "cloudCheck", `Tudo salvo no Drive · ${plural(c.total)}`, last ? `Última sincronização ${timeAgo(last)}` : "");
   }
 
   function projState(p) {
-    if (p.state === "error") return { o: 0, cls: "drive-err", ic: "cloudOff", txt: p.error || "Erro" };
-    if (p.state === "syncing") return { o: 1, cls: "drive-busy", ic: "cloudUp", txt: "Enviando…" };
-    if (p.pending || !p.lastSync) return { o: 2, cls: "drive-off", ic: "cloud", txt: "Na fila" };
-    return { o: 3, cls: "drive-ok", ic: "cloudCheck", txt: "Salvo " + timeAgo(p.lastSync) };
+    if (p.state === "error") return { problem: true, o: 0, cls: "drive-err", ic: "cloudOff", txt: p.error || "Erro" };
+    if (p.state === "syncing") return { problem: true, o: 1, cls: "drive-busy", ic: "cloudUp", txt: "Enviando…" };
+    if (p.pending || !p.lastSync) return { problem: true, o: 2, cls: "drive-busy", ic: "cloud", txt: "Na fila" };
+    return { problem: false, o: 3, cls: "drive-ok", ic: "cloudCheck", txt: timeAgo(p.lastSync) };
   }
+
+  const matches = (name) => !query || name.toLowerCase().includes(query);
 
   function drawList() {
     const el = body.querySelector("#dp-list");
     if (!el) return;
     body.querySelectorAll("[data-tab]").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === tab));
+    const onlyRemote = (remoteCache || []).filter((r) => !r.local);
     const nl = body.querySelector("#dp-n-local"), nr = body.querySelector("#dp-n-remote");
     if (nl && ov) nl.textContent = ov.projects ? ov.projects.length : "";
-    const onlyRemote = (remoteCache || []).filter((r) => !r.local);
     if (nr) nr.textContent = remoteCache ? onlyRemote.length : "";
 
     if (tab === "local") {
       if (!ov) return;
       if (!ov.projects.length) { el.innerHTML = `<div class="dp-empty">Nenhum projeto com sincronização ligada.</div>`; return; }
-      const rows = ov.projects.map((p) => ({ p, s: projState(p) })).sort((a, b) => a.s.o - b.s.o || a.p.name.localeCompare(b.p.name));
-      el.innerHTML = rows.map(({ p, s }) => `<div class="dp-row">
+      const rows = ov.projects.map((p) => ({ p, s: projState(p) }))
+        .filter(({ p, s }) => matches(p.name) && (!onlyProblems || s.problem))
+        .sort((a, b) => a.s.o - b.s.o || a.p.name.localeCompare(b.p.name));
+      if (!rows.length) { el.innerHTML = `<div class="dp-empty">Nenhum projeto encontrado.</div>`; return; }
+      const problems = rows.filter((r) => r.s.problem), ok = rows.filter((r) => !r.s.problem);
+      const row = ({ p, s }) => `<div class="dp-row ${s.problem ? "attention" : ""}">
           <span class="drive-ind ${s.cls}">${icon(s.ic)}</span>
-          <a class="nm" href="/project/${encodeURIComponent(p.name)}">${esc(p.name)}</a>
-          <span class="st ${s.cls}" title="${esc(s.txt)}">${esc(s.txt)}</span>
-        </div>`).join("");
+          <a class="nm" href="/project/${encodeURIComponent(p.name)}" title="Abrir ${esc(p.name)}">${esc(p.name)}</a>
+          <span class="st ${s.problem ? s.cls : ""}" title="${esc(s.problem ? s.txt : "Salvo no Drive " + s.txt)}">${esc(s.txt)}</span>
+        </div>`;
+      // com tudo salvo, uma lista simples; com pendências, elas vêm primeiro, num grupo próprio
+      el.innerHTML = problems.length
+        ? `<div class="dp-group">Precisam de atenção · ${problems.length}</div>${problems.map(row).join("")}`
+          + (ok.length ? `<div class="dp-group">Salvos · ${ok.length}</div>${ok.map(row).join("")}` : "")
+        : ok.map(row).join("");
     } else {
       if (!remoteCache) { el.innerHTML = `<div class="dp-empty">Carregando…</div>`; return; }
-      el.innerHTML = onlyRemote.length ? onlyRemote.map((r) => `<div class="dp-row">
+      const rows = onlyRemote.filter((r) => matches(r.name));
+      el.innerHTML = rows.length ? rows.map((r) => `<div class="dp-row">
           <span class="drive-ind drive-off">${icon("folder")}</span>
           <span class="nm">${esc(r.name)}</span>
+          <span class="st">${r.modified ? timeAgo(Date.parse(r.modified) / 1000) : ""}</span>
           <button class="btn small" data-restore="${esc(r.id)}" data-name="${esc(r.name)}">${icon("download")}Baixar</button>
-        </div>`).join("") : `<div class="dp-empty">Todos os projetos do Drive já estão neste computador.<br><small>Esta lista serve para baixar projetos em outro computador ou recuperar um projeto excluído aqui.</small></div>`;
+        </div>`).join("")
+        : onlyRemote.length
+          ? `<div class="dp-empty">Nenhum projeto encontrado.</div>`
+          : `<div class="dp-empty">Todos os projetos do Drive já estão neste computador.<br><small>Aqui aparecem os projetos que estão só no Drive: de outro computador ou excluídos deste.</small></div>`;
     }
   }
 

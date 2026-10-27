@@ -7,6 +7,7 @@
 import json
 import re
 import threading
+import time
 from pathlib import Path
 
 from flask import abort
@@ -64,13 +65,10 @@ def is_hidden(rel: Path):
 
 
 def load_settings(d: Path):
-    f = d / SETTINGS_FILE
-    s = {}
-    if f.exists():
-        try:
-            s = json.loads(f.read_text(encoding="utf-8"))
-        except ValueError:
-            s = {}
+    try:  # tenta ler direto (em vez de "existe?" + ler: uma consulta a menos ao disco)
+        s = json.loads((d / SETTINGS_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        s = {}
     if not s.get("main") or not (d / s["main"]).exists():
         s["main"] = guess_main(d)
     s.setdefault("autoCompile", False)
@@ -123,6 +121,39 @@ def tree(d: Path):
             }
         )
     return out
+
+
+# ---------------------------------------------------------------- data de modificação (com cache)
+# Descobrir quando um projeto mudou exige olhar todos os arquivos dele, e a lista de projetos
+# é pedida a cada poucos segundos. Então: toda alteração feita pelo TexDesk avisa o cache
+# (touch), e a releitura completa acontece no máximo a cada MTIME_TTL segundos, para pegar
+# mudanças feitas fora do TexDesk (outro editor, o próprio Drive, o Explorer…).
+MTIME_TTL = 60
+_INTERNAL_FILES = {".project.json", ".thumbnail.png", ".drive.json"}
+_mtimes: dict[str, tuple[float, float]] = {}  # projeto -> (última modificação, quando foi medida)
+
+
+def project_mtime(d: Path):
+    cached = _mtimes.get(d.name)
+    now = time.time()
+    if cached and now - cached[1] < MTIME_TTL:
+        return cached[0]
+    mtime = max(
+        (p.stat().st_mtime for p in d.rglob("*") if p.is_file() and p.name not in _INTERNAL_FILES),
+        default=d.stat().st_mtime,
+    )
+    _mtimes[d.name] = (mtime, now)
+    return mtime
+
+
+def touch(name):
+    """O projeto acabou de ser alterado pelo TexDesk."""
+    now = time.time()
+    _mtimes[name] = (now, now)
+
+
+def forget(name):
+    _mtimes.pop(name, None)
 
 
 def png_size(p: Path):

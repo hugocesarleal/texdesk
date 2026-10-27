@@ -14,11 +14,28 @@ from urllib.parse import quote
 from flask import Blueprint, abort, jsonify, request, send_file
 
 from .. import drive_sync, services
-from ..config import OUTPUT, PROJECTS, SETTINGS_FILE, TEMPLATE_META, TEMPLATES, THUMB_FILE
+from ..config import OUTPUT, PROJECTS, TEMPLATE_META, TEMPLATES, THUMB_FILE
 from ..security import json_body
-from ..storage import is_hidden, load_settings, png_size, project_dir, safe_path, save_settings, valid_name
+from ..storage import (
+    forget,
+    is_hidden,
+    load_settings,
+    png_size,
+    project_dir,
+    project_mtime,
+    safe_path,
+    save_settings,
+    valid_name,
+)
 
 bp = Blueprint("projects", __name__)
+
+
+def _mtime_or_none(p: Path):
+    try:
+        return p.stat().st_mtime
+    except OSError:
+        return None
 
 
 @bp.get("/api/projects")
@@ -27,27 +44,21 @@ def list_projects():
     for d in PROJECTS.iterdir():
         if not d.is_dir() or d.name.startswith("."):
             continue
-        mtime = max(
-            (
-                p.stat().st_mtime
-                for p in d.rglob("*")
-                if p.is_file() and p.name not in (THUMB_FILE, SETTINGS_FILE, drive_sync.MANIFEST)
-            ),
-            default=d.stat().st_mtime,
-        )
-        thumb = d / THUMB_FILE
+        mtime = project_mtime(d)  # com cache: não percorre todos os arquivos a cada chamada
         settings = load_settings(d)
+        thumb = d / THUMB_FILE
         pdf = OUTPUT / d.name / (Path(settings["main"]).stem + ".pdf")
-        tw, th = png_size(thumb)
+        thumb_mtime, pdf_mtime = _mtime_or_none(thumb), _mtime_or_none(pdf)  # 1 consulta ao disco cada
+        tw, th = png_size(thumb) if thumb_mtime else (None, None)
         items.append(
             {
                 "name": d.name,
                 "modified": mtime,
-                "thumb": thumb.stat().st_mtime if thumb.exists() else None,
+                "thumb": thumb_mtime,
                 "thumbW": tw,
                 "thumbH": th,
-                "pdf": pdf.stat().st_mtime if pdf.exists() else None,
-                "pdfUrl": f"/api/projects/{quote(d.name)}/output/{quote(pdf.name)}" if pdf.exists() else None,
+                "pdf": pdf_mtime,
+                "pdfUrl": f"/api/projects/{quote(d.name)}/output/{quote(pdf.name)}" if pdf_mtime else None,
                 "drive": services.syncer.get_status(d.name) if settings["driveSync"] else None,
             }
         )
@@ -141,6 +152,7 @@ def delete_project(name):
     shutil.rmtree(d)
     shutil.rmtree(OUTPUT / name, ignore_errors=True)
     services.syncer.forget(name)  # a cópia no Drive é mantida; pode ser restaurada pelo painel
+    forget(name)
     return jsonify({"ok": True})
 
 
@@ -156,6 +168,7 @@ def rename_project(name):
     if (OUTPUT / name).exists():
         (OUTPUT / name).rename(OUTPUT / new)
     services.syncer.forget(name)
+    forget(name)
     services.changed(new)  # renomeia a pasta no Drive
     return jsonify({"name": new})
 

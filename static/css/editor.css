@@ -92,7 +92,6 @@
 .compile-menu label { display: flex; gap: 8px; align-items: center; padding: 6px 8px; cursor: pointer; border-radius: 4px; }
 .compile-menu label:hover { background: var(--panel-2); }
 .spin { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
 .badge { font-size: 11px; border-radius: 9px; padding: 0 6px; min-width: 18px; text-align: center; color: #fff; }
 .badge.err { background: var(--error); }
 .badge.warn { background: var(--warning); }
