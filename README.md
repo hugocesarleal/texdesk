@@ -27,7 +27,7 @@
 - **Local de verdade.** Seus projetos são pastas comuns no seu computador. O TexDesk funciona sem internet depois de instalado, e nada sai da sua máquina a não ser que você ligue o Google Drive.
 - **Sem limites.** Não há tempo máximo de compilação nem limite de projetos ou de colaboradores. Documentos grandes, como TCCs e teses, compilam no seu processador.
 - **Pronto para usar.** Os pacotes de instalação já trazem o motor LaTeX ([Tectonic](https://tectonic-typesetting.github.io/)) e o biber. Os pacotes LaTeX que cada documento usa são baixados sozinhos na primeira compilação.
-- **Feito para o dia a dia acadêmico.** Inclui modelos de artigo e de slides do IFMG, corretor ortográfico em português, histórico de versões e contagem de palavras.
+- **Feito para o dia a dia acadêmico.** Inclui modelo de TCC nas normas da ABNT, modelos de artigo e de slides do IFMG, corretor ortográfico em português, referências pelo DOI, histórico de versões e contagem de palavras.
 
 ## Instalação
 
@@ -45,6 +45,8 @@ Baixe o pacote do seu sistema na [página de releases](https://github.com/hugoce
 
 O TexDesk abre no navegador, em `http://127.0.0.1:5050`. Crie um projeto, escreva e aperte **Ctrl+S** para compilar.
 
+No Chrome e no Edge, o botão **Instalar app** do painel (ou o ícone de instalar na barra de endereço) abre o TexDesk numa janela própria, com ícone na barra de tarefas. A janela usa o servidor local, então o `iniciar` precisa estar rodando.
+
 Na primeira vez, a instalação prepara tudo sozinha, em 1 a 2 minutos:
 - instala as dependências Python (no Linux e no macOS, num ambiente isolado em `.venv/`);
 - baixa os dicionários do corretor ortográfico (português e inglês);
@@ -56,7 +58,7 @@ No Debian e no Ubuntu, pode ser preciso instalar o `python3-venv` antes:
 sudo apt install python3-venv
 ```
 
-Para atualizar, baixe o pacote novo e extraia por cima da pasta antiga. Seus projetos, em `projects/`, são mantidos.
+Para atualizar, baixe o pacote novo e extraia por cima da pasta antiga. Seus projetos, em `projects/`, são mantidos. O painel avisa quando sai uma versão nova (ele consulta as releases do GitHub uma vez por dia; para desligar, defina a variável de ambiente `TEXDESK_UPDATE_CHECK=0`).
 
 <details>
 <summary><b>Instalar a partir do código-fonte</b></summary>
@@ -74,8 +76,12 @@ Depois, rode `iniciar.bat` (Windows) ou `./iniciar.sh` (Linux e macOS). Na prime
 
 ### Editor
 - Realce de sintaxe LaTeX, com autocompletar de comandos, ambientes, rótulos (`\ref`), citações (`\cite`) e pacotes.
-- Corretor ortográfico offline, com os dicionários do LibreOffice, em 8 idiomas. Ele detecta o idioma pelo `babel` e não sublinha comandos, fórmulas nem rótulos. O clique direito numa palavra mostra sugestões e a opção de adicioná-la ao seu dicionário.
-- Busca no arquivo (Ctrl+F) e em todos os arquivos do projeto (Ctrl+Shift+F), com opções de maiúsculas, palavra inteira e expressão regular.
+- Abas com os arquivos abertos. Um ponto na aba indica alteração ainda não salva.
+- Corretor ortográfico offline, com os dicionários do LibreOffice, em 8 idiomas. Ele detecta o idioma pelo `babel` e não sublinha comandos, fórmulas nem rótulos. O clique direito numa palavra mostra sugestões e a opção de adicioná-la ao seu dicionário pessoal, que vale para todos os projetos.
+- Buscar e substituir no arquivo (Ctrl+F, Ctrl+H) e em todos os arquivos do projeto (Ctrl+Shift+F), com opções de maiúsculas, palavra inteira e expressão regular. Antes de substituir em vários arquivos, o projeto é guardado no histórico.
+- Cole uma imagem (Ctrl+V) ou arraste uma para o código: ela é salva na pasta de figuras e entra no texto como uma figura com legenda e rótulo.
+- **Referência** importa uma referência pelo DOI para o `.bib` do projeto e insere o `\cite` no texto.
+- Se um arquivo aberto for alterado fora do editor (outro programa, outra aba), o TexDesk recarrega o arquivo ou, se houver alterações não salvas, pergunta qual versão manter.
 - Estrutura do documento (capítulos e seções) para navegar pelo texto.
 - Salvamento automático e compilação automática opcional.
 
@@ -83,13 +89,16 @@ Depois, rode `iniciar.bat` (Windows) ou `./iniciar.sh` (Linux e macOS). Na prime
 - Tectonic (XeTeX), com BibTeX e biber automáticos e quantas passadas forem necessárias para as referências.
 - O PDF é gerado mesmo quando há erros, como no modo `batchmode`.
 - Erros, avisos e caixas overfull/underfull aparecem no arquivo e na linha certos, inclusive em arquivos incluídos com `\input`.
-- Visualizador de PDF com zoom, contagem e troca de página, e busca de palavras sem diferenciar maiúsculas nem acentos.
+- Dicas em português para os erros mais comuns. Quando falta um pacote, um botão o adiciona ao preâmbulo.
+- Visualizador de PDF com zoom, contagem e troca de página, busca de palavras sem diferenciar maiúsculas nem acentos, e texto selecionável para copiar.
+- Modo apresentação em tela cheia, para slides do Beamer, e opção de ver o PDF com fundo escuro.
 - SyncTeX nos dois sentidos: clique duplo no PDF leva ao código, e um botão leva do código ao ponto no PDF.
 
 ### Projetos
-- Painel com busca e miniatura da primeira página de cada documento.
-- Modelos para começar: em branco, [Slides IFMG](https://github.com/ribeiromarcos/ifslides2024) e [Artigo IFMG](https://github.com/ribeiromarcos/iftex2024).
-- Importar e exportar `.zip`, renomear, duplicar e excluir.
+- Painel com busca, miniatura da primeira página de cada documento, ordem por data ou nome, etiquetas para filtrar e projetos fixados no topo.
+- Modelos para começar: em branco, trabalho acadêmico nas normas da ABNT ([abnTeX2](https://www.abntex.net.br/)), [Slides IFMG](https://github.com/ribeiromarcos/ifslides2024) e [Artigo IFMG](https://github.com/ribeiromarcos/iftex2024).
+- Importar e exportar `.zip`, renomear e duplicar.
+- Lixeira: um projeto excluído fica 30 dias nela, com o histórico de versões, e pode ser restaurado.
 - Árvore de arquivos com pastas, envio por arrastar e soltar, renomear e mover.
 - Contagem de palavras do documento, com texto, títulos, legendas e fórmulas separados.
 
@@ -111,13 +120,16 @@ Sincronização dos projetos com o seu Google Drive a cada 5 segundos durante a 
 |---|---|
 | Ctrl+S ou Ctrl+Enter | Compilar |
 | Ctrl+F | Buscar no arquivo (ou no PDF, se o PDF estiver selecionado) |
-| Ctrl+Shift+F | Buscar em todos os arquivos do projeto |
+| Ctrl+H | Buscar e substituir no arquivo |
+| Ctrl+Shift+F | Buscar e substituir em todos os arquivos do projeto |
 | Ctrl+Espaço | Autocompletar |
 | Ctrl+/ | Comentar ou descomentar as linhas |
 | Ctrl+B / Ctrl+I | Negrito (`\textbf`) / itálico (`\textit`) |
+| Ctrl+V com uma imagem copiada | Inserir a imagem como figura |
 | Alt+G | Ir para a linha |
 | Ctrl+roda do mouse | Zoom do PDF |
 | Clique duplo no PDF | Ir para o trecho correspondente no código |
+| F1 | Lista de todos os atalhos |
 
 No macOS, use Cmd no lugar de Ctrl.
 
@@ -132,7 +144,7 @@ No painel de projetos, clique em **Google Drive**:
 Como funciona:
 - Os projetos ficam em `TexDesk/<projeto>` no seu Drive.
 - O app pede só o escopo `drive.file`: ele enxerga apenas os arquivos que ele mesmo criou, nunca o resto do seu Drive.
-- Arquivos apagados no TexDesk vão para a lixeira do Drive. Excluir um projeto no TexDesk não o apaga do Drive.
+- Arquivos apagados no TexDesk vão para a lixeira do Drive. Excluir um projeto no TexDesk (mesmo esvaziando a lixeira do TexDesk) não o apaga do Drive.
 - Em outro computador, use as mesmas credenciais. O TexDesk oferece importar os projetos que já estão no Drive.
 - O acesso à conta fica no cofre de senhas do sistema (Gerenciador de Credenciais no Windows, Chaves no macOS, Secret Service no Linux).
 - A sincronização vai do computador para o Drive. Se o mesmo projeto for editado em dois computadores ao mesmo tempo, as alterações não são mescladas: vale a última versão enviada.
@@ -186,6 +198,7 @@ Os erros ficam registrados em `logs/texdesk.log`, na pasta do TexDesk. Abra uma 
 Outras observações:
 - O motor é XeTeX: `fontspec` funciona, e `inputenc` é aceito. Projetos feitos para `pdflatex` costumam compilar sem mudanças.
 - O TexDesk atende só em `127.0.0.1` e é feito para uso local, por uma pessoa.
+- O TexDesk só acessa a internet para baixar pacotes LaTeX novos, buscar referências pelo DOI (em doi.org), conferir se há versão nova (nas releases do GitHub) e, se você ligar, sincronizar com o Google Drive.
 
 ## Desenvolvimento
 
@@ -200,8 +213,8 @@ Os testes usam uma pasta de dados temporária e um Google Drive falso, então n�
 Para publicar uma versão, crie uma tag:
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.3.0
+git push origin v0.3.0
 ```
 
 O GitHub Actions monta um pacote para cada sistema, já com o Tectonic, o biber e os dicionários. Depois instala e testa cada pacote no próprio sistema e só então cria a release, com as notas tiradas do [CHANGELOG](CHANGELOG.md).
@@ -220,8 +233,10 @@ texdesk/               servidor (python -m texdesk)
   latexlog.py          leitor do log do TeX (erros, avisos e caixas, com arquivo e linha)
   synctex.py           busca direta e inversa no .synctex.gz
   history.py           histórico de versões (cópias deduplicadas e comprimidas)
-  texttools.py         busca no projeto e contagem de palavras
-  spell.py             corretor ortográfico (dicionários Hunspell)
+  trash.py             lixeira de projetos (30 dias)
+  texttools.py         busca e substituição no projeto e contagem de palavras
+  spell.py             corretor ortográfico (dicionários Hunspell) e dicionário pessoal
+  online.py            referências pelo DOI e aviso de versão nova
   drive_sync.py        sincronização com o Google Drive (OAuth, envio incremental, restauração)
   services.py          conexão com o Drive e processo de sincronização
   routes/              rotas HTTP: pages, projects, files, compile, tools, drive
@@ -229,11 +244,12 @@ static/                interface
   css/                 base.css (cores e componentes), dashboard.css, editor.css
   js/common.js         API, ícones, modais e miniaturas
   js/dashboard/        painel de projetos e do Google Drive
-  js/editor/           editor, compilação, PDF, busca no PDF e ferramentas
+  js/editor/           editor, abas, compilação, PDF, busca no PDF e ferramentas
+  icons/               ícones do aplicativo instalável (gerados por scripts/icones_app.py)
   vendor/              CodeMirror e PDF.js
 templates/             modelos de projeto
 tests/                 testes automáticos (pytest)
-scripts/               empacotamento das releases e imagem de prévia
+scripts/               empacotamento das releases, imagem de prévia e ícones
 docs/                  imagens do README
 projects/              seus projetos (criada no primeiro uso)
 tools/                 Tectonic, biber e dicionários

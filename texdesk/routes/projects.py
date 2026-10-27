@@ -13,7 +13,7 @@ from urllib.parse import quote
 
 from flask import Blueprint, abort, jsonify, request, send_file
 
-from .. import drive_sync, history, services
+from .. import drive_sync, history, services, trash
 from ..config import OUTPUT, PROJECTS, TEMPLATE_META, TEMPLATES, THUMB_FILE
 from ..security import json_body
 from ..storage import (
@@ -60,6 +60,8 @@ def list_projects():
                 "pdf": pdf_mtime,
                 "pdfUrl": f"/api/projects/{quote(d.name)}/output/{quote(pdf.name)}" if pdf_mtime else None,
                 "drive": services.syncer.get_status(d.name) if settings["driveSync"] else None,
+                "tags": settings.get("tags", []),
+                "pinned": bool(settings.get("pinned")),
             }
         )
     items.sort(key=lambda x: -x["modified"])
@@ -95,13 +97,14 @@ def create_project():
     data = json_body()
     name = (data.get("name") or "").strip()
     if not valid_name(name):
-        abort(400, "Nome inválido (use letras, números, espaço, - _ .)")
+        abort(400, "Nome inválido (use letras, números, espaço e - _ . ( ))")
     d = PROJECTS / name
     if d.exists():
         abort(409, "Já existe um projeto com esse nome")
     tpl = TEMPLATES / (data.get("template") or "blank")
     if tpl.is_dir() and TEMPLATES in tpl.resolve().parents:
-        shutil.copytree(tpl, d, ignore=shutil.ignore_patterns(TEMPLATE_META))
+        # copy (sem copy2): os arquivos ganham a data de agora, e o projeto novo aparece no topo
+        shutil.copytree(tpl, d, ignore=shutil.ignore_patterns(TEMPLATE_META), copy_function=shutil.copy)
     else:
         d.mkdir()
         (d / "main.tex").write_text(
@@ -148,13 +151,64 @@ def upload_project():
 
 @bp.delete("/api/projects/<name>")
 def delete_project(name):
-    d = project_dir(name)
-    shutil.rmtree(d)
-    shutil.rmtree(OUTPUT / name, ignore_errors=True)
+    """Manda o projeto para a lixeira (fica trash.TRASH_DAYS dias, com o histórico)."""
+    project_dir(name)
     services.syncer.forget(name)  # a cópia no Drive é mantida; pode ser restaurada pelo painel
+    tid = trash.put(name)
+    shutil.rmtree(OUTPUT / name, ignore_errors=True)
     forget(name)
-    history.delete(name)
+    return jsonify({"ok": True, "trash": tid})
+
+
+@bp.get("/api/trash")
+def list_trash():
+    return jsonify(trash.list_items())
+
+
+def _trash_item(fn, tid):
+    try:
+        return fn(tid)
+    except KeyError:
+        abort(404, "Item não está na lixeira")
+
+
+@bp.post("/api/trash/<tid>/restore")
+def restore_trash(tid):
+    name = _trash_item(trash.restore, tid)
+    services.changed(name)
+    return jsonify({"name": name})
+
+
+@bp.delete("/api/trash/<tid>")
+def delete_trash(tid):
+    _trash_item(trash.remove, tid)
     return jsonify({"ok": True})
+
+
+@bp.delete("/api/trash")
+def empty_trash():
+    trash.empty()
+    return jsonify({"ok": True})
+
+
+@bp.post("/api/projects/<name>/organize")
+def organize_project(name):
+    """Etiquetas e projeto fixado no topo. Não conta como alteração do projeto."""
+    d = project_dir(name)
+    s = load_settings(d)
+    data = json_body()
+    if "tags" in data:
+        tags = data["tags"] if isinstance(data["tags"], list) else []
+        clean = []
+        for t in tags:
+            t = " ".join(str(t).split())[:30]
+            if t and t.lower() not in (c.lower() for c in clean):
+                clean.append(t)
+        s["tags"] = clean[:10]
+    if "pinned" in data:
+        s["pinned"] = bool(data["pinned"])
+    save_settings(d, s)
+    return jsonify({"tags": s.get("tags", []), "pinned": bool(s.get("pinned"))})
 
 
 @bp.post("/api/projects/<name>/rename")

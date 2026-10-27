@@ -31,7 +31,7 @@ SETTINGS_FILE = ".project.json"
 THUMB_FILE = ".thumbnail.png"
 TEMPLATE_META = ".template.json"  # descrição de um modelo (fica fora do projeto criado)
 
-NAME_RE = re.compile(r"^[\w\-. ]{1,80}$", re.UNICODE)  # nome de projeto válido
+NAME_RE = re.compile(r"^[\w\-. ()]{1,80}$", re.UNICODE)  # nome de projeto válido
 TEXT_EXT = {
     ".tex",
     ".bib",

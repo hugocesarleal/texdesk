@@ -5,7 +5,7 @@
 // Diálogo de novo projeto: nome e escolha do modelo.
 
 // ------------------------------------------------------------ novo projeto (nome + escolha do modelo)
-const TEMPLATE_ICONS = { blank: "file", "ifmg-slides": "slides", "ifmg-artigo": "fileText" };
+const TEMPLATE_ICONS = { blank: "file", "ifmg-slides": "slides", "ifmg-artigo": "fileText", abnt: "book" };
 
 $("#new").onclick = async () => {
   let tpls;
@@ -22,7 +22,7 @@ $("#new").onclick = async () => {
             <input type="radio" name="template" value="${esc(t.id)}" ${i === 0 ? "checked" : ""}>
             <span class="tpl-ic">${icon(TEMPLATE_ICONS[t.id] || "file")}</span>
             <b>${esc(t.name)}</b><small>${esc(t.description)}</small>
-            ${t.source ? `<a class="tpl-src" href="${esc(t.source)}" target="_blank" rel="noopener" title="Repositório original do modelo">${icon("external")}${esc(t.source.replace("https://github.com/", ""))}</a>` : ""}
+            ${t.source ? `<a class="tpl-src" href="${esc(t.source)}" target="_blank" rel="noopener" title="Repositório original do modelo">${icon("external")}${esc(t.source.replace(/^https?:\/\/(github\.com\/|www\.)?/, "").replace(/\/$/, ""))}</a>` : ""}
           </label>`).join("")}
       </div>
       <div class="actions"><button type="button" class="btn" data-cancel>Cancelar</button>

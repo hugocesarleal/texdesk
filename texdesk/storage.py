@@ -112,12 +112,15 @@ def tree(d: Path):
         rel = p.relative_to(d)
         if is_hidden(rel):
             continue
+        st = p.stat()
+        is_file = p.is_file()
         out.append(
             {
                 "path": rel.as_posix(),
-                "type": "folder" if p.is_dir() else "file",
-                "text": p.is_file() and is_text(p),
-                "size": p.stat().st_size if p.is_file() else 0,
+                "type": "file" if is_file else "folder",
+                "text": is_file and is_text(p),
+                "size": st.st_size if is_file else 0,
+                "mtime": st.st_mtime if is_file else 0,  # o editor percebe mudanças feitas fora dele
             }
         )
     return out

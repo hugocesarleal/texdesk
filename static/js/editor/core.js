@@ -19,7 +19,8 @@ const state = {
   files: [],
   settings: {},
   current: null,          // caminho do arquivo aberto
-  docs: {},               // path -> {doc, saved, timer}
+  docs: {},               // path -> {doc, saved, mtime, timer, saving, gen, conflict}
+  tabs: store.get(`tabs:${PROJECT}`, []),  // arquivos abertos em abas
   openFolders: new Set(store.get(`folders:${PROJECT}`, [])),
   selectedFolder: "",
   entries: [],
@@ -42,6 +43,11 @@ $("#new-file").innerHTML = icon("newFile");
 $("#new-folder").innerHTML = icon("newFolder");
 $("#upload-files").innerHTML = icon("upload");
 $("#btn-search").innerHTML = icon("search");
+$("#btn-replace").innerHTML = icon("replace");
+$("#ps-toggle-replace").innerHTML = icon("replace");
+$("#btn-cite").innerHTML = icon("book") + '<span class="hide-sm">Referência</span>';
+$("#btn-help").innerHTML = icon("keyboard");
+$("#pdf-present").innerHTML = icon("present");
 $("#pdf-search").innerHTML = icon("search");
 $("#btn-project-search").innerHTML = icon("search");
 $("#ps-close").innerHTML = icon("close");
@@ -97,9 +103,30 @@ const cm = CodeMirror($("#editor-wrap"), {
     "Ctrl-I": () => wrapSelection("\\textit{", "}"),
     "Ctrl-Space": "autocomplete",
     "Alt-G": "jumpToLine",
+    "Ctrl-H": "replace",
+    "Cmd-Alt-F": "replace",
+    "Shift-Ctrl-F": false,  // Ctrl+Shift+F é a busca em todos os arquivos
+    "Shift-Cmd-F": false,
+    "Shift-Ctrl-R": false,
+    "Shift-Cmd-Alt-F": false,
     Tab: (c) => (c.somethingSelected() ? c.indentSelection("add") : c.replaceSelection("  ")),
   },
   hintOptions: { hint: latexHint, completeSingle: false },
+  phrases: {
+    "Search:": "Buscar:",
+    "(Use /re/ syntax for regexp search)": "(use /expressão/ para expressão regular)",
+    "Replace:": "Substituir:",
+    "Replace all:": "Substituir tudo:",
+    "With:": "Por:",
+    "Replace with:": "Substituir por:",
+    "Replace?": "Substituir?",
+    "Yes": "Sim",
+    "No": "Não",
+    "All": "Todas",
+    "Stop": "Parar",
+    "Jump to line:": "Ir para a linha:",
+    "(Use line:column or scroll% syntax)": "(linha:coluna ou porcentagem%)",
+  },
 });
 cm.setOption("fontSize", null);
 const applyFontSize = () => {
@@ -130,6 +157,7 @@ cm.on("change", () => {
   const d = state.docs[state.current];
   if (!d) return;
   setSaveState("Editando…");
+  $("#tabs .tab.on")?.classList.toggle("dirty", d.doc.getValue() !== d.saved);
   clearTimeout(d.timer);
   d.timer = setTimeout(() => saveDoc(state.current), 700);
   scheduleOutline();
@@ -139,21 +167,70 @@ cm.on("change", () => {
 // ------------------------------------------------------------ salvar
 function setSaveState(t) { $("#save-state").textContent = t; }
 
-async function saveDoc(path) {
+async function saveDoc(path, force = false) {
   const d = state.docs[path];
   if (!d) return;
   clearTimeout(d.timer);
+  if (d.conflict && !force) return;  // esperando o usuário escolher qual versão fica
   const content = d.doc.getValue();
-  if (content === d.saved) { setSaveState("Salvo"); return; }
+  if (content === d.saved && !force) { setSaveState("Salvo"); renderTabs(); return; }
+  d.saving = (d.saving || 0) + 1;
   try {
-    await api(`${P}/file`, { method: "PUT", json: { path, content } });
+    const r = await api(`${P}/file`, { method: "PUT", json: { path, content, mtime: d.mtime, force } });
     d.saved = content;
+    d.mtime = r.mtime;
+    d.gen = (d.gen || 0) + 1;
+    d.conflict = false;
     setSaveState("Salvo");
     if (state.settings.driveSync) setTimeout(pollDrive, 300);
   } catch (e) {
+    if (e.data && e.data.conflict) { resolveConflict(path, e.data); return; }
     setSaveState("Erro ao salvar");
     toast("Erro ao salvar: " + e.message);
+  } finally {
+    d.saving--;
+    renderTabs();
   }
+}
+
+// O arquivo mudou no disco (outro programa, outra aba, restauração) enquanto havia
+// alterações não salvas aqui: o usuário escolhe qual versão fica.
+async function resolveConflict(path, disk) {
+  const d = state.docs[path];
+  if (!d || d.conflict) return;
+  d.conflict = true;
+  setSaveState("Alterado fora do editor");
+  const keepMine = await modal({
+    title: "Arquivo alterado fora do editor",
+    body: `<p><b>${esc(path)}</b> foi alterado por outro programa (ou em outra aba) enquanto você o editava aqui.</p>
+      <p class="muted small">Manter a sua grava por cima da versão do disco, que fica guardada no Histórico. Usar a do disco descarta o que você mudou aqui desde o último salvamento.</p>`,
+    ok: "Manter a minha",
+    cancel: "Usar a do disco",
+    dismissable: false,
+  });
+  if (!state.docs[path]) return;
+  if (keepMine) {
+    await saveDoc(path, true);
+  } else {
+    loadDiskVersion(path, disk.content, disk.mtime);
+    d.conflict = false;
+    setSaveState("Salvo");
+  }
+}
+
+// Troca o conteúdo do documento pelo do disco, mantendo cursor e rolagem.
+function loadDiskVersion(path, content, mtime) {
+  const d = state.docs[path];
+  if (!d) return;
+  const cursor = d.doc.getCursor();
+  const scroll = d.doc === cm.getDoc() ? cm.getScrollInfo() : null;
+  d.saved = content;
+  d.mtime = mtime;
+  d.doc.setValue(content);
+  d.doc.setCursor(cursor);
+  if (scroll) cm.scrollTo(scroll.left, scroll.top);
+  clearTimeout(d.timer);
+  renderTabs();
 }
 
 async function saveAll() {

@@ -51,7 +51,7 @@ def proj(api):
 
 def test_modelos_disponiveis(api):
     ids = [t["id"] for t in api.get("/api/templates").get_json()]
-    assert ids == ["blank", "ifmg-slides", "ifmg-artigo"]
+    assert ids == ["blank", "ifmg-slides", "ifmg-artigo", "abnt"]
 
 
 def test_criar_a_partir_de_modelo_nao_copia_metadados(api):

@@ -75,6 +75,17 @@ input[type=text]:focus, select:focus { outline: 2px solid var(--accent); outline
 .modal label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
 .modal label.check { flex-direction: row; align-items: center; color: var(--text); }
 .modal .actions { display: flex; justify-content: flex-end; gap: 8px; }
+.modal label small { color: var(--muted); font-size: 12px; }
+.modal h3.modal-sec {
+  margin: 6px 0 -4px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted);
+  padding-bottom: 4px; border-bottom: 1px solid var(--border);
+}
+
+/* janela só de informação (panel) */
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.panel-body { min-height: 0; }
+.modal .muted, .panel-body .muted { color: var(--muted); }
+.panel-body .small, .panel-body small { font-size: 12px; }
 
 .toast {
   position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);

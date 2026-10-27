@@ -18,6 +18,8 @@ O TexDesk usa os componentes abaixo. Nenhum deles é modificado. A tabela diz co
 | [IFTeX2024](https://github.com/ribeiromarcos/iftex2024) (`iftex2024.cls`, `biblatexfix.sty`), por Marcos Roberto Ribeiro (IFMG) | Modelo "Artigo IFMG" (`templates/ifmg-artigo/`) | Incluído no repositório, sem modificações | GPL-3.0 |
 | [IFSlides2024](https://github.com/ribeiromarcos/ifslides2024) (`ifslides2024.sty`, `biblatexfix.sty`), por Marcos Roberto Ribeiro (IFMG) | Modelo "Slides IFMG" (`templates/ifmg-slides/`) | Incluído no repositório, sem modificações | GPL-3.0 |
 
+| [abnTeX2](https://www.abntex.net.br/) | Classe e estilos do modelo "Trabalho acadêmico ABNT" (`templates/abnt/`) | Baixado pelo Tectonic na compilação (não fica no repositório). O documento inicial do modelo foi escrito para o TexDesk, seguindo a estrutura do modelo canônico do abnTeX2 | LPPL-1.3c |
+
 Os pacotes LaTeX (classes, estilos, fontes) usados nas compilações são baixados pelo Tectonic sob demanda e seguem as licenças de cada pacote, em geral a LPPL.
 
 Os binários do Tectonic e do Biber não fazem parte deste repositório: o `setup.ps1` baixa cada um do site oficial do respectivo projeto.

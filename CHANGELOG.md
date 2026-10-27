@@ -4,6 +4,34 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.3.0] - 2026-10-27
+
+Abas, lixeira, dicas nos erros, referências pelo DOI, modelo ABNT e um painel de projetos mais organizado.
+
+### Adicionado
+- Abas com os arquivos abertos no editor. Um ponto na aba indica alteração ainda não salva, e o clique do meio fecha a aba.
+- Lixeira de projetos: um projeto excluído fica 30 dias nela, com o histórico de versões, e pode ser restaurado.
+- Detecção de mudanças feitas fora do editor: se um arquivo aberto mudar no disco, o TexDesk recarrega o arquivo ou, se houver alterações não salvas, pergunta qual versão manter. A versão que fica de fora vai para o histórico.
+- Buscar e substituir no arquivo (Ctrl+H) e em todos os arquivos do projeto, com o projeto guardado no histórico antes da substituição.
+- Dicas em português para os erros de compilação mais comuns, com um botão que adiciona ao preâmbulo o pacote que falta.
+- Referências pelo DOI: o botão **Referência** busca a referência em BibTeX no doi.org, acrescenta ao `.bib` e insere o `\cite` no texto.
+- Colar (Ctrl+V) ou arrastar uma imagem para o código salva a imagem na pasta de figuras e insere a figura com legenda e rótulo.
+- Texto selecionável no PDF, para copiar trechos.
+- Modo apresentação em tela cheia, para slides, e opção de PDF com fundo escuro.
+- Modelo "Trabalho acadêmico ABNT", com a classe abnTeX2: capa, folha de rosto, resumos, listas, sumário, capítulos e referências no padrão autor-data.
+- Painel de projetos: ordem por data ou nome, etiquetas para filtrar e projetos fixados no topo.
+- Aviso de versão nova no painel (consulta as releases do GitHub uma vez por dia; `TEXDESK_UPDATE_CHECK=0` desliga).
+- O TexDesk pode ser instalado como aplicativo no Chrome e no Edge, numa janela própria.
+- Janela com todos os atalhos de teclado (F1).
+
+### Alterado
+- As configurações do editor estão separadas em "Este projeto" e "Editor (todos os projetos)".
+- O dicionário pessoal do corretor passa a ficar com os dados do TexDesk, e não mais no navegador. As palavras já adicionadas são levadas automaticamente, e a lista pode ser revista nas Configurações.
+- Projetos criados a partir de um modelo aparecem como modificados agora, no topo da lista.
+
+### Corrigido
+- Duplicar um projeto com o nome sugerido ("… (cópia)") dava erro de nome inválido: nomes de projeto agora aceitam parênteses.
+
 ## [0.2.0] - 2026-10-27
 
 Ferramentas de escrita: busca no PDF e no projeto, corretor ortográfico, contagem de palavras e histórico de versões.
@@ -62,6 +90,7 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.2.0...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/hugocesarleal/texdesk/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/hugocesarleal/texdesk/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/hugocesarleal/texdesk/releases/tag/v0.1.0

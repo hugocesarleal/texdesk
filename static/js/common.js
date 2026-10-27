@@ -19,7 +19,12 @@ async function api(url, opts = {}) {
   const r = await fetch(url, o);
   const ct = r.headers.get("content-type") || "";
   const data = ct.includes("json") ? await r.json() : await r.text();
-  if (!r.ok) throw new Error((data && data.error) || r.statusText);
+  if (!r.ok) {
+    const err = new Error((data && data.error) || r.statusText);
+    err.status = r.status;
+    err.data = data;  // ex.: conflito ao salvar traz o conteúdo do disco
+    throw err;
+  }
   return data;
 }
 
@@ -66,6 +71,18 @@ const ICONS = {
   cloudCheck: '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><path d="M9 14l2 2 4-4"/>',
   cloudUp: '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><path d="M12 17v-5M9.5 14.5L12 12l2.5 2.5"/>',
   cloudOff: '<path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3M1 1l22 22"/>',
+  replace: '<path d="M4 7h11M4 7l3-3M4 7l3 3M20 17H9M20 17l-3-3M20 17l-3 3"/>',
+  book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+  help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/>',
+  keyboard: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M8 17h8M10 13h4"/>',
+  tag: '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><path d="M7 7h.01"/>',
+  pin: '<path d="M12 17v5M5 17h14l-1.5-3.5V5a1 1 0 0 0-1-1h-9a1 1 0 0 0-1 1v8.5z"/>',
+  moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+  present: '<path d="M2 3h20M4 3v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3M12 16v5M8 21h8"/><path d="M10 7l4 2.5-4 2.5z"/>',
+  bulb: '<path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.74V16h8v-1.26A7 7 0 0 0 12 2z"/>',
+  restore: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+  install: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 8v6M9 11l3 3 3-3M8 21h8"/>',
 };
 
 // Estado de sincronização com o Drive -> {icon, cls, text}
@@ -94,12 +111,16 @@ function toast(msg, ms = 3000) {
   setTimeout(() => t.remove(), ms);
 }
 
-// Modal genérico. fields: [{name, label, value, type: text|select|check, options}]
-function modal({ title, fields = [], ok = "OK", danger = false, body = "" }) {
+// Modal genérico. fields: [{name, label, value, type: text|select|check|heading|html, options, hint}]
+// cancel: texto do botão de cancelar; dismissable: false impede fechar com Esc ou clique fora
+// (para escolhas que não podem ser "nenhuma das duas").
+function modal({ title, fields = [], ok = "OK", danger = false, body = "", cancel = "Cancelar", dismissable = true, cls = "" }) {
   return new Promise((resolve) => {
     const bg = document.createElement("div");
     bg.className = "modal-bg";
     const inputs = fields.map((f) => {
+      if (f.type === "heading") return `<h3 class="modal-sec">${esc(f.label)}</h3>`;
+      if (f.type === "html") return f.html;
       if (f.type === "select") {
         const opts = f.options.map((o) => `<option value="${esc(o.value ?? o)}" ${(o.value ?? o) === f.value ? "selected" : ""}>${esc(o.label ?? o)}</option>`).join("");
         return `<label>${esc(f.label)}<select name="${f.name}">${opts}</select></label>`;
@@ -107,20 +128,20 @@ function modal({ title, fields = [], ok = "OK", danger = false, body = "" }) {
       if (f.type === "check") {
         return `<label class="check"><input type="checkbox" name="${f.name}" ${f.value ? "checked" : ""}> ${esc(f.label)}</label>`;
       }
-      return `<label>${esc(f.label)}<input type="text" name="${f.name}" value="${esc(f.value || "")}" autocomplete="off"></label>`;
+      return `<label>${esc(f.label)}<input type="text" name="${f.name}" value="${esc(f.value || "")}" autocomplete="off" ${f.placeholder ? `placeholder="${esc(f.placeholder)}"` : ""}>${f.hint ? `<small>${f.hint}</small>` : ""}</label>`;
     }).join("");
-    bg.innerHTML = `<form class="modal"><h2>${esc(title)}</h2>${body}${inputs}
-      <div class="actions"><button type="button" class="btn" data-cancel>Cancelar</button>
+    bg.innerHTML = `<form class="modal ${cls}"><h2>${esc(title)}</h2>${body}${inputs}
+      <div class="actions"><button type="button" class="btn" data-cancel>${esc(cancel)}</button>
       <button type="submit" class="btn ${danger ? "danger" : "primary"}">${esc(ok)}</button></div></form>`;
     const form = bg.querySelector("form");
     const close = (v) => { bg.remove(); resolve(v); };
-    bg.addEventListener("mousedown", (e) => { if (e.target === bg) close(null); });
+    bg.addEventListener("mousedown", (e) => { if (e.target === bg && dismissable) close(null); });
     bg.querySelector("[data-cancel]").onclick = () => close(null);
-    form.addEventListener("keydown", (e) => { if (e.key === "Escape") close(null); });
+    form.addEventListener("keydown", (e) => { if (e.key === "Escape" && dismissable) close(null); });
     form.onsubmit = (e) => {
       e.preventDefault();
       const out = {};
-      fields.forEach((f) => {
+      fields.filter((f) => f.name).forEach((f) => {
         const el = form.elements[f.name];
         out[f.name] = f.type === "check" ? el.checked : el.value;
       });
@@ -132,6 +153,25 @@ function modal({ title, fields = [], ok = "OK", danger = false, body = "" }) {
     if (first && first.select) first.select();
   });
 }
+
+// Janela só de informação (sem formulário), fechada com Esc, clique fora ou no X.
+function panel({ title, body, cls = "", onClose = null }) {
+  const bg = document.createElement("div");
+  bg.className = "modal-bg";
+  bg.innerHTML = `<div class="modal ${cls}" role="dialog" aria-label="${esc(title)}">
+    <div class="panel-head"><h2>${esc(title)}</h2><button class="icon-btn" data-close title="Fechar (Esc)">${icon("close")}</button></div>
+    <div class="panel-body">${body}</div></div>`;
+  const close = () => { bg.remove(); removeEventListener("keydown", onKey, true); onClose && onClose(); };
+  const onKey = (e) => { if (e.key === "Escape" && !document.querySelector(".modal-bg form")) { e.stopPropagation(); close(); } };
+  bg.addEventListener("mousedown", (e) => { if (e.target === bg) close(); });
+  bg.querySelector("[data-close]").onclick = close;
+  addEventListener("keydown", onKey, true);
+  document.body.appendChild(bg);
+  return { el: bg.querySelector(".panel-body"), close };
+}
+
+const fmtNum = (n) => n.toLocaleString("pt-BR");
+const plural = (n, one, many = one + "s") => `${fmtNum(n)} ${n === 1 ? one : many}`;
 
 const THUMB_SIZE = 480;
 

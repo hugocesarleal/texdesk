@@ -17,6 +17,12 @@ def index():
     return send_from_directory(STATIC, "index.html")
 
 
+@bp.get("/manifest.webmanifest")
+def manifest():
+    """Manifesto do aplicativo: o Chrome e o Edge deixam instalar o TexDesk em janela própria."""
+    return send_from_directory(STATIC, "manifest.webmanifest", mimetype="application/manifest+json")
+
+
 @bp.get("/project/<name>")
 def editor(name):
     project_dir(name)

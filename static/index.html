@@ -10,6 +10,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TexDesk — Projetos</title>
 <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<meta name="theme-color" content="#138a36">
 <link rel="stylesheet" href="/static/css/base.css">
 <link rel="stylesheet" href="/static/css/dashboard.css">
 <script src="/static/vendor/pdfjs-3.11.174/pdf.min.js"></script>
@@ -18,17 +21,28 @@
 <body>
 <header class="dash-top">
   <a class="logo" href="/"><img src="/static/logo.svg" alt="" width="32" height="32"><span class="wordmark">Tex<b>Desk</b></span></a>
+  <span class="grow"></span>
+  <button class="btn small" id="install" hidden title="Abrir o TexDesk numa janela própria, com ícone na barra de tarefas"></button>
 </header>
 <main class="dash">
+  <div class="update-banner" id="update" hidden></div>
   <div class="dash-head">
     <h1>Seus projetos</h1>
     <input type="text" class="dash-search" id="search" placeholder="Buscar projetos…">
+    <select class="dash-sort" id="sort" aria-label="Ordenar projetos" title="Ordenar">
+      <option value="recent">Mais recentes</option>
+      <option value="old">Mais antigos</option>
+      <option value="az">Nome A–Z</option>
+      <option value="za">Nome Z–A</option>
+    </select>
     <button class="btn" id="drive"></button>
     <button class="btn" id="upload"></button>
     <button class="btn primary" id="new"></button>
     <input type="file" id="zipfile" accept=".zip" hidden>
   </div>
+  <div class="tag-filter" id="tags" hidden></div>
   <div id="list"></div>
+  <div class="dash-trash"><button class="btn small" id="trash"></button></div>
 </main>
 <footer class="dash-foot">
   TexDesk · código aberto sob a licença MIT ·

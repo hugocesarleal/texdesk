@@ -196,10 +196,6 @@
 .ps-hit mark { background: rgba(255, 196, 0, .45); color: inherit; border-radius: 2px; }
 
 /* ---------------- janelas de ferramentas */
-.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.panel-body { min-height: 0; }
-.modal .muted, .panel-body .muted { color: var(--muted); }
-.panel-body .small, .panel-body small { font-size: 12px; }
 .modal.words { width: min(420px, 100%); }
 .wc-total { display: flex; flex-direction: column; align-items: center; padding: 10px 0 14px; }
 .wc-total b { font-size: 34px; line-height: 1.1; font-variant-numeric: tabular-nums; }
@@ -267,3 +263,84 @@
 .spell-menu button:hover { background: var(--accent-soft); }
 .spell-menu .muted { color: var(--muted); padding: 6px 10px; }
 .spell-menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
+
+/* ---------------- abas dos arquivos abertos */
+.tabs {
+  flex: 1; min-width: 0; display: flex; align-self: stretch; overflow-x: auto; overflow-y: hidden;
+  position: relative; scrollbar-width: none; margin-left: -6px;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  display: flex; align-items: center; gap: 2px; padding: 0 4px 0 12px; max-width: 220px; flex: none;
+  border-right: 1px solid var(--border); color: var(--muted); cursor: pointer; user-select: none; position: relative;
+}
+.tab:hover { background: var(--panel-2); color: var(--text); }
+.tab.on { color: var(--text); background: var(--bg); box-shadow: inset 0 -2px 0 var(--accent); font-weight: 600; }
+.tab .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab .x {
+  border: 0; background: transparent; color: inherit; width: 20px; height: 20px; border-radius: 4px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; flex: none;
+}
+.tab .x svg { width: 12px; height: 12px; }
+.tab:hover .x, .tab.on .x { opacity: .75; }
+.tab .x:hover { opacity: 1; background: rgba(127, 127, 127, .2); }
+/* alteração ainda não salva: um ponto no lugar do X (o X aparece ao passar o mouse) */
+.tab.dirty .x { opacity: 1; }
+.tab.dirty .x svg { display: none; }
+.tab.dirty .x::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.tab.dirty .x:hover svg { display: block; }
+.tab.dirty .x:hover::after { display: none; }
+
+/* ---------------- substituir em todos os arquivos */
+.ps-opt svg { width: 13px; height: 13px; vertical-align: -2px; }
+.ps-replace { display: flex; gap: 4px; padding: 0 8px 8px; }
+.ps-replace input { flex: 1; min-width: 0; padding: 5px 8px; font-size: 13px; }
+
+/* ---------------- PDF: texto selecionável, fundo escuro e apresentação */
+.textLayer {
+  position: absolute; inset: 0; overflow: hidden; line-height: 1; text-align: initial; z-index: 2;
+  -webkit-text-size-adjust: none; text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0;
+}
+.textLayer :is(span, br) { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
+.textLayer span.markedContent { top: 0; height: 0; }
+.textLayer ::selection { background: rgba(0, 100, 255, .28); }
+.textLayer br::selection { background: transparent; }
+.find-hl, .sync-hl { z-index: 3; }
+.pdf-view.dark .pdf-page { background: #1e1e1e; }
+.pdf-view.dark .pdf-page canvas { filter: invert(1) hue-rotate(180deg); }
+.present {
+  position: fixed; inset: 0; z-index: 500; background: #000; display: flex; align-items: center; justify-content: center;
+  cursor: none;
+}
+.present canvas { display: block; background: #fff; }
+.present-num {
+  position: fixed; right: 18px; bottom: 14px; color: #fff; background: rgba(0, 0, 0, .55); padding: 3px 10px;
+  border-radius: 12px; font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none;
+}
+.present-num.on { opacity: 1; }
+
+/* ---------------- dicas nos erros de compilação */
+.log-hint {
+  display: flex; gap: 8px; align-items: flex-start; margin-top: 6px; padding: 8px 10px; border-radius: var(--radius);
+  background: var(--info-soft); color: var(--text); font-size: 12.5px; line-height: 1.5;
+}
+.log-hint > svg { width: 15px; height: 15px; flex: none; color: var(--info); margin-top: 2px; }
+.log-hint code { background: rgba(127, 127, 127, .16); padding: 0 4px; border-radius: 3px; font-size: 12px; }
+.log-hint .btn { margin-top: 6px; display: flex; width: fit-content; }
+
+/* ---------------- configurações, atalhos e dicionário pessoal */
+.modal.settings { max-height: 92vh; overflow: auto; gap: 12px; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; }
+.modal.keys { width: min(560px, 100%); max-height: 88vh; overflow: auto; }
+.keys-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.keys-table td { padding: 5px 2px; border-top: 1px solid var(--border); }
+.keys-table td:last-child { text-align: right; white-space: nowrap; }
+kbd {
+  display: inline-block; font: 600 11.5px "Segoe UI", system-ui, sans-serif; padding: 1px 6px; border-radius: 4px;
+  border: 1px solid var(--border); border-bottom-width: 2px; background: var(--panel-2); color: var(--text); margin-left: 2px;
+}
+.modal.pdict { width: min(420px, 100%); max-height: 80vh; }
+.modal.pdict .panel-body { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow: hidden; }
+.pdict-list { overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); max-height: 50vh; }
+.pdict-row { display: flex; align-items: center; justify-content: space-between; padding: 3px 4px 3px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.pdict-row:last-child { border-bottom: 0; }

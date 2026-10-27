@@ -16,3 +16,4 @@
 offerDriveImport();
 
 load();
+checkUpdate();

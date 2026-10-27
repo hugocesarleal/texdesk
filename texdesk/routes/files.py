@@ -46,7 +46,24 @@ def write_file(name):
     d = project_dir(name)
     data = json_body()
     p = safe_path(d, data.get("path"))
-    history.maybe_snapshot(d, name)  # guarda como estava antes de começar a editar
+    # o editor manda a data de modificação do arquivo que ele abriu: se o arquivo mudou
+    # depois disso (outro programa, outra aba, restauração), não grava por cima sem perguntar
+    base = data.get("mtime")
+    if base is not None and not data.get("force") and p.is_file():
+        now = p.stat().st_mtime
+        if abs(now - float(base)) > 0.001:
+            return jsonify(
+                {
+                    "error": "O arquivo foi alterado fora do editor",
+                    "conflict": True,
+                    "mtime": now,
+                    "content": p.read_text(encoding="utf-8", errors="replace"),
+                }
+            ), 409
+    if data.get("force"):
+        history.snapshot(d, name)  # a versão de fora que vai ser substituída fica no histórico
+    else:
+        history.maybe_snapshot(d, name)  # guarda como estava antes de começar a editar
     p.parent.mkdir(parents=True, exist_ok=True)
     with open(p, "w", encoding="utf-8", newline="") as fh:
         fh.write(data.get("content", ""))

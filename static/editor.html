@@ -10,6 +10,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TexDesk — Editor</title>
 <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<meta name="theme-color" content="#138a36">
 <link rel="stylesheet" href="/static/vendor/codemirror-5.65.16/lib/codemirror.css">
 <link rel="stylesheet" href="/static/vendor/codemirror-5.65.16/addon/hint/show-hint.css">
 <link rel="stylesheet" href="/static/vendor/codemirror-5.65.16/addon/dialog/dialog.css">
@@ -43,7 +46,9 @@
     <span class="save-state" id="save-state"></span>
     <button class="tb-btn" id="btn-words" title="Contagem de palavras"></button>
     <button class="tb-btn" id="btn-history" title="Histórico de versões"></button>
+    <button class="tb-btn" id="btn-cite" title="Adicionar referência pelo DOI"></button>
     <button class="tb-btn hide-sm" id="btn-zip" title="Baixar projeto .zip"></button>
+    <button class="tb-btn hide-sm" id="btn-help" title="Atalhos de teclado (F1)"></button>
     <button class="tb-btn" id="btn-settings" title="Configurações"></button>
   </header>
 
@@ -68,7 +73,12 @@
           <button class="ps-opt" data-opt="case" aria-pressed="false" title="Diferenciar maiúsculas e minúsculas">Aa</button>
           <button class="ps-opt" data-opt="word" aria-pressed="false" title="Palavra inteira">ab|</button>
           <button class="ps-opt" data-opt="regex" aria-pressed="false" title="Expressão regular">.*</button>
+          <button class="ps-opt" id="ps-toggle-replace" aria-pressed="false" title="Substituir"></button>
           <span class="ps-summary" id="ps-summary"></span>
+        </div>
+        <div class="ps-replace" id="ps-replace" hidden>
+          <input type="text" id="ps-repl" placeholder="Substituir por" aria-label="Substituir por" autocomplete="off" spellcheck="false">
+          <button class="btn small" id="ps-replace-all" title="Substituir todas as ocorrências encontradas">Substituir tudo</button>
         </div>
         <div class="ps-results" id="ps-results"></div>
       </div>
@@ -77,8 +87,9 @@
 
     <section class="pane pane-editor" id="pane-editor">
       <div class="pane-head">
-        <span class="grow" id="current-file"></span>
+        <div class="tabs" id="tabs" role="tablist" aria-label="Arquivos abertos"></div>
         <button class="icon-btn" id="btn-search" title="Buscar (Ctrl+F)"></button>
+        <button class="icon-btn" id="btn-replace" title="Buscar e substituir (Ctrl+H)"></button>
       </div>
       <div class="editor-wrap" id="editor-wrap"></div>
       <div class="preview" id="preview" hidden></div>
@@ -108,6 +119,7 @@
         <span class="zoom-label" id="zoom-label">100%</span>
         <button class="icon-btn" id="zoom-in" title="Aumentar zoom"></button>
         <button class="icon-btn" id="zoom-fit" title="Ajustar à largura"></button>
+        <button class="icon-btn" id="pdf-present" title="Apresentar em tela cheia"></button>
         <a class="icon-btn" id="btn-download" title="Baixar PDF" download></a>
       </div>
       <div class="pdf-body">
@@ -137,6 +149,7 @@
 <script src="/static/js/editor/pdfsearch.js"></script>
 <script src="/static/js/editor/layout.js"></script>
 <script src="/static/js/editor/tools.js"></script>
+<script src="/static/js/editor/insert.js"></script>
 <script src="/static/js/editor/main.js"></script>
 </body>
 </html>

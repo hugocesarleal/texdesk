@@ -1,0 +1,110 @@
+% Trabalho acadêmico nas normas da ABNT com a classe abnTeX2 (https://www.abntex.net.br/).
+% Troque os dados abaixo e escreva os capítulos em capitulos/.
+\documentclass[
+  12pt,
+  openany,       % capítulos começam em qualquer página (use openright para impressão frente e verso)
+  oneside,       % troque por twoside para imprimir frente e verso
+  a4paper,
+  english,       % idioma adicional (abstract)
+  brazil         % idioma principal: o último da lista
+]{abntex2}
+
+\usepackage{fontspec}
+\usepackage{indentfirst}         % recua o primeiro parágrafo de cada seção
+\usepackage{graphicx}
+\usepackage{microtype}
+\usepackage[brazilian,hyperpageref]{backref}
+\usepackage[alf]{abntex2cite}    % citações autor-data (alf) ou numéricas (num)
+
+% páginas citadas na bibliografia
+\renewcommand{\backrefpagesname}{Citado na(s) página(s):~}
+\renewcommand{\backref}{}
+\renewcommand*{\backrefalt}[4]{%
+  \ifcase #1 Nenhuma citação no texto.%
+  \or Citado na página #2.%
+  \else Citado #1 vezes nas páginas #2.%
+  \fi}
+
+% ---------------------------------------------------------------- dados do trabalho
+\titulo{Título do trabalho}
+\autor{Nome do Autor}
+\local{Cidade}
+\data{2026}
+\orientador{Prof. Dr. Nome do Orientador}
+\instituicao{%
+  Nome da Instituição
+  \par
+  Nome do Departamento ou Curso}
+\tipotrabalho{Trabalho de Conclusão de Curso}
+\preambulo{Trabalho de Conclusão de Curso apresentado ao curso de Nome do Curso da Nome da Instituição, como requisito parcial para a obtenção do título de Bacharel.}
+
+% links e informações do PDF
+\makeatletter
+\hypersetup{
+  pdftitle={\@title},
+  pdfauthor={\@author},
+  pdfsubject={\imprimirpreambulo},
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=black,
+  urlcolor=blue,
+  bookmarksdepth=4
+}
+\makeatother
+
+\setlength{\parindent}{1.3cm}
+\setlength{\parskip}{0.2cm}
+
+\makeindex
+
+\begin{document}
+
+\selectlanguage{brazil}
+\frenchspacing
+
+% ---------------------------------------------------------------- elementos pré-textuais
+\imprimircapa
+\imprimirfolhaderosto
+
+\begin{resumo}
+  Escreva aqui o resumo do trabalho, em um único parágrafo de 150 a 500 palavras, com o
+  objetivo, o método, os resultados e as conclusões.
+
+  \textbf{Palavras-chave}: palavra-chave. outra palavra-chave. mais uma.
+\end{resumo}
+
+\begin{resumo}[Abstract]
+  \begin{otherlanguage*}{english}
+    Write the abstract here.
+
+    \vspace{\onelineskip}
+    \noindent
+    \textbf{Keywords}: keyword. another keyword.
+  \end{otherlanguage*}
+\end{resumo}
+
+\pdfbookmark[0]{\listfigurename}{lof}
+\listoffigures*
+\cleardoublepage
+
+\pdfbookmark[0]{\listtablename}{lot}
+\listoftables*
+\cleardoublepage
+
+\pdfbookmark[0]{\contentsname}{toc}
+\tableofcontents*
+\cleardoublepage
+
+% ---------------------------------------------------------------- elementos textuais
+\textual
+
+\include{capitulos/introducao}
+\include{capitulos/desenvolvimento}
+\include{capitulos/conclusao}
+
+% ---------------------------------------------------------------- elementos pós-textuais
+\postextual
+
+\bibliography{referencias}
+
+\end{document}

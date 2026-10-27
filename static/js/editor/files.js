@@ -66,10 +66,13 @@ $("#tree").addEventListener("click", async (e) => {
     const ok = await modal({ title: "Excluir", body: `<p>Excluir <b>${esc(path)}</b>?</p>`, ok: "Excluir", danger: true });
     if (!ok) return;
     await api(`${P}/file?path=${encodeURIComponent(path)}`, { method: "DELETE" });
-    Object.keys(state.docs).forEach((p) => { if (p === path || p.startsWith(path + "/")) delete state.docs[p]; });
-    if (state.current && (state.current === path || state.current.startsWith(path + "/"))) state.current = null;
+    const inside = (p) => p === path || p.startsWith(path + "/");
+    Object.keys(state.docs).forEach((p) => { if (inside(p)) delete state.docs[p]; });
+    state.tabs = state.tabs.filter((p) => !inside(p));
+    if (state.current && inside(state.current)) state.current = null;
     await loadFiles();
-    if (!state.current) openFile(state.settings.main);
+    if (!state.current) openFile(state.tabs[state.tabs.length - 1] || state.settings.main);
+    else renderTabs();
     return;
   }
   if (act === "rename") {
@@ -78,17 +81,19 @@ $("#tree").addEventListener("click", async (e) => {
     try {
       await saveAll();
       await api(`${P}/move`, { json: { from: path, to: r.to } });
+      const moved = (p) => (p === path || p.startsWith(path + "/") ? r.to + p.slice(path.length) : p);
       for (const p of Object.keys(state.docs)) {
-        if (p === path || p.startsWith(path + "/")) {
-          const np = r.to + p.slice(path.length);
-          state.docs[np] = state.docs[p];
-          delete state.docs[p];
-          if (state.current === p) state.current = np;
-        }
+        const np = moved(p);
+        if (np === p) continue;
+        state.docs[np] = state.docs[p];
+        delete state.docs[p];
+        state.docs[np].mtime = null;  // o arquivo movido é outro no disco: não confere conflito
       }
+      state.current = state.current && moved(state.current);
+      state.tabs = state.tabs.map(moved);
       state.settings = await api(`${P}/settings`);
       await loadFiles();
-      $("#current-file").textContent = state.current || "";
+      renderTabs();
     } catch (err) { toast(err.message); }
     return;
   }
@@ -165,7 +170,8 @@ async function openFile(path) {
   if (!f) return;
   if (state.current && state.docs[state.current]) saveDoc(state.current);
   state.current = path;
-  $("#current-file").textContent = path;
+  if (!state.tabs.includes(path)) state.tabs.push(path);
+  renderTabs();
   renderTree();
 
   if (!f.text) {
@@ -183,7 +189,7 @@ async function openFile(path) {
   if (!state.docs[path]) {
     const data = await api(`${P}/file?path=${encodeURIComponent(path)}`);
     const mode = /\.bib$/i.test(path) ? "stex" : /\.(tex|sty|cls|ltx|dtx|bbx|cbx)$/i.test(path) ? "stex" : "text/plain";
-    state.docs[path] = { doc: CodeMirror.Doc(data.content, mode), saved: data.content, timer: null };
+    state.docs[path] = { doc: CodeMirror.Doc(data.content, mode), saved: data.content, mtime: data.mtime, timer: null, saving: 0, gen: 0 };
   }
   if (state.current !== path) return; // trocou de arquivo enquanto carregava
   cm.swapDoc(state.docs[path].doc);
@@ -193,6 +199,96 @@ async function openFile(path) {
   cm.focus();
   store.set(`open:${PROJECT}`, path);
 }
+
+// ------------------------------------------------------------ abas
+const isDirty = (p) => { const d = state.docs[p]; return !!d && d.doc.getValue() !== d.saved; };
+
+function renderTabs() {
+  const el = $("#tabs");
+  if (state.files.length) state.tabs = state.tabs.filter((p) => state.files.some((f) => f.path === p));
+  const base = (p) => p.split("/").pop();
+  el.innerHTML = state.tabs.map((p) => {
+    const same = state.tabs.filter((q) => base(q) === base(p)).length > 1;  // nomes iguais: mostra a pasta
+    const on = p === state.current;
+    return `<div class="tab ${on ? "on" : ""} ${isDirty(p) ? "dirty" : ""}" data-path="${esc(p)}" title="${esc(p)}" role="tab" aria-selected="${on}">
+      <span class="nm">${esc(same ? p : base(p))}</span>
+      <button class="x" data-close title="Fechar aba (clique do meio)" aria-label="Fechar ${esc(base(p))}">${icon("close")}</button></div>`;
+  }).join("");
+  store.set(`tabs:${PROJECT}`, state.tabs);
+  const on = el.querySelector(".tab.on");  // mantém a aba atual visível
+  if (on) {
+    const l = on.offsetLeft, r = l + on.offsetWidth;
+    if (l < el.scrollLeft) el.scrollLeft = l - 8;
+    else if (r > el.scrollLeft + el.clientWidth) el.scrollLeft = r - el.clientWidth + 8;
+  }
+}
+
+async function closeTab(path) {
+  const i = state.tabs.indexOf(path);
+  if (i < 0) return;
+  if (state.docs[path]) {
+    await saveDoc(path);
+    if (isDirty(path)) return toast("Não foi possível salvar este arquivo; a aba continua aberta.");
+    delete state.docs[path];
+  }
+  state.tabs.splice(i, 1);
+  if (state.current === path) {
+    state.current = null;
+    await openFile(state.tabs[Math.min(i, state.tabs.length - 1)] || state.settings.main);
+  } else renderTabs();
+}
+
+$("#tabs").addEventListener("click", (e) => {
+  const tab = e.target.closest(".tab");
+  if (!tab) return;
+  if (e.target.closest("[data-close]")) closeTab(tab.dataset.path);
+  else if (tab.dataset.path !== state.current) openFile(tab.dataset.path);
+});
+$("#tabs").addEventListener("mousedown", (e) => { if (e.button === 1) e.preventDefault(); });  // sem rolagem automática
+$("#tabs").addEventListener("auxclick", (e) => {
+  const tab = e.target.closest(".tab");
+  if (e.button === 1 && tab) closeTab(tab.dataset.path);
+});
+$("#tabs").addEventListener("wheel", (e) => {
+  if (!e.deltaY || e.shiftKey) return;
+  $("#tabs").scrollLeft += e.deltaY;
+  e.preventDefault();
+}, { passive: false });
+
+// ------------------------------------------------------------ mudanças feitas fora do editor
+// Confere de tempos em tempos (e ao voltar para a janela) se algum arquivo aberto mudou no
+// disco. Sem alterações pendentes aqui, recarrega sozinho; com alterações, pergunta.
+let externalBusy = false;
+async function checkExternalChanges() {
+  if (externalBusy || document.hidden || !state.files.length) return;
+  externalBusy = true;
+  try {
+    const gens = Object.fromEntries(Object.entries(state.docs).map(([p, d]) => [p, d.gen]));
+    let files;
+    try { files = await api(`${P}/files`); } catch (e) { return; }
+    const shape = (fs) => fs.map((f) => f.path + "|" + f.type).join("\n");
+    const treeChanged = shape(files) !== shape(state.files);
+    state.files = files;
+    if (treeChanged) { renderTree(); renderTabs(); }
+    for (const [path, d] of Object.entries(state.docs)) {
+      if (d.saving || d.gen !== gens[path] || d.conflict || !d.mtime) continue;
+      const f = files.find((x) => x.path === path);
+      if (!f) continue;  // apagado fora: se houver alterações, o próximo salvamento recria o arquivo
+      if (Math.abs(f.mtime - d.mtime) <= 0.001) continue;
+      let disk;
+      try { disk = await api(`${P}/file?path=${encodeURIComponent(path)}`); } catch (e) { continue; }
+      if (state.docs[path] !== d || d.saving || d.gen !== gens[path]) continue;
+      if (isDirty(path)) resolveConflict(path, disk);
+      else if (disk.content !== d.saved) {
+        loadDiskVersion(path, disk.content, disk.mtime);
+        toast(`${path} foi alterado fora do editor e foi recarregado.`, 4000);
+      } else d.mtime = disk.mtime;
+    }
+  } finally { externalBusy = false; }
+}
+setInterval(checkExternalChanges, 4000);
+addEventListener("focus", checkExternalChanges);
+document.addEventListener("visibilitychange", checkExternalChanges);
 
 async function goTo(file, line) {
   if (file && file !== state.current) {

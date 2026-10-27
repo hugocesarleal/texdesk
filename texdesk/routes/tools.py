@@ -2,13 +2,14 @@
 # Copyright (c) 2026 Hugo César Leal (https://github.com/hugocesarleal)
 # SPDX-License-Identifier: MIT
 
-"""Ferramentas do editor: busca no projeto, contagem de palavras e histórico de versões."""
+"""Ferramentas do editor: busca e substituição, contagem de palavras, histórico de versões,
+corretor ortográfico, referências por DOI e aviso de versão nova."""
 
 import re
 
 from flask import Blueprint, abort, jsonify, request
 
-from .. import history, services, spell, texttools
+from .. import history, online, services, spell, texttools
 from ..security import json_body
 from ..storage import load_settings, project_dir, safe_path
 
@@ -26,6 +27,34 @@ def search(name):
         return jsonify(texttools.search(d, q, case=flag("case"), regex=flag("regex"), word=flag("word")))
     except re.error as e:
         abort(400, f"Expressão regular inválida: {e}")
+
+
+@bp.post("/api/projects/<name>/replace")
+def replace(name):
+    d = project_dir(name)
+    data = json_body()
+    q = data.get("q") or ""
+    if not q:
+        abort(400, "Digite o que procurar")
+    paths = data.get("paths")
+    if paths is not None and not isinstance(paths, list):
+        abort(400, "Lista de arquivos inválida")
+    history.snapshot(d, name, label=f"Antes de substituir “{q[:40]}”", auto=False)
+    try:
+        changed = texttools.replace(
+            d,
+            q,
+            str(data.get("replacement") or ""),
+            case=bool(data.get("case")),
+            regex=bool(data.get("regex")),
+            word=bool(data.get("word")),
+            paths=paths,
+        )
+    except re.error as e:
+        abort(400, f"Expressão regular inválida: {e}")
+    if changed:
+        services.changed(name)
+    return jsonify({"changed": changed})
 
 
 @bp.get("/api/projects/<name>/wordcount")
@@ -90,6 +119,33 @@ def spell_check():
         return jsonify({"unknown": spell.unknown(data.get("lang", ""), data.get("words") or [])})
     except spell.SpellError as e:
         abort(400, str(e))
+
+
+@bp.get("/api/update")
+def update_check():
+    return jsonify(online.latest_release())
+
+
+@bp.get("/api/doi")
+def doi_lookup():
+    try:
+        return jsonify(online.doi_bibtex(request.args.get("doi", "")))
+    except online.OnlineError as e:
+        abort(400, str(e))
+
+
+@bp.get("/api/spell/dictionary")
+def personal_dictionary():
+    return jsonify(spell.personal_words())
+
+
+@bp.post("/api/spell/dictionary")
+def update_personal_dictionary():
+    data = json_body()
+    lists = [data.get(k) or [] for k in ("add", "remove")]
+    if not all(isinstance(x, list) for x in lists):
+        abort(400, "Envie listas de palavras")
+    return jsonify(spell.update_personal(*lists))
 
 
 @bp.get("/api/spell/suggest")

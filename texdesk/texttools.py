@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Hugo César Leal (https://github.com/hugocesarleal)
 # SPDX-License-Identifier: MIT
 
-"""Busca em todos os arquivos do projeto e contagem de palavras do documento."""
+"""Busca e substituição em todos os arquivos do projeto e contagem de palavras do documento."""
 
 import re
 from pathlib import Path
@@ -15,18 +15,24 @@ MAX_RESULTS = 500
 # ---------------------------------------------------------------- busca no projeto
 
 
-def search(d: Path, q: str, case: bool = False, regex: bool = False, word: bool = False):
-    """Ocorrências de q nos arquivos de texto. Levanta re.error se a expressão for inválida."""
+def _pattern(q: str, case: bool, regex: bool, word: bool):
     pat = q if regex else re.escape(q)
     if word:
         pat = rf"(?<!\w){pat}(?!\w)"
-    rx = re.compile(pat, 0 if case else re.IGNORECASE)
-    results = []
+    return re.compile(pat, 0 if case else re.IGNORECASE)
+
+
+def _text_files(d: Path):
     files = sorted((p for p in d.rglob("*") if p.is_file()), key=lambda p: p.relative_to(d).as_posix().lower())
-    for p in files:
+    return [p for p in files if not is_hidden(p.relative_to(d)) and is_text(p)]
+
+
+def search(d: Path, q: str, case: bool = False, regex: bool = False, word: bool = False):
+    """Ocorrências de q nos arquivos de texto. Levanta re.error se a expressão for inválida."""
+    rx = _pattern(q, case, regex, word)
+    results = []
+    for p in _text_files(d):
         rel = p.relative_to(d)
-        if is_hidden(rel) or not is_text(p):
-            continue
         try:
             text = p.read_text(encoding="utf-8", errors="replace")
         except OSError:
@@ -50,6 +56,43 @@ def search(d: Path, q: str, case: bool = False, regex: bool = False, word: bool 
                     }
                 )
     return {"results": results, "truncated": False}
+
+
+def replace(d: Path, q: str, repl: str, case=False, regex=False, word=False, paths=None):
+    """Substitui as ocorrências (linha a linha, como a busca) e devolve {caminho: quantas}.
+
+    O texto novo é literal (barras invertidas do LaTeX ficam como estão); com expressão
+    regular, $1…$9 viram os grupos capturados.
+    """
+    rx = _pattern(q, case, regex, word)
+    group = re.compile(r"\$(\d)")
+
+    def sub(m):
+        if not regex:
+            return repl
+        return group.sub(lambda g: m.group(int(g.group(1))) or "" if int(g.group(1)) <= rx.groups else g.group(0), repl)
+
+    changed = {}
+    for p in _text_files(d):
+        rel = p.relative_to(d).as_posix()
+        if paths is not None and rel not in paths:
+            continue
+        try:
+            text = p.read_bytes().decode("utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue  # não mexe em arquivos que não são UTF-8 válido
+        total = 0
+        lines = text.split("\n")
+        for i, line in enumerate(lines):
+            body, cr = (line[:-1], "\r") if line.endswith("\r") else (line, "")
+            hits = sum(1 for m in rx.finditer(body) if m.end() > m.start())
+            if hits:
+                lines[i] = rx.sub(lambda m: sub(m) if m.end() > m.start() else m.group(0), body) + cr
+                total += hits
+        if total:
+            p.write_bytes("\n".join(lines).encode("utf-8"))
+            changed[rel] = total
+    return changed
 
 
 # ---------------------------------------------------------------- contagem de palavras

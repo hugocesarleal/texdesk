@@ -1,0 +1,35 @@
+\chapter{Desenvolvimento}
+\label{cap:desenvolvimento}
+
+\section{Figuras}
+
+A \autoref{fig:exemplo} mostra como inserir uma figura com título e fonte, como pede a norma.
+Coloque as imagens na pasta \texttt{figuras/} ou cole uma imagem direto no editor.
+
+\begin{figure}[htb]
+  \centering
+  \caption{Título da figura}
+  \label{fig:exemplo}
+  \fbox{\parbox[c][4cm][c]{0.6\textwidth}{\centering Troque por \texttt{\textbackslash includegraphics}}}
+  \legend{Fonte: elaborado pelo autor.}
+\end{figure}
+
+\section{Tabelas}
+
+A \autoref{tab:exemplo} segue o mesmo padrão.
+
+\begin{table}[htb]
+  \centering
+  \ABNTEXfontereduzida
+  \caption{Título da tabela}
+  \label{tab:exemplo}
+  \begin{tabular}{lcc}
+    \hline
+    Item & Valor & Unidade \\
+    \hline
+    Primeiro & 10 & cm \\
+    Segundo  & 20 & cm \\
+    \hline
+  \end{tabular}
+  \legend{Fonte: elaborado pelo autor.}
+\end{table}

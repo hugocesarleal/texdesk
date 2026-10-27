@@ -2,27 +2,8 @@
 // Copyright (c) 2026 Hugo César Leal (https://github.com/hugocesarleal)
 // SPDX-License-Identifier: MIT
 
-// Ferramentas do editor: busca em todos os arquivos, contagem de palavras, histórico de
-// versões e corretor ortográfico (o do navegador).
-
-// ------------------------------------------------------------ janela simples (só informação)
-function panel({ title, body, cls = "" }) {
-  const bg = document.createElement("div");
-  bg.className = "modal-bg";
-  bg.innerHTML = `<div class="modal ${cls}" role="dialog" aria-label="${esc(title)}">
-    <div class="panel-head"><h2>${esc(title)}</h2><button class="icon-btn" data-close title="Fechar (Esc)">${icon("close")}</button></div>
-    <div class="panel-body">${body}</div></div>`;
-  const close = () => { bg.remove(); removeEventListener("keydown", onKey, true); };
-  const onKey = (e) => { if (e.key === "Escape" && !document.querySelector(".modal-bg form")) { e.stopPropagation(); close(); } };
-  bg.addEventListener("mousedown", (e) => { if (e.target === bg) close(); });
-  bg.querySelector("[data-close]").onclick = close;
-  addEventListener("keydown", onKey, true);
-  document.body.appendChild(bg);
-  return { el: bg.querySelector(".panel-body"), close };
-}
-
-const fmtNum = (n) => n.toLocaleString("pt-BR");
-const plural = (n, one, many = one + "s") => `${fmtNum(n)} ${n === 1 ? one : many}`;
+// Ferramentas do editor: busca e substituição em todos os arquivos, contagem de palavras,
+// histórico de versões e corretor ortográfico.
 
 // ------------------------------------------------------------ busca em todos os arquivos
 const psearch = $("#psearch");
@@ -98,6 +79,48 @@ $("#ps-results").addEventListener("click", async (e) => {
   const l = +hit.dataset.line - 1, c = +hit.dataset.col;
   cm.setSelection({ line: l, ch: c + +hit.dataset.len }, { line: l, ch: c });
 });
+// substituir em todos os arquivos (nos arquivos que aparecem nos resultados)
+$("#ps-toggle-replace").onclick = () => {
+  const open = $("#ps-replace").hidden;
+  $("#ps-replace").hidden = !open;
+  $("#ps-toggle-replace").classList.toggle("on", open);
+  $("#ps-toggle-replace").setAttribute("aria-pressed", open);
+  if (open) $("#ps-repl").focus();
+};
+$("#ps-repl").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") $("#ps-replace-all").click();
+  if (e.key === "Escape") toggleProjectSearch(false);
+});
+$("#ps-replace-all").onclick = async () => {
+  const q = psInput.value;
+  const hits = [...document.querySelectorAll("#ps-results .ps-hit")];
+  if (!q || !hits.length) return toast("Busque primeiro o que você quer substituir");
+  const paths = [...new Set(hits.map((h) => h.dataset.path))];
+  const repl = $("#ps-repl").value;
+  const ok = await modal({
+    title: "Substituir em todos os arquivos",
+    body: `<p>Trocar <b>${plural(hits.length, "ocorrência")}</b> de <code>${esc(q)}</code> por <code>${esc(repl) || "(nada)"}</code> em ${plural(paths.length, "arquivo")}?</p>
+      <p class="muted small">O projeto é guardado no Histórico antes, então dá para desfazer.</p>`,
+    ok: "Substituir tudo",
+  });
+  if (!ok) return;
+  await saveAll();
+  try {
+    const r = await api(`${P}/replace`, { json: { q, replacement: repl, ...psOpts, paths } });
+    const files = Object.keys(r.changed);
+    const total = files.reduce((n, p) => n + r.changed[p], 0);
+    // recarrega os arquivos abertos que mudaram (já estavam salvos, então nada se perde)
+    for (const p of files) {
+      if (!state.docs[p]) continue;
+      const disk = await api(`${P}/file?path=${encodeURIComponent(p)}`);
+      loadDiskVersion(p, disk.content, disk.mtime);
+    }
+    toast(`${plural(total, "substituição", "substituições")} em ${plural(files.length, "arquivo")}. Dá para desfazer pelo Histórico.`, 5000);
+    runProjectSearch();
+    if (state.settings.autoCompile) scheduleAutoCompile();
+  } catch (e) { toast(e.message); }
+};
+
 $("#btn-project-search").onclick = () => toggleProjectSearch();
 $("#ps-close").onclick = () => toggleProjectSearch(false);
 document.addEventListener("keydown", (e) => {
@@ -266,7 +289,7 @@ const SPELL_LANGS = [
   { value: "it_IT", label: "Italiano" },
   { value: "de_DE", label: "Alemão" },
 ];
-const spell = { lang: "", known: new Map(), dict: new Set(store.get("spellDict", [])), ignored: new Set(), timer: 0, token: 0 };
+const spell = { lang: "", known: new Map(), dict: new Set(), ignored: new Set(), timer: 0, token: 0 };
 // argumentos que não são texto do documento
 const SPELL_SKIP = /\\(?:begin|end)\{[^}]*\}(?:\[[^\]]*\]|\{[^}]*\})*|\\(?:includegraphics|input|include|subfile|label|ref|eqref|pageref|autoref|[cC]ref|nameref|cite\w*|parencite|textcite|autocite|url|href|bibliography\w*|addbibresource|usepackage|RequirePackage|documentclass|newcommand|renewcommand|providecommand|newenvironment|setlength|hypersetup|graphicspath|usetikzlibrary|usetheme|usecolortheme|definecolor|color|textcolor|lstinputlisting|inputminted|bibliographystyle)\*?(?:\[[^\]]*\])*\{[^}]*\}|\\[a-zA-Z@]+\*?\[[^\]]*\]|\b\w+\s*=|\S+@\S+|\b(?:https?|ftp):\/\/\S+|\bwww\.\S+/g;
 const SPELL_WORD = /\p{L}+(?:['’-]\p{L}+)*/gu;
@@ -381,6 +404,57 @@ function applySpellcheck() {
 }
 applySpellcheck();
 
+// Dicionário pessoal: fica no servidor (vale em qualquer navegador e não some ao limpar os
+// dados do navegador). Até a versão 0.2 ficava no navegador; o que estiver lá é levado junto.
+async function loadPersonalDict() {
+  try {
+    let words = await api("/api/spell/dictionary");
+    const local = store.get("spellDict", []);
+    if (Array.isArray(local) && local.length) {
+      words = await api("/api/spell/dictionary", { json: { add: local } });
+      try { localStorage.removeItem("spellDict"); } catch (e) { /* sem storage */ }
+    }
+    spell.dict = new Set(words.map((w) => w.toLowerCase()));
+    if (spell.lang) runSpellcheck();
+  } catch (e) { /* sem dicionário pessoal desta vez */ }
+}
+loadPersonalDict();
+
+async function updatePersonalDict(change) {
+  const words = await api("/api/spell/dictionary", { json: change });
+  spell.dict = new Set(words.map((w) => w.toLowerCase()));
+  return words;
+}
+
+// lista das palavras adicionadas, com opção de remover
+async function openPersonalDict() {
+  const p = panel({ title: "Dicionário pessoal", cls: "pdict", body: '<p class="muted">Carregando…</p>' });
+  const render = (words) => {
+    p.el.innerHTML = words.length
+      ? `<p class="muted small">${plural(words.length, "palavra adicionada", "palavras adicionadas")} pelo clique direito no corretor. Valem para todos os projetos e idiomas.</p>
+        <input type="text" class="pdict-filter" placeholder="Filtrar" aria-label="Filtrar palavras">
+        <div class="pdict-list">${words.map((w) => `<div class="pdict-row" data-word="${esc(w)}"><span>${esc(w)}</span><button class="icon-btn" title="Remover do dicionário">${icon("trash")}</button></div>`).join("")}</div>`
+      : '<p class="muted">Nenhuma palavra ainda. Para adicionar, clique com o botão direito numa palavra sublinhada pelo corretor.</p>';
+  };
+  try { render(await api("/api/spell/dictionary")); } catch (e) { p.el.innerHTML = `<p>${esc(e.message)}</p>`; return; }
+  p.el.addEventListener("input", (e) => {
+    if (!e.target.matches(".pdict-filter")) return;
+    const q = e.target.value.toLowerCase();
+    p.el.querySelectorAll(".pdict-row").forEach((r) => { r.hidden = !r.dataset.word.toLowerCase().includes(q); });
+  });
+  p.el.addEventListener("click", async (e) => {
+    const row = e.target.closest("button") && e.target.closest(".pdict-row");
+    if (!row) return;
+    try {
+      const filter = p.el.querySelector(".pdict-filter")?.value || "";
+      render(await updatePersonalDict({ remove: [row.dataset.word] }));
+      const input = p.el.querySelector(".pdict-filter");
+      if (input && filter) { input.value = filter; input.dispatchEvent(new Event("input", { bubbles: true })); }
+      runSpellcheck();
+    } catch (err) { toast(err.message); }
+  });
+}
+
 // clique direito numa palavra sublinhada: sugestões, adicionar ao dicionário, ignorar
 let spellMenu = null;
 const closeSpellMenu = () => { spellMenu?.remove(); spellMenu = null; };
@@ -414,7 +488,7 @@ cm.getWrapperElement().addEventListener("contextmenu", async (e) => {
     if (b.dataset.fix && r) cm.replaceRange(b.dataset.fix, r.from, r.to);
     if (b.dataset.act === "add") {
       spell.dict.add(word.toLowerCase());
-      store.set("spellDict", [...spell.dict]);
+      updatePersonalDict({ add: [word] }).catch((err) => toast("Não foi possível salvar no dicionário: " + err.message));
     }
     if (b.dataset.act === "ignore") spell.ignored.add(word.toLowerCase());
     closeSpellMenu();

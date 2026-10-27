@@ -12,12 +12,13 @@ Uso na linha de comando (pela instalação): python -m texdesk.spell pt_BR en_US
 """
 
 import hashlib
+import json
 import logging
 import sys
 import threading
 import urllib.request
 
-from .config import TOOLS
+from .config import DATA, TOOLS
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +138,40 @@ def suggestions(lang: str, word: str, limit: int = 6):
         if len(out) >= limit:
             break
     return out
+
+
+# ---------------------------------------------------------------- dicionário pessoal
+# Palavras que o usuário adicionou, valendo para todos os projetos e idiomas. Fica com os
+# dados do TexDesk (e não no navegador), para não se perder ao limpar os dados do navegador.
+PERSONAL = DATA / "dictionary.json"
+MAX_PERSONAL = 20000
+_personal_lock = threading.Lock()
+
+
+def personal_words():
+    try:
+        words = json.loads(PERSONAL.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return [w for w in words if isinstance(w, str)] if isinstance(words, list) else []
+
+
+def update_personal(add=(), remove=()):
+    """Adiciona e remove palavras (sem diferenciar maiúsculas). Devolve a lista nova."""
+    with _personal_lock:
+        words = {w.lower(): w for w in personal_words()}
+        for w in add:
+            if isinstance(w, str) and 0 < len(w.strip()) <= 60:
+                words.setdefault(w.strip().lower(), w.strip().lower())
+        for w in remove:
+            if isinstance(w, str):
+                words.pop(w.strip().lower(), None)
+        out = sorted(words.values(), key=str.lower)[:MAX_PERSONAL]
+        PERSONAL.parent.mkdir(parents=True, exist_ok=True)
+        tmp = PERSONAL.with_suffix(".tmp")
+        tmp.write_text(json.dumps(out, ensure_ascii=False, indent=0), encoding="utf-8")
+        tmp.replace(PERSONAL)
+        return out
 
 
 if __name__ == "__main__":

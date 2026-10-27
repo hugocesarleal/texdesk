@@ -161,7 +161,99 @@ async function renderPage(div, token) {
   await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
   div.querySelector("canvas")?.remove();
   div.prepend(canvas);
+  // camada de texto invisível por cima da imagem: permite selecionar e copiar o texto
+  const layer = document.createElement("div");
+  layer.className = "textLayer";
+  layer.style.setProperty("--scale-factor", state.scale);
+  try {
+    await pdfjsLib.renderTextLayer({
+      textContentSource: page.streamTextContent(),
+      container: layer,
+      viewport: page.getViewport({ scale: state.scale }),
+      textDivs: [],
+    }).promise;
+  } catch (e) { return; /* sem texto selecionável nesta página */ }
+  div.querySelector(".textLayer")?.remove();
+  div.appendChild(layer);
 }
+
+// ------------------------------------------------------------ PDF escuro
+function applyPdfDark() { view.classList.toggle("dark", !!store.get("pdfDark", false)); }
+applyPdfDark();
+
+// ------------------------------------------------------------ modo apresentação (tela cheia)
+// Uma página por vez, do tamanho da tela: setas, espaço, Page Up/Down ou clique avançam e
+// voltam; Home/End vão para o começo e o fim; Esc sai.
+async function presentPdf() {
+  if (!state.pdf) return toast("Compile o projeto primeiro");
+  const pdf = state.pdf;
+  const total = pdf.numPages;
+  let n = currentPage();
+  const root = document.createElement("div");
+  root.className = "present";
+  root.innerHTML = '<canvas></canvas><div class="present-num"></div>';
+  document.body.appendChild(root);
+  const canvas = root.querySelector("canvas");
+  const num = root.querySelector(".present-num");
+  let token = 0, numTimer = 0;
+
+  async function show(i) {
+    n = Math.max(1, Math.min(total, i));
+    const my = ++token;
+    const page = await pdf.getPage(n);
+    if (my !== token) return;
+    const base = page.getViewport({ scale: 1 });
+    const scale = Math.min(innerWidth / base.width, innerHeight / base.height);
+    const dpr = window.devicePixelRatio || 1;
+    const vp = page.getViewport({ scale: scale * dpr });
+    const off = document.createElement("canvas");
+    off.width = Math.floor(vp.width);
+    off.height = Math.floor(vp.height);
+    await page.render({ canvasContext: off.getContext("2d"), viewport: vp }).promise;
+    if (my !== token) return;
+    canvas.width = off.width;
+    canvas.height = off.height;
+    canvas.getContext("2d").drawImage(off, 0, 0);
+    canvas.style.width = Math.floor(base.width * scale) + "px";
+    canvas.style.height = Math.floor(base.height * scale) + "px";
+    num.textContent = `${n} / ${total}`;
+    num.classList.add("on");
+    clearTimeout(numTimer);
+    numTimer = setTimeout(() => num.classList.remove("on"), 1200);
+  }
+
+  const onKey = (e) => {
+    const k = e.key;
+    if (["ArrowRight", "ArrowDown", "PageDown", " ", "Enter", "n"].includes(k)) show(n + 1);
+    else if (["ArrowLeft", "ArrowUp", "PageUp", "Backspace", "p"].includes(k)) show(n - 1);
+    else if (k === "Home") show(1);
+    else if (k === "End") show(total);
+    else if (k === "Escape") exit();
+    else return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  const onResize = () => show(n);
+  function exit() {
+    removeEventListener("keydown", onKey, true);
+    removeEventListener("resize", onResize);
+    document.removeEventListener("fullscreenchange", onFs);
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    root.remove();
+    goToPage(n);  // volta para o editor na página em que parou
+  }
+  const onFs = () => { if (!document.fullscreenElement) exit(); };
+  root.addEventListener("click", (e) => show(e.clientX < innerWidth / 4 ? n - 1 : n + 1));
+  root.addEventListener("contextmenu", (e) => { e.preventDefault(); show(n - 1); });
+  addEventListener("keydown", onKey, true);
+  addEventListener("resize", onResize);
+  try {
+    await root.requestFullscreen();
+    document.addEventListener("fullscreenchange", onFs);
+  } catch (e) { /* sem tela cheia (ex.: bloqueada): apresenta na janela mesmo */ }
+  show(n);
+}
+$("#pdf-present").onclick = presentPdf;
 
 function setZoom(z) {
   const ratio = view.scrollHeight ? view.scrollTop / view.scrollHeight : 0;
