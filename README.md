@@ -80,12 +80,26 @@ Os testes usam uma pasta de dados temporária e um Google Drive falso, então n�
 ## Estrutura
 
 ```
-server.py      servidor web: API de projetos/arquivos e compilação
-latexlog.py    leitor do log do TeX (erros, avisos e caixas, com arquivo e linha)
-synctex.py     busca direta/inversa no .synctex.gz
-drive_sync.py  sincronização com o Google Drive (OAuth, envio incremental, restauração)
-static/        interface (HTML/CSS/JS); static/vendor/ tem o CodeMirror e o PDF.js
-tests/         testes automáticos (pytest) e fixtures
+texdesk/               servidor (python -m texdesk)
+  __main__.py          inicialização: confere se já há um TexDesk rodando e abre o navegador
+  app.py               create_app(): monta o Flask com segurança, rotas e erros
+  config.py            caminhos e constantes
+  security.py          proteções contra CSRF e DNS rebinding
+  storage.py           projetos no disco: caminhos seguros, configurações, árvore
+  compiler.py          chamada ao Tectonic e leitura dos resultados
+  latexlog.py          leitor do log do TeX (erros, avisos e caixas, com arquivo e linha)
+  synctex.py           busca direta/inversa no .synctex.gz
+  drive_sync.py        sincronização com o Google Drive (OAuth, envio incremental, restauração)
+  services.py          conexão com o Drive e processo de sincronização
+  routes/              rotas HTTP: pages, projects, files, compile, drive
+static/                interface
+  index.html, editor.html
+  css/                 base.css (cores e componentes), dashboard.css, editor.css
+  js/common.js         API, ícones, modais e miniaturas
+  js/dashboard/        painel de projetos: projects, new-project, drive-panel, drive-import, main
+  js/editor/           editor: core, files, compile, pdf, layout, main, completions
+  vendor/              CodeMirror e PDF.js
+tests/                 testes automáticos (pytest) e fixtures
 templates/     modelos de projeto
 projects/      seus projetos (um diretório por projeto)
 output/        PDFs e arquivos de compilação

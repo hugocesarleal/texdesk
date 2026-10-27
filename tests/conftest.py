@@ -18,3 +18,8 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 os.environ["TEXDESK_DATA"] = tempfile.mkdtemp(prefix="texdesk-test-")
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from texdesk.app import create_app  # noqa: E402  (precisa do TEXDESK_DATA acima)
+
+APP = create_app()  # uma aplicação para todos os testes
+APP.config["TESTING"] = True

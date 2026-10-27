@@ -11,16 +11,17 @@ import json
 
 import pytest
 
-import server  # a pasta de dados temporária é configurada em conftest.py
+from conftest import APP
+from texdesk import config
+from texdesk.security import CSRF_HEADER
 
-HOST = f"127.0.0.1:{server.PORT}"
-OK = {server.CSRF_HEADER: "1"}
+HOST = f"127.0.0.1:{config.PORT}"
+OK = {CSRF_HEADER: "1"}
 
 
 @pytest.fixture()
 def client():
-    server.app.config["TESTING"] = True
-    c = server.app.test_client()
+    c = APP.test_client()
     r = c.post("/api/projects", headers=OK, json={"name": "Alvo", "template": "blank"}, base_url=f"http://{HOST}")
     assert r.status_code in (200, 409)
     yield c
@@ -43,7 +44,7 @@ def test_interface_do_texdesk_funciona(client):
 
 
 def test_localhost_tambem_e_aceito(client):
-    r = client.get("/api/projects", base_url=f"http://localhost:{server.PORT}")
+    r = client.get("/api/projects", base_url=f"http://localhost:{config.PORT}")
     assert r.status_code == 200
 
 
@@ -71,7 +72,7 @@ def test_upload_por_formulario_de_outro_site_e_recusado(client):
              data={"files": (io.BytesIO(b"\\immediate\\write18{calc}"), "ataque.tex")},
              headers={"Origin": "https://malicioso.example", "Sec-Fetch-Site": "cross-site"})
     assert r.status_code == 403
-    assert not (server.PROJECTS / "Alvo" / "ataque.tex").exists()
+    assert not (config.PROJECTS / "Alvo" / "ataque.tex").exists()
 
 
 def test_origem_de_outro_site_e_recusada_mesmo_com_cabecalho(client):
@@ -82,9 +83,9 @@ def test_origem_de_outro_site_e_recusada_mesmo_com_cabecalho(client):
 
 def test_dns_rebinding_e_recusado(client):
     """Domínio do atacante que resolve para 127.0.0.1: chega com outro Host."""
-    r = client.get("/api/drive/status", base_url=f"http://malicioso.example:{server.PORT}")
+    r = client.get("/api/drive/status", base_url=f"http://malicioso.example:{config.PORT}")
     assert r.status_code == 403
-    r = post(client, "/api/projects/Alvo/settings", host=f"malicioso.example:{server.PORT}",
+    r = post(client, "/api/projects/Alvo/settings", host=f"malicioso.example:{config.PORT}",
              headers=OK, json={"shellEscape": True})
     assert r.status_code == 403
 
@@ -102,7 +103,7 @@ def test_nao_pode_ser_embutido_em_sites_de_terceiros(client):
 
 
 def test_upload_grande_demais_e_recusado(client, monkeypatch):
-    monkeypatch.setitem(server.app.config, "MAX_CONTENT_LENGTH", 1024)
+    monkeypatch.setitem(APP.config, "MAX_CONTENT_LENGTH", 1024)
     r = post(client, "/api/projects/Alvo/upload", headers=OK,
              data={"files": (io.BytesIO(b"x" * 4096), "grande.bin")})
     assert r.status_code == 413

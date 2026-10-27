@@ -8,16 +8,17 @@ import zipfile
 
 import pytest
 
-import server
+from conftest import APP
+from texdesk import config
+from texdesk.security import CSRF_HEADER
 
-BASE = f"http://127.0.0.1:{server.PORT}"
-H = {server.CSRF_HEADER: "1"}
+BASE = f"http://127.0.0.1:{config.PORT}"
+H = {CSRF_HEADER: "1"}
 
 
 @pytest.fixture()
 def api():
-    server.app.config["TESTING"] = True
-    c = server.app.test_client()
+    c = APP.test_client()
 
     class Api:
         def get(self, path, **kw):
@@ -56,7 +57,7 @@ def test_criar_a_partir_de_modelo_nao_copia_metadados(api):
     assert api.post("/api/projects", json={"name": "Slides API", "template": "ifmg-slides"}).status_code == 200
     files = {f["path"] for f in api.get("/api/projects/Slides API/files").get_json()}
     assert {"main.tex", "ifslides2024.sty", "LICENSE"} <= files
-    assert not (server.PROJECTS / "Slides API" / ".template.json").exists()
+    assert not (config.PROJECTS / "Slides API" / ".template.json").exists()
     api.delete("/api/projects/Slides API")
 
 
@@ -112,7 +113,7 @@ def test_zip_com_caminho_malicioso_e_recusado(api):
     api.delete("/api/projects/Zip Ruim")
     r = api.post("/api/projects/upload", data={"file": (io.BytesIO(buf.getvalue()), "x.zip"), "name": "Zip Ruim"})
     assert r.status_code == 400
-    assert not (server.PROJECTS.parent / "escapou.txt").exists()
+    assert not (config.PROJECTS.parent / "escapou.txt").exists()
     api.delete("/api/projects/Zip Ruim")
 
 
@@ -130,7 +131,7 @@ def test_configuracoes_e_documento_principal(api, proj):
 
 # ---------------------------------------------------------------- compilação (precisa do Tectonic)
 
-needs_tectonic = pytest.mark.skipif(not server.TECTONIC.exists(), reason="Tectonic não instalado (rode setup.ps1)")
+needs_tectonic = pytest.mark.skipif(not config.TECTONIC.exists(), reason="Tectonic não instalado (rode setup.ps1 ou setup.sh)")
 
 
 @needs_tectonic

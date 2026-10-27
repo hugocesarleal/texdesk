@@ -15,7 +15,8 @@
 <link rel="stylesheet" href="/static/vendor/codemirror-5.65.16/addon/dialog/dialog.css">
 <link rel="stylesheet" href="/static/vendor/codemirror-5.65.16/addon/fold/foldgutter.css">
 <link rel="stylesheet" href="/static/vendor/codemirror-5.65.16/theme/material-darker.css">
-<link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="/static/css/base.css">
+<link rel="stylesheet" href="/static/css/editor.css">
 <script src="/static/vendor/codemirror-5.65.16/lib/codemirror.js"></script>
 <script src="/static/vendor/codemirror-5.65.16/mode/stex/stex.js"></script>
 <script src="/static/vendor/codemirror-5.65.16/addon/edit/matchbrackets.js"></script>
@@ -30,7 +31,7 @@
 <script src="/static/vendor/codemirror-5.65.16/addon/fold/foldcode.js"></script>
 <script src="/static/vendor/codemirror-5.65.16/addon/fold/foldgutter.js"></script>
 <script src="/static/vendor/pdfjs-3.11.174/pdf.min.js"></script>
-<script src="/static/common.js"></script>
+<script src="/static/js/common.js"></script>
 </head>
 <body>
 <div class="ide" id="ide" data-view="editor">
@@ -104,7 +105,12 @@
     <button data-view="pdf">PDF</button>
   </nav>
 </div>
-<script src="/static/completions.js"></script>
-<script src="/static/editor.js"></script>
+<script src="/static/js/editor/completions.js"></script>
+<script src="/static/js/editor/core.js"></script>
+<script src="/static/js/editor/files.js"></script>
+<script src="/static/js/editor/compile.js"></script>
+<script src="/static/js/editor/pdf.js"></script>
+<script src="/static/js/editor/layout.js"></script>
+<script src="/static/js/editor/main.js"></script>
 </body>
 </html>

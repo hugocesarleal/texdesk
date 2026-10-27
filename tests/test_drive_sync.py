@@ -8,7 +8,7 @@ import time
 
 import pytest
 
-import drive_sync as ds
+from texdesk import drive_sync as ds
 from fake_drive import FakeDrive
 
 

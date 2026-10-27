@@ -6,7 +6,7 @@ title TexDesk
 cd /d "%~dp0"
 if not exist tools\.setup-ok powershell -ExecutionPolicy Bypass -File setup.ps1
 
-python server.py --abrir
+python -m texdesk --abrir
 
 rem 3 = ja havia um servidor rodando: so abriu o navegador
 if %errorlevel%==3 (

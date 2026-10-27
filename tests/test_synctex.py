@@ -4,7 +4,7 @@
 
 """SyncTeX: código -> PDF e PDF -> código, com o .synctex.gz do fixture."""
 from conftest import FIXTURES
-from synctex import SyncTex
+from texdesk.synctex import SyncTex
 
 PROJ = FIXTURES / "projeto_com_erros"
 ST = SyncTex(PROJ / "out" / "main.synctex.gz", PROJ, PROJ)

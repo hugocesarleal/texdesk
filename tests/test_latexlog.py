@@ -4,7 +4,7 @@
 
 """Leitor do log do TeX: erros e avisos no arquivo e na linha certos."""
 from conftest import FIXTURES
-from latexlog import parse_log, unwrap
+from texdesk.latexlog import parse_log, unwrap
 
 LOG = (FIXTURES / "projeto_com_erros" / "out" / "main.log").read_text(encoding="utf-8")
 KNOWN = {"main.tex", "capitulos/intro.tex"}

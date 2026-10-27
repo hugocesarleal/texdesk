@@ -6,7 +6,7 @@
 import hashlib
 import threading
 
-import drive_sync as ds
+from texdesk import drive_sync as ds
 
 
 class FakeDrive:

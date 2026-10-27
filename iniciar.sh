@@ -10,7 +10,7 @@ if [ ! -f tools/.setup-ok ] || [ ! -x .venv/bin/python ]; then
     ./setup.sh || { echo "A instalação não terminou. Veja a mensagem acima."; exit 1; }
 fi
 
-.venv/bin/python server.py --abrir
+.venv/bin/python -m texdesk --abrir
 codigo=$?
 if [ "$codigo" -ne 0 ] && [ "$codigo" -ne 3 ]; then   # 3 = já havia um TexDesk rodando
     echo
