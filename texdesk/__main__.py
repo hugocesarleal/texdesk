@@ -38,6 +38,7 @@ def ensure_dependencies():
     novo; sem isto, uma dependência nova faria o servidor quebrar ao abrir.
     """
     import importlib.metadata
+    import importlib.util
     import re
     import subprocess
 
@@ -50,10 +51,22 @@ def ensure_dependencies():
                 missing.append(f"{name} {version}")
         except importlib.metadata.PackageNotFoundError:
             missing.append(f"{name} {version}")
-    if missing:
-        print(f"\n  Instalando dependências: {', '.join(missing)}...")
-        subprocess.check_call(
-            [sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check", "-r", str(req)]
+    if not missing:
+        return
+    # o instalador do Python deixa desmarcar o pip; o ensurepip (da biblioteca padrão) o repõe
+    if importlib.util.find_spec("pip") is None:
+        print("\n  O pip não está instalado neste Python. Instalando...")
+        if subprocess.call([sys.executable, "-m", "ensurepip", "--upgrade", "--default-pip"]) != 0:
+            sys.exit(
+                "\n  Não foi possível instalar o pip. Reinstale o Python pelo python.org deixando"
+                "\n  marcada a opção \"pip\" e abra o TexDesk de novo.\n"
+            )
+    print(f"\n  Instalando dependências: {', '.join(missing)}...")
+    cmd = [sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check", "-r", str(req)]
+    if subprocess.call(cmd) != 0:
+        sys.exit(
+            "\n  Não foi possível instalar as dependências (veja o erro acima)."
+            "\n  Confira a conexão com a internet e abra o TexDesk de novo.\n"
         )
 
 

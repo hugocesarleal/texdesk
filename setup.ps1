@@ -7,7 +7,15 @@ $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
 Write-Host "Instalando dependências Python..."
+# o instalador do Python deixa desmarcar o pip; o ensurepip (da biblioteca padrão) o repõe
+python -c "import importlib.util, sys; sys.exit(importlib.util.find_spec('pip') is None)"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "O pip não está instalado neste Python. Instalando..."
+    python -m ensurepip --upgrade --default-pip
+    if ($LASTEXITCODE -ne 0) { throw "Não foi possível instalar o pip. Reinstale o Python pelo python.org com a opção pip marcada." }
+}
 python -m pip install -r requirements.txt
+if ($LASTEXITCODE -ne 0) { throw "Não foi possível instalar as dependências (veja o erro acima)." }
 
 $exe = Join-Path $PSScriptRoot "tools\tectonic.exe"
 if (-not (Test-Path $exe)) {

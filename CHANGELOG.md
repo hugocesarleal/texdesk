@@ -4,6 +4,12 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.3.1] - 2026-10-27
+
+### Corrigido
+- O TexDesk não abria num Python instalado sem o pip ("No module named pip"). Agora o pip é instalado sozinho com o `ensurepip`, e, se isso falhar, aparece uma mensagem explicando o que fazer.
+- O `setup.ps1` marcava a instalação como concluída mesmo quando a instalação das dependências falhava. Agora ele para e tenta de novo na próxima abertura.
+
 ## [0.3.0] - 2026-10-27
 
 Abas, lixeira, dicas nos erros, referências pelo DOI, modelo ABNT e um painel de projetos mais organizado.
@@ -90,7 +96,8 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.3.0...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/hugocesarleal/texdesk/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/hugocesarleal/texdesk/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/hugocesarleal/texdesk/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/hugocesarleal/texdesk/releases/tag/v0.1.0
