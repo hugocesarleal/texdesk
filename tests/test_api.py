@@ -158,6 +158,9 @@ def test_configuracoes_e_documento_principal(api, proj):
     api.put(f"/api/projects/{proj}/file", json={"path": "outro.tex", "content": "x"})
     r = api.post(f"/api/projects/{proj}/settings", json={"main": "outro.tex", "autoCompile": True})
     assert r.get_json()["main"] == "outro.tex" and r.get_json()["autoCompile"] is True
+    assert r.get_json()["followOpen"] is True  # padrão: compila o documento aberto
+    r = api.post(f"/api/projects/{proj}/settings", json={"followOpen": False})
+    assert r.get_json()["followOpen"] is False
     assert api.post(f"/api/projects/{proj}/settings", json={"main": "../fora.tex"}).status_code == 400
 
 

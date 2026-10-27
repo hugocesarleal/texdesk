@@ -8,9 +8,10 @@ from pathlib import Path
 
 from flask import Blueprint, abort, jsonify, request, send_file
 
+from .. import services
 from ..compiler import compile_project
 from ..config import OUTPUT, TECTONIC
-from ..storage import load_settings, project_dir, project_lock, safe_path
+from ..storage import compile_target, load_settings, project_dir, project_lock, safe_path, save_settings
 from ..synctex import SyncTex
 
 bp = Blueprint("compile", __name__)
@@ -20,7 +21,16 @@ bp = Blueprint("compile", __name__)
 def compile_route(name):
     d = project_dir(name)
     s = load_settings(d)
-    main = (request.get_json(silent=True) or {}).get("main") or s["main"]
+    body = request.get_json(silent=True) or {}
+    main = body.get("main") or s["main"]
+    # com vários documentos no projeto, compila o que está aberto (e ele passa a ser o principal,
+    # para o PDF, o SyncTeX e a miniatura seguirem o mesmo documento)
+    if not body.get("main") and s.get("followOpen") and body.get("open"):
+        main = compile_target(d, s["main"], body["open"])
+        if main != s["main"]:
+            s["main"] = main
+            save_settings(d, s)
+            services.changed(name)
     main_path = safe_path(d, main)
     if not main_path.is_file():
         return jsonify(
@@ -39,7 +49,7 @@ def compile_route(name):
     if not lock.acquire(timeout=5):
         return jsonify({"status": "busy", "message": "Já existe uma compilação em andamento", "entries": []})
     try:
-        return jsonify(compile_project(d, name, main, main_path, bool(s.get("shellEscape"))))
+        return jsonify(compile_project(d, name, main, main_path, bool(s.get("shellEscape"))) | {"main": main})
     finally:
         lock.release()
 

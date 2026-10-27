@@ -4,6 +4,11 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.4.0] - 2026-10-27
+
+### Adicionado
+- Com mais de um documento no projeto, o TexDesk compila o que está aberto no editor. Um capítulo incluído por outro arquivo compila o documento que o inclui. Dá para desligar no menu do botão Compilar ou nas Configurações.
+
 ## [0.3.1] - 2026-10-27
 
 ### Corrigido
@@ -96,7 +101,8 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.3.1...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/hugocesarleal/texdesk/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/hugocesarleal/texdesk/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/hugocesarleal/texdesk/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/hugocesarleal/texdesk/compare/v0.1.0...v0.2.0

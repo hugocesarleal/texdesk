@@ -125,6 +125,7 @@ $("#btn-settings").onclick = async () => {
       { type: "heading", label: "Este projeto" },
       { name: "main", label: "Documento principal", type: "select", value: state.settings.main, options: texs.length ? texs : [state.settings.main] },
       { name: "spell", label: "Idioma do corretor ortográfico", type: "select", value: spellLang(), options: SPELL_LANGS },
+      { name: "followOpen", label: "Compilar o documento aberto no editor (com mais de um .tex completo no projeto)", type: "check", value: state.settings.followOpen },
       { name: "autoCompile", label: "Compilar sozinho enquanto edito", type: "check", value: state.settings.autoCompile },
       { name: "shellEscape", label: "Permitir shell-escape (necessário para o pacote minted)", type: "check", value: state.settings.shellEscape },
       { name: "driveSync", label: "Sincronizar com o Google Drive", type: "check", value: state.settings.driveSync },
@@ -141,7 +142,7 @@ $("#btn-settings").onclick = async () => {
   if (!r) return;
   store.set("pdfDark", r.pdfDark);
   applyPdfDark();
-  state.settings = await api(`${P}/settings`, { json: { main: r.main, autoCompile: r.autoCompile, shellEscape: r.shellEscape, driveSync: r.driveSync } });
+  state.settings = await api(`${P}/settings`, { json: { main: r.main, followOpen: r.followOpen, autoCompile: r.autoCompile, shellEscape: r.shellEscape, driveSync: r.driveSync } });
   if (r.driveSync) {
     const ds = await api("/api/drive/status").catch(() => ({}));
     if (!ds.connected) toast("Conecte o Google Drive no painel de projetos para a sincronização começar.", 6000);

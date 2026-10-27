@@ -27,9 +27,15 @@ async function compile(opts = {}) {
   }
   try {
     await saveAll();
-    const r = await api(`${P}/compile`, { json: {} });
+    // o servidor decide o documento: o aberto, se for completo, ou o que inclui o capítulo aberto
+    const r = await api(`${P}/compile`, { json: { open: state.current } });
     state.firstCompile = false;
     if (r.status === "busy") return;
+    if (r.main && r.main !== state.settings.main) {
+      state.settings.main = r.main;
+      renderTree();
+      toast(`Documento compilado: ${r.main}`);
+    }
     state.entries = r.entries || [];
     state.lastLog = r.log || "";
     state.lastOut = r.stdout || "";
@@ -67,6 +73,7 @@ $("#btn-compile-menu").onclick = (e) => {
   menu.className = "compile-menu";
   menu.innerHTML = `
     <label><input type="checkbox" data-k="autoCompile" ${state.settings.autoCompile ? "checked" : ""}> Compilação automática</label>
+    <label title="Com mais de um documento no projeto, compila o que está aberto no editor"><input type="checkbox" data-k="followOpen" ${state.settings.followOpen ? "checked" : ""}> Compilar o documento aberto</label>
     <label><input type="checkbox" data-k="shellEscape" ${state.settings.shellEscape ? "checked" : ""}> Permitir shell-escape (minted…)</label>`;
   const rect = e.currentTarget.getBoundingClientRect();
   menu.style.left = rect.left + "px";

@@ -234,3 +234,42 @@ def test_manifesto(c):
     assert data["start_url"] == "/" and data["display"] == "standalone"
     for icon in data["icons"]:
         assert c.get(icon["src"], base_url=BASE).status_code == 200
+
+
+# ---------------------------------------------------------------- vários documentos no projeto
+
+
+def test_compila_o_documento_aberto(tmp_path):
+    from texdesk.storage import compile_target
+
+    doc = "\\documentclass{article}\n\\begin{document}\n%s\n\\end{document}\n"
+    (tmp_path / "main.tex").write_text(doc % r"\input{capitulos/um}", encoding="utf-8")
+    (tmp_path / "roteiro.tex").write_text(doc % r"\include{anexo} % \input{capitulos/um}", encoding="utf-8")
+    (tmp_path / "capitulos").mkdir()
+    (tmp_path / "capitulos" / "um.tex").write_text(r"\input{capitulos/dois}", encoding="utf-8")
+    (tmp_path / "capitulos" / "dois.tex").write_text("texto", encoding="utf-8")
+    (tmp_path / "anexo.tex").write_text("anexo", encoding="utf-8")
+    (tmp_path / "solto.tex").write_text("ninguém inclui", encoding="utf-8")
+    # um documento completo compila a si mesmo
+    assert compile_target(tmp_path, "main.tex", "roteiro.tex") == "roteiro.tex"
+    # um capítulo compila quem o inclui, mesmo indiretamente (o \input comentado não conta)
+    assert compile_target(tmp_path, "roteiro.tex", "capitulos/dois.tex") == "main.tex"
+    assert compile_target(tmp_path, "main.tex", "anexo.tex") == "roteiro.tex"
+    # o resto mantém o principal
+    assert compile_target(tmp_path, "main.tex", "solto.tex") == "main.tex"
+    assert compile_target(tmp_path, "main.tex", "referencias.bib") == "main.tex"
+    assert compile_target(tmp_path, "main.tex", "") == "main.tex"
+
+
+def test_compilar_desligado_mantem_o_principal(c, proj):
+    from texdesk.storage import load_settings, project_dir
+
+    doc = "\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n"
+    req(c, "put", f"/api/projects/{proj}/file", json={"path": "outro.tex", "content": doc})
+    req(c, "post", f"/api/projects/{proj}/settings", json={"followOpen": False})
+    req(c, "post", f"/api/projects/{proj}/compile", json={"open": "outro.tex"})
+    assert load_settings(project_dir(proj))["main"] == "main.tex"
+    req(c, "post", f"/api/projects/{proj}/settings", json={"followOpen": True})
+    r = req(c, "post", f"/api/projects/{proj}/compile", json={"open": "outro.tex"}).get_json()
+    assert load_settings(project_dir(proj))["main"] == "outro.tex"
+    assert r.get("main", "outro.tex") == "outro.tex"

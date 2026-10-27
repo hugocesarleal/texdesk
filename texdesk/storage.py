@@ -72,6 +72,7 @@ def load_settings(d: Path):
     if not s.get("main") or not (d / s["main"]).exists():
         s["main"] = guess_main(d)
     s.setdefault("autoCompile", False)
+    s.setdefault("followOpen", True)
     s.setdefault("shellEscape", False)
     s.setdefault("driveSync", False)
     return s
@@ -103,6 +104,70 @@ def guess_main(d: Path):
     if candidates:
         return min(candidates)[1]
     return texs[0].relative_to(d).as_posix() if texs else "main.tex"
+
+
+def _read_tex(p: Path):
+    try:
+        return p.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return ""
+
+
+def is_standalone(text: str):
+    """Documento completo (compila sozinho), e não um capítulo incluído por outro."""
+    return bool(re.search(r"^[^%\n]*\\documentclass", text, re.M)) and "\\begin{document}" in text
+
+
+def _included(d: Path, p: Path):
+    """Arquivos .tex que p inclui com \\input, \\include ou \\subfile (ignorando comentários)."""
+    text = re.sub(r"(?<!\\)%.*", "", _read_tex(p))
+    out = set()
+    for arg in re.findall(r"\\(?:input|include|subfile)\s*\{([^}]+)\}", text):
+        name = arg.strip()
+        if not name.endswith(".tex"):
+            name += ".tex"
+        for base in (p.parent, d):  # relativo ao arquivo ou à raiz do projeto
+            f = (base / name).resolve()
+            if f.is_file():
+                out.add(f)
+                break
+    return out
+
+
+def compile_target(d: Path, main: str, open_rel: str):
+    """Documento a compilar quando o arquivo open_rel está aberto no editor.
+
+    Um documento completo compila a si mesmo. Um capítulo compila o documento que o inclui
+    (direta ou indiretamente), de preferência o principal atual. Qualquer outro arquivo
+    mantém o principal.
+    """
+    if not open_rel or not open_rel.lower().endswith(".tex"):
+        return main
+    p = safe_path(d, open_rel)
+    if not p.is_file():
+        return main
+    if is_standalone(_read_tex(p)):
+        return open_rel
+    target = p.resolve()
+
+    def reaches(root: Path):
+        seen, todo = set(), [root.resolve()]
+        while todo:
+            f = todo.pop()
+            if f == target:
+                return True
+            if f not in seen:
+                seen.add(f)
+                todo.extend(_included(d, f) - seen)
+        return False
+
+    if (d / main).is_file() and reaches(d / main):
+        return main
+    for q in sorted(d.rglob("*.tex")):
+        rel = q.relative_to(d)
+        if not is_hidden(rel) and is_standalone(_read_tex(q)) and reaches(q):
+            return rel.as_posix()
+    return main
 
 
 def tree(d: Path):
