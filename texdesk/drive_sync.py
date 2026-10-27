@@ -14,6 +14,7 @@
 import base64
 import hashlib
 import json
+import logging
 import os
 import secrets
 import shutil
@@ -25,6 +26,8 @@ import urllib.request
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+
+from .token_store import TokenStore
 
 SCOPE = "https://www.googleapis.com/auth/drive.file"
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -40,6 +43,8 @@ UPLOAD_WORKERS = 4  # envios simultâneos por projeto
 # arquivos locais que não vão para o Drive
 EXCLUDE = {MANIFEST, ".thumbnail.png"}
 
+log = logging.getLogger(__name__)
+
 
 class DriveError(Exception):
     pass
@@ -53,12 +58,13 @@ class AuthRequired(DriveError):
 
 
 class DriveClient:
-    def __init__(self, state_dir: Path):
+    def __init__(self, state_dir: Path, token_backend="auto"):
         self.dir = state_dir
-        self.dir.mkdir(exist_ok=True)
+        self.dir.mkdir(parents=True, exist_ok=True)
         self.cred_file = self.dir / "credentials.json"
-        self.token_file = self.dir / "token.json"
         self.state_file = self.dir / "state.json"
+        # o token de acesso fica no cofre de senhas do sistema (ou num arquivo protegido)
+        self.tokens = TokenStore(self.dir, token_backend)
         self._lock = threading.Lock()
         self._pending = {}  # state -> (verifier, redirect_uri)
         # pastas cuja existência no Drive já foi confirmada nesta execução do servidor:
@@ -81,14 +87,14 @@ class DriveClient:
         if not cfg.get("client_id") or not cfg.get("client_secret"):
             raise DriveError("Arquivo inválido: esperado o JSON de cliente OAuth baixado do Google Cloud")
         self.cred_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        if os.name != "nt":
+            os.chmod(self.cred_file, 0o600)  # só o dono lê
 
     def _token(self):
-        if not self.token_file.exists():
-            return None
-        return json.loads(self.token_file.read_text(encoding="utf-8"))
+        return self.tokens.load()
 
     def _save_token(self, tok):
-        self.token_file.write_text(json.dumps(tok, indent=2), encoding="utf-8")
+        self.tokens.save(tok)
 
     def state(self):
         if self.state_file.exists():
@@ -116,8 +122,9 @@ class DriveClient:
                 )
             except (urllib.error.URLError, OSError):
                 pass
-        self.token_file.unlink(missing_ok=True)
+        self.tokens.delete()
         self.state_file.unlink(missing_ok=True)
+        log.info("Google Drive desconectado")
 
     # ---- OAuth
     def auth_url(self, redirect_uri):
@@ -167,6 +174,7 @@ class DriveClient:
         s = self.state()
         s["user"] = about.get("user", {})
         self.save_state(s)
+        log.info("Google Drive conectado (token guardado em: %s)", self.tokens.location)
 
     def _post_form(self, url, data):
         req = urllib.request.Request(
@@ -676,13 +684,20 @@ class SyncManager:
                 if not d.is_dir() or not self.is_enabled(name):
                     raise _Skip()
                 ops = sync_project(self.client, d, name)
+                if ops:
+                    log.info("Drive: %s sincronizado (%d operações)", name, ops)
                 upd = {"state": "synced", "lastSync": time.time(), "error": None, "lastOps": ops}
                 delay = SYNC_INTERVAL
             except _Skip:
                 upd, delay = {"state": "idle"}, 0
             except AuthRequired as e:
+                log.warning("Drive: %s não sincronizado: %s", name, e)
                 upd, delay = {"state": "error", "error": str(e)}, RETRY_INTERVAL
             except Exception as e:  # rede, cota etc.: tenta de novo depois
+                if isinstance(e, DriveError):
+                    log.warning("Drive: falha ao sincronizar %s (nova tentativa em %ds): %s", name, RETRY_INTERVAL, e)
+                else:  # erro inesperado (bug): com o rastro completo
+                    log.exception("Drive: erro inesperado ao sincronizar %s", name)
                 upd, delay = {"state": "error", "error": str(e)}, RETRY_INTERVAL
                 with self.cv:
                     self.dirty.setdefault(name, time.time())

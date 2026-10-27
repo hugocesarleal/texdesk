@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 os.environ["TEXDESK_DATA"] = tempfile.mkdtemp(prefix="texdesk-test-")
+os.environ["TEXDESK_KEYRING"] = "0"  # nunca tocar no cofre de senhas real do computador
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 

@@ -52,6 +52,7 @@ def status():
             "user": s.get("user"),
             "syncAll": bool(s.get("syncAll")),
             "redirectUri": _redirect_uri(),
+            "tokenStorage": drive.tokens.location,
         }
     )
 

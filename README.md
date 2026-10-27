@@ -61,7 +61,7 @@ Como funciona:
 - Arquivos apagados aqui vão para a lixeira do Drive. Excluir um projeto aqui não o apaga do Drive.
 - O app só pede o escopo `drive.file`, então enxerga apenas os arquivos que ele mesmo criou.
 - Em outro computador, use as mesmas credenciais e clique em **Baixar** na lista "Projetos no Drive".
-- O token de acesso fica em `.drive/`. Não compartilhe essa pasta.
+- O token de acesso fica no cofre de senhas do sistema (Gerenciador de Credenciais no Windows, Chaves no macOS, Secret Service no Linux). Sem cofre disponível, fica em `.drive/token.json`, protegido, e o painel avisa. Não compartilhe a pasta `.drive/`.
 - A sincronização vai do computador para o Drive. Editar o mesmo projeto em dois computadores ao mesmo tempo não é mesclado: vale a última versão enviada.
 
 ## Releases
@@ -115,6 +115,8 @@ scripts/       empacotamento das releases (usado pelo GitHub Actions)
 - EPS não é suportado sem Ghostscript; converta as figuras para PDF ou PNG.
 - Depois da instalação, funciona sem internet: o editor e o visualizador de PDF vêm junto com o projeto (`static/vendor/`). A internet só é necessária para baixar pacotes LaTeX que ainda não estão no cache e para o Google Drive.
 - Ele roda só em `127.0.0.1` e é feito para uso local, por uma pessoa.
+- Erros e eventos (início, compilações, sincronização com o Drive) ficam em `logs/texdesk.log`, que guarda até 4 arquivos de 1 MB. Ao relatar um problema, anexe o trecho com o erro.
+- Ao abrir, o TexDesk confere as versões das dependências Python e instala sozinho o que faltar. Isso acontece depois de atualizar o código.
 
 ## Contribuindo
 

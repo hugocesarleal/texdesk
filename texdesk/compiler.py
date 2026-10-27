@@ -4,6 +4,7 @@
 
 """Compilação com o Tectonic e leitura dos resultados (PDF, log, mensagens)."""
 
+import logging
 import os
 import re
 import subprocess
@@ -13,6 +14,8 @@ from pathlib import Path
 from .config import COMPILE_TIMEOUT, OUTPUT, TECTONIC
 from .latexlog import parse_log
 from .storage import is_hidden, tree
+
+logger = logging.getLogger(__name__)
 
 # extensões dos arquivos intermediários do TeX (para limpar o que o shell-escape deixa no projeto)
 INTERMEDIATE_EXT = {
@@ -94,6 +97,7 @@ def compile_project(d: Path, name: str, main: str, main_path: Path, shell_escape
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
     except subprocess.TimeoutExpired:
+        logger.warning("Compilação de %s passou do limite de %ds", name, COMPILE_TIMEOUT)
         return {
             "status": "timedout",
             "message": f"Tempo limite de {COMPILE_TIMEOUT}s excedido",
@@ -116,8 +120,13 @@ def compile_project(d: Path, name: str, main: str, main_path: Path, shell_escape
     pdf = out / (stem + ".pdf")
     has_pdf = pdf.exists()  # o PDF anterior foi apagado antes de compilar
     has_errors = proc.returncode != 0 or any(e["level"] == "error" for e in entries)
+    status = "failure" if not has_pdf else ("error" if has_errors else "success")
+    n_errors = sum(e["level"] == "error" for e in entries)
+    logger.info("Compilação de %s: %s em %.1fs (%d erro(s) no documento)", name, status, elapsed, n_errors)
+    if status == "failure" and not entries:  # nem PDF nem erro do TeX: problema no próprio Tectonic
+        logger.warning("Tectonic sem PDF para %s (código %s): %s", name, proc.returncode, stderr.strip()[-500:])
     return {
-        "status": "failure" if not has_pdf else ("error" if has_errors else "success"),
+        "status": status,
         "pdf": f"/api/projects/{name}/output/{stem}.pdf?t={int(time.time() * 1000)}" if has_pdf else None,
         "entries": entries,
         "log": log,

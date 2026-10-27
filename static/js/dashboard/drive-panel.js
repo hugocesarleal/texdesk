@@ -82,6 +82,9 @@ async function openDrivePanel() {
         <a class="btn small" id="dp-open" target="_blank" rel="noopener" hidden>${icon("folderOpen")}Abrir no Drive</a>
         <button class="btn small danger" id="drive-disconnect">Desconectar</button>
       </div>
+      ${st.tokenStorage === "keyring"
+        ? `<p class="note dp-secure">${icon("lock")}O acesso à sua conta está guardado no cofre de senhas do sistema.</p>`
+        : `<p class="note dp-secure warn">${icon("lock")}Este computador não tem um cofre de senhas disponível: o acesso à sua conta está num arquivo protegido em <code>.drive/</code>. Não compartilhe essa pasta.</p>`}
 
       <label class="dp-toggle">
         <span class="txt"><b>Sincronizar todos os projetos</b>

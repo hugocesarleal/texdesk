@@ -21,6 +21,7 @@ DATA = Path(os.environ.get("TEXDESK_DATA", ROOT)).resolve()
 PROJECTS = DATA / "projects"
 OUTPUT = DATA / "output"
 DRIVE_STATE = DATA / ".drive"
+LOG_FILE = DATA / "logs" / "texdesk.log"
 
 PORT = int(os.environ.get("PORT", 5050))
 URL = f"http://127.0.0.1:{PORT}"

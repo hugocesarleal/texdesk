@@ -8,13 +8,17 @@
 Sai com o código 3 se já houver um TexDesk rodando (aí só abre o navegador).
 """
 
+import logging
 import sys
 import threading
 import urllib.request
 import webbrowser
 
-from . import __version__
-from .config import PORT, URL
+from . import __version__, logs
+from .config import COMPILE_TIMEOUT, DATA, LOG_FILE, PORT, ROOT, URL
+
+# não __name__: rodando como "python -m texdesk" ele vale "__main__", fora do log "texdesk"
+log = logging.getLogger("texdesk.main")
 
 
 def already_running():
@@ -27,6 +31,32 @@ def already_running():
         return False
 
 
+def ensure_dependencies():
+    """Confere as versões do requirements.txt e instala o que faltar ou estiver diferente.
+
+    Quem atualiza o TexDesk (git pull ou um pacote novo por cima) não roda a instalação de
+    novo; sem isto, uma dependência nova faria o servidor quebrar ao abrir.
+    """
+    import importlib.metadata
+    import re
+    import subprocess
+
+    req = ROOT / "requirements.txt"
+    pins = re.findall(r"^([A-Za-z0-9_.\-]+)==([^\s#]+)", req.read_text(encoding="utf-8"), re.M)
+    missing = []
+    for name, version in pins:
+        try:
+            if importlib.metadata.version(name) != version:
+                missing.append(f"{name} {version}")
+        except importlib.metadata.PackageNotFoundError:
+            missing.append(f"{name} {version}")
+    if missing:
+        print(f"\n  Instalando dependências: {', '.join(missing)}...")
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check", "-r", str(req)]
+        )
+
+
 def main():
     open_browser = "--abrir" in sys.argv
     if already_running():
@@ -36,15 +66,24 @@ def main():
             webbrowser.open(URL)
         return 3
 
+    ensure_dependencies()
+    logs.setup()
+    from waitress import serve
+
     from .app import create_app  # só aqui: criar o app liga a sincronização com o Drive
 
     app = create_app()
+    log.info("TexDesk %s iniciado em %s (dados em %s)", __version__, URL, DATA)
     print(f"\n  TexDesk {__version__} rodando em {URL}")
     print("  NÃO feche esta janela enquanto estiver usando (pode minimizar).")
-    print("  Fechar esta janela desliga o editor e a sincronização com o Google Drive.\n")
+    print("  Fechar esta janela desliga o editor e a sincronização com o Google Drive.")
+    print(f"  Registro de erros: {LOG_FILE}\n")
     if open_browser:
         threading.Timer(1.0, webbrowser.open, args=(URL,)).start()
-    app.run(host="127.0.0.1", port=PORT, debug=False, threaded=True)
+    # waitress: servidor de produção (o do Flask é só para desenvolvimento). Várias threads,
+    # porque uma compilação longa não pode travar o resto da interface, e um tempo de
+    # conexão maior que o limite de compilação, para não cortar a resposta no meio.
+    serve(app, host="127.0.0.1", port=PORT, threads=16, channel_timeout=COMPILE_TIMEOUT + 60, ident="TexDesk")
     return 0
 
 

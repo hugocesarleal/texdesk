@@ -4,6 +4,18 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+### Adicionado
+- Registro de erros e eventos em `logs/texdesk.log` (com rotação): erros inesperados com o rastro completo, compilações e falhas de sincronização com o Drive.
+- O painel do Google Drive mostra onde o acesso à conta está guardado.
+- Ao abrir, o TexDesk instala sozinho as dependências Python que faltarem depois de uma atualização.
+
+### Alterado
+- O servidor passa a ser o waitress, no lugar do servidor de desenvolvimento do Flask.
+- O token do Google Drive passa a ficar no cofre de senhas do sistema (Gerenciador de Credenciais do Windows, Chaves do macOS, Secret Service do Linux). Um `token.json` existente é migrado automaticamente, sem precisar conectar de novo.
+
+### Corrigido
+- Erros internos do servidor (500) agora chegam à interface como mensagem, em vez de uma página HTML.
+
 ## [0.1.0] - 2026-10-26
 
 Primeira versão pública.

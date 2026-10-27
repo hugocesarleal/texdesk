@@ -7,7 +7,7 @@
 from flask import Flask, jsonify
 
 from . import drive_sync, security, services
-from .config import MAX_UPLOAD_MB, OUTPUT, PROJECTS, STATIC
+from .config import LOG_FILE, MAX_UPLOAD_MB, OUTPUT, PROJECTS, STATIC
 from .routes import BLUEPRINTS
 
 
@@ -33,6 +33,11 @@ def _register_errors(app):
 
     for code in (400, 403, 404, 405, 409, 415):
         app.register_error_handler(code, json_error)
+
+    @app.errorhandler(500)
+    def internal_error(e):
+        # o Flask já registrou o erro com o rastro completo no log (logger "texdesk.app")
+        return jsonify({"error": f"Erro interno do TexDesk. Os detalhes ficaram registrados em {LOG_FILE}"}), 500
 
     @app.errorhandler(413)
     def too_large(e):
