@@ -4,6 +4,7 @@ tests/fixtures/** -text
 .github export-ignore
 tests export-ignore
 scripts export-ignore
+docs export-ignore
 requirements-dev.txt export-ignore
 .gitattributes export-ignore
 # scripts: LF para Linux/macOS, CRLF para Windows, independente de quem fizer o checkout

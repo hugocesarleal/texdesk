@@ -1,9 +1,10 @@
 # --- Dados pessoais e segredos (NUNCA publicar) ---
 # credenciais OAuth e token de acesso ao Google Drive
 .drive/
-# projetos do usuário e PDFs compilados
+# projetos do usuário, PDFs compilados e histórico de versões
 projects/
 output/
+history/
 # registro de erros (pode conter nomes de projetos e caminhos do computador)
 logs/
 # exportações e backups de projetos

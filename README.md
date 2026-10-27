@@ -2,20 +2,38 @@
 
 <h1 align="center">TexDesk</h1>
 
-<p align="center">Editor e compilador LaTeX que roda no seu computador, com interface no navegador.</p>
-
-<p align="center"><a href="https://github.com/hugocesarleal/texdesk">github.com/hugocesarleal/texdesk</a></p>
+<p align="center"><b>Editor LaTeX que roda no seu computador.</b><br>Escreva, compile e veja o PDF lado a lado, sem conta, sem limite de tempo de compilação e sem depender da internet.</p>
 
 <p align="center">
+  <a href="https://github.com/hugocesarleal/texdesk/releases/latest"><img src="https://img.shields.io/github/v/release/hugocesarleal/texdesk?label=vers%C3%A3o&color=138a36" alt="Última versão"></a>
   <a href="https://github.com/hugocesarleal/texdesk/actions/workflows/tests.yml"><img src="https://github.com/hugocesarleal/texdesk/actions/workflows/tests.yml/badge.svg" alt="Testes"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/licen%C3%A7a-MIT-green" alt="Licença MIT"></a>
+  <img src="https://img.shields.io/badge/Windows%20%7C%20Linux%20%7C%20macOS-555" alt="Windows, Linux e macOS">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licen%C3%A7a-MIT-138a36" alt="Licença MIT"></a>
 </p>
+
+<p align="center">
+  <a href="#instalação">Instalação</a> ·
+  <a href="#recursos">Recursos</a> ·
+  <a href="#atalhos-de-teclado">Atalhos</a> ·
+  <a href="#google-drive">Google Drive</a> ·
+  <a href="#solução-de-problemas">Solução de problemas</a> ·
+  <a href="#desenvolvimento">Desenvolvimento</a>
+</p>
+
+<p align="center"><img src="docs/screenshots/editor.jpg" alt="Editor do TexDesk: código LaTeX à esquerda, PDF compilado à direita com a busca destacando as ocorrências, e uma palavra sublinhada pelo corretor ortográfico" width="900"></p>
+
+## Por que o TexDesk
+
+- **Local de verdade.** Seus projetos são pastas comuns no seu computador. O TexDesk funciona sem internet depois de instalado, e nada sai da sua máquina a não ser que você ligue o Google Drive.
+- **Sem limites.** Não há tempo máximo de compilação nem limite de projetos ou de colaboradores. Documentos grandes, como TCCs e teses, compilam no seu processador.
+- **Pronto para usar.** Os pacotes de instalação já trazem o motor LaTeX ([Tectonic](https://tectonic-typesetting.github.io/)) e o biber. Os pacotes LaTeX que cada documento usa são baixados sozinhos na primeira compilação.
+- **Feito para o dia a dia acadêmico.** Inclui modelos de artigo e de slides do IFMG, corretor ortográfico em português, histórico de versões e contagem de palavras.
 
 ## Instalação
 
-Em todos os sistemas é preciso ter o [Python 3.10 ou mais novo](https://www.python.org/downloads/).
+É preciso ter o [Python 3.10 ou mais novo](https://www.python.org/downloads/). No Windows, marque **Add Python to PATH** durante a instalação.
 
-Baixe o pacote do seu sistema na [página de releases](https://github.com/hugocesarleal/texdesk/releases/latest). Eles já trazem o motor LaTeX (Tectonic) e o biber:
+Baixe o pacote do seu sistema na [página de releases](https://github.com/hugocesarleal/texdesk/releases/latest):
 
 | Sistema | Arquivo | Como abrir |
 |---|---|---|
@@ -25,59 +43,171 @@ Baixe o pacote do seu sistema na [página de releases](https://github.com/hugoce
 | macOS (Apple Silicon: M1, M2, M3…) | `texdesk-…-macos-arm64.tar.gz` | Extraia e rode `./iniciar.sh` no Terminal |
 | macOS (Intel) | `texdesk-…-macos-x64.tar.gz` | Extraia e rode `./iniciar.sh` no Terminal |
 
-O navegador abre em http://127.0.0.1:5050. Crie um projeto e escreva; use **Ctrl+S** ou **Ctrl+Enter** para compilar.
+O TexDesk abre no navegador, em `http://127.0.0.1:5050`. Crie um projeto, escreva e aperte **Ctrl+S** para compilar.
 
-Também dá para usar direto do código (`git clone https://github.com/hugocesarleal/texdesk.git`). Nesse caso, na primeira vez o `iniciar.bat`/`iniciar.sh` baixa o Tectonic e o biber do site de cada projeto.
+Na primeira vez, a instalação prepara tudo sozinha, em 1 a 2 minutos:
+- instala as dependências Python (no Linux e no macOS, num ambiente isolado em `.venv/`);
+- baixa os dicionários do corretor ortográfico (português e inglês);
+- compila os modelos, para os pacotes LaTeX mais comuns já ficarem no cache.
 
-Na primeira vez, a instalação (`setup.ps1` no Windows, `setup.sh` no Linux e no macOS) compila os três modelos para já baixar os pacotes LaTeX que eles usam (cerca de 20 MB, 1 a 2 minutos). Os pacotes ficam num cache do Tectonic compartilhado por todos os projetos. Um documento que use um pacote novo baixa só esse pacote, na primeira compilação.
+No Debian e no Ubuntu, pode ser preciso instalar o `python3-venv` antes:
 
-No Linux e no macOS, as dependências Python ficam num ambiente isolado (`.venv/`, dentro da pasta do TexDesk). No Debian/Ubuntu pode ser preciso instalar o `python3-venv` antes (`sudo apt install python3-venv`).
+```bash
+sudo apt install python3-venv
+```
+
+Para atualizar, baixe o pacote novo e extraia por cima da pasta antiga. Seus projetos, em `projects/`, são mantidos.
+
+<details>
+<summary><b>Instalar a partir do código-fonte</b></summary>
+
+```bash
+git clone https://github.com/hugocesarleal/texdesk.git
+cd texdesk
+```
+
+Depois, rode `iniciar.bat` (Windows) ou `./iniciar.sh` (Linux e macOS). Na primeira vez, eles chamam a instalação (`setup.ps1` ou `setup.sh`), que baixa o Tectonic, o biber e os dicionários do site de cada projeto.
+
+</details>
 
 ## Recursos
 
-| Área | O que faz |
+### Editor
+- Realce de sintaxe LaTeX, com autocompletar de comandos, ambientes, rótulos (`\ref`), citações (`\cite`) e pacotes.
+- Corretor ortográfico offline, com os dicionários do LibreOffice, em 8 idiomas. Ele detecta o idioma pelo `babel` e não sublinha comandos, fórmulas nem rótulos. O clique direito numa palavra mostra sugestões e a opção de adicioná-la ao seu dicionário.
+- Busca no arquivo (Ctrl+F) e em todos os arquivos do projeto (Ctrl+Shift+F), com opções de maiúsculas, palavra inteira e expressão regular.
+- Estrutura do documento (capítulos e seções) para navegar pelo texto.
+- Salvamento automático e compilação automática opcional.
+
+### Compilação e PDF
+- Tectonic (XeTeX), com BibTeX e biber automáticos e quantas passadas forem necessárias para as referências.
+- O PDF é gerado mesmo quando há erros, como no modo `batchmode`.
+- Erros, avisos e caixas overfull/underfull aparecem no arquivo e na linha certos, inclusive em arquivos incluídos com `\input`.
+- Visualizador de PDF com zoom, contagem e troca de página, e busca de palavras sem diferenciar maiúsculas nem acentos.
+- SyncTeX nos dois sentidos: clique duplo no PDF leva ao código, e um botão leva do código ao ponto no PDF.
+
+### Projetos
+- Painel com busca e miniatura da primeira página de cada documento.
+- Modelos para começar: em branco, [Slides IFMG](https://github.com/ribeiromarcos/ifslides2024) e [Artigo IFMG](https://github.com/ribeiromarcos/iftex2024).
+- Importar e exportar `.zip`, renomear, duplicar e excluir.
+- Árvore de arquivos com pastas, envio por arrastar e soltar, renomear e mover.
+- Contagem de palavras do documento, com texto, títulos, legendas e fórmulas separados.
+
+<p align="center"><img src="docs/screenshots/projetos.jpg" alt="Painel de projetos do TexDesk com miniaturas da primeira página" width="760"></p>
+
+### Histórico de versões
+O TexDesk guarda versões dos arquivos de texto enquanto você trabalha: uma quando você volta a editar depois de 10 minutos, e uma antes de apagar ou mover arquivos. Você também pode salvar uma versão com nome, por exemplo "Versão enviada ao orientador". Para cada versão, dá para ver o que mudou e restaurar um arquivo ou o projeto inteiro. A restauração guarda o estado atual antes, então ela também pode ser desfeita.
+
+<p align="center"><img src="docs/screenshots/historico.jpg" alt="Histórico de versões mostrando as diferenças de um arquivo" width="760"></p>
+
+O histórico fica em `history/`, fora da pasta do projeto: ele não vai para o Google Drive nem para o `.zip`.
+
+### Google Drive (opcional)
+Sincronização dos projetos com o seu Google Drive a cada 5 segundos durante a edição, enviando só os arquivos que mudaram. Veja [como configurar](#google-drive).
+
+## Atalhos de teclado
+
+| Atalho | Ação |
 |---|---|
-| Painel de projetos | Criar (em branco, [Slides IFMG](https://github.com/ribeiromarcos/ifslides2024) ou [Artigo IFMG](https://github.com/ribeiromarcos/iftex2024)), renomear, duplicar, excluir, baixar/enviar `.zip`, miniatura da 1ª página |
-| Árvore de arquivos | Pastas, upload (botão ou arrastar e soltar), renomear/mover, definir documento principal |
-| Editor | CodeMirror com realce LaTeX, autocompletar (`\comandos`, ambientes, `\ref`, `\cite`, pacotes), busca, Ctrl+/ comenta, Ctrl+B/Ctrl+I, salvamento automático |
-| Compilador | Tectonic (XeTeX + BibTeX/biber automáticos, reexecuta até estabilizar as referências), gera o PDF mesmo com erros, shell-escape opcional |
-| Logs | Erros, avisos e caixas overfull/underfull com arquivo e linha. Clique para ir ao código. Marcadores no editor e log bruto |
-| PDF | Visualizador PDF.js com zoom, ajuste à largura e recompilação sem piscar |
-| SyncTeX | Clique duplo no PDF vai ao código; o botão → vai do código ao PDF |
-| Google Drive | Sincronização opcional dos projetos, a cada 5 s durante a edição |
-| Outros | Estrutura do documento (seções), compilação automática, tema claro/escuro, layout móvel |
+| Ctrl+S ou Ctrl+Enter | Compilar |
+| Ctrl+F | Buscar no arquivo (ou no PDF, se o PDF estiver selecionado) |
+| Ctrl+Shift+F | Buscar em todos os arquivos do projeto |
+| Ctrl+Espaço | Autocompletar |
+| Ctrl+/ | Comentar ou descomentar as linhas |
+| Ctrl+B / Ctrl+I | Negrito (`\textbf`) / itálico (`\textit`) |
+| Alt+G | Ir para a linha |
+| Ctrl+roda do mouse | Zoom do PDF |
+| Clique duplo no PDF | Ir para o trecho correspondente no código |
+
+No macOS, use Cmd no lugar de Ctrl.
 
 ## Google Drive
 
 No painel de projetos, clique em **Google Drive**:
 
-1. Na primeira vez, siga o passo a passo para criar um cliente OAuth ("App para computador") no Google Cloud e envie o JSON. É gratuito e só precisa ser feito uma vez.
-2. Clique em **Conectar** e faça login com a sua conta Google.
-3. Ligue **Sincronizar todos os projetos**, ou ligue projeto por projeto em Configurações, no editor.
+1. Na primeira vez, siga o passo a passo para criar um cliente OAuth ("App para computador") no Google Cloud e envie o arquivo JSON. É gratuito e feito uma vez só.
+2. Clique em **Conectar** e entre com a sua conta Google.
+3. Ligue **Sincronizar todos os projetos**, ou ligue projeto por projeto nas Configurações do editor.
 
 Como funciona:
 - Os projetos ficam em `TexDesk/<projeto>` no seu Drive.
-- Durante a edição, as alterações são enviadas a cada 5 s, e só os arquivos que mudaram.
-- Arquivos apagados aqui vão para a lixeira do Drive. Excluir um projeto aqui não o apaga do Drive.
-- O app só pede o escopo `drive.file`, então enxerga apenas os arquivos que ele mesmo criou.
-- Em outro computador, use as mesmas credenciais e clique em **Baixar** na lista "Projetos no Drive".
-- O token de acesso fica no cofre de senhas do sistema (Gerenciador de Credenciais no Windows, Chaves no macOS, Secret Service no Linux). Sem cofre disponível, fica em `.drive/token.json`, protegido, e o painel avisa. Não compartilhe a pasta `.drive/`.
-- A sincronização vai do computador para o Drive. Editar o mesmo projeto em dois computadores ao mesmo tempo não é mesclado: vale a última versão enviada.
+- O app pede só o escopo `drive.file`: ele enxerga apenas os arquivos que ele mesmo criou, nunca o resto do seu Drive.
+- Arquivos apagados no TexDesk vão para a lixeira do Drive. Excluir um projeto no TexDesk não o apaga do Drive.
+- Em outro computador, use as mesmas credenciais. O TexDesk oferece importar os projetos que já estão no Drive.
+- O acesso à conta fica no cofre de senhas do sistema (Gerenciador de Credenciais no Windows, Chaves no macOS, Secret Service no Linux).
+- A sincronização vai do computador para o Drive. Se o mesmo projeto for editado em dois computadores ao mesmo tempo, as alterações não são mescladas: vale a última versão enviada.
 
-## Releases
+## Solução de problemas
 
-Para publicar uma versão, crie uma tag (`git tag v0.1.0 && git push origin v0.1.0`). O GitHub Actions monta um pacote para cada sistema, já com o Tectonic e o biber, instala e testa cada um no próprio sistema, e só então cria a release com os arquivos.
+<details>
+<summary><b>A primeira compilação de um documento demora</b></summary>
 
-## Testes
+Na primeira vez que um documento usa um pacote LaTeX, o Tectonic baixa esse pacote. Depois disso, ele fica no cache e as próximas compilações são rápidas, inclusive sem internet.
+</details>
+
+<details>
+<summary><b>O documento usa <code>minted</code></b></summary>
+
+Ligue **Permitir shell-escape** nas Configurações do projeto e instale o Pygments:
+
+```bash
+python -m pip install pygments
+```
+</details>
+
+<details>
+<summary><b>Figuras em EPS não aparecem</b></summary>
+
+O EPS precisa do Ghostscript, que não vem com o TexDesk. Converta as figuras para PDF ou PNG.
+</details>
+
+<details>
+<summary><b>Projetos com <code>biblatex</code> no Linux ARM64</b></summary>
+
+O biber 2.17, que acompanha o TexDesk, não tem versão para Linux ARM64. Instale o biber do sistema:
+
+```bash
+sudo apt install biber
+```
+</details>
+
+<details>
+<summary><b>O Google mostra "access_denied" ou pede para conectar de novo a cada 7 dias</b></summary>
+
+O "access_denied" aparece quando a sua conta não foi adicionada em **Usuários de teste** no Google Cloud. A expiração a cada 7 dias acontece enquanto o app está "Em teste": clique em **Publicar app** na página Público-alvo do Google Auth Platform. Publicar é gratuito e não exige verificação, porque o app só usa o escopo `drive.file`.
+</details>
+
+<details>
+<summary><b>Algo deu errado e eu quero relatar</b></summary>
+
+Os erros ficam registrados em `logs/texdesk.log`, na pasta do TexDesk. Abra uma [issue](https://github.com/hugocesarleal/texdesk/issues/new/choose) e anexe o trecho com o erro.
+</details>
+
+Outras observações:
+- O motor é XeTeX: `fontspec` funciona, e `inputenc` é aceito. Projetos feitos para `pdflatex` costumam compilar sem mudanças.
+- O TexDesk atende só em `127.0.0.1` e é feito para uso local, por uma pessoa.
+
+## Desenvolvimento
 
 ```bash
 python -m pip install -r requirements-dev.txt
 python -m pytest tests
+python -m ruff check .
 ```
 
-Os testes usam uma pasta de dados temporária e um Google Drive falso, então não tocam nos seus projetos nem na sua conta. Os de compilação rodam só se o Tectonic estiver em `tools/`. O GitHub Actions roda a instalação completa e os testes a cada push, no Windows, no Linux e no macOS.
+Os testes usam uma pasta de dados temporária e um Google Drive falso, então não tocam nos seus projetos nem na sua conta. Os testes de compilação rodam se o Tectonic estiver em `tools/`. A cada push, o GitHub Actions roda a instalação completa e os testes no Windows, no Linux e no macOS.
 
-## Estrutura
+Para publicar uma versão, crie uma tag:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+O GitHub Actions monta um pacote para cada sistema, já com o Tectonic, o biber e os dicionários. Depois instala e testa cada pacote no próprio sistema e só então cria a release, com as notas tiradas do [CHANGELOG](CHANGELOG.md).
+
+<details>
+<summary><b>Estrutura do código</b></summary>
 
 ```
 texdesk/               servidor (python -m texdesk)
@@ -88,42 +218,34 @@ texdesk/               servidor (python -m texdesk)
   storage.py           projetos no disco: caminhos seguros, configurações, árvore
   compiler.py          chamada ao Tectonic e leitura dos resultados
   latexlog.py          leitor do log do TeX (erros, avisos e caixas, com arquivo e linha)
-  synctex.py           busca direta/inversa no .synctex.gz
+  synctex.py           busca direta e inversa no .synctex.gz
+  history.py           histórico de versões (cópias deduplicadas e comprimidas)
+  texttools.py         busca no projeto e contagem de palavras
+  spell.py             corretor ortográfico (dicionários Hunspell)
   drive_sync.py        sincronização com o Google Drive (OAuth, envio incremental, restauração)
   services.py          conexão com o Drive e processo de sincronização
-  routes/              rotas HTTP: pages, projects, files, compile, drive
+  routes/              rotas HTTP: pages, projects, files, compile, tools, drive
 static/                interface
-  index.html, editor.html
   css/                 base.css (cores e componentes), dashboard.css, editor.css
   js/common.js         API, ícones, modais e miniaturas
-  js/dashboard/        painel de projetos: projects, new-project, drive-panel, drive-import, main
-  js/editor/           editor: core, files, compile, pdf, layout, main, completions
+  js/dashboard/        painel de projetos e do Google Drive
+  js/editor/           editor, compilação, PDF, busca no PDF e ferramentas
   vendor/              CodeMirror e PDF.js
-tests/                 testes automáticos (pytest) e fixtures
-templates/     modelos de projeto
-projects/      seus projetos (um diretório por projeto)
-output/        PDFs e arquivos de compilação
-tools/         Tectonic e biber (vêm nos pacotes de release ou são baixados na instalação)
-scripts/       empacotamento das releases (usado pelo GitHub Actions)
+templates/             modelos de projeto
+tests/                 testes automáticos (pytest)
+scripts/               empacotamento das releases e imagem de prévia
+docs/                  imagens do README
+projects/              seus projetos (criada no primeiro uso)
+tools/                 Tectonic, biber e dicionários
 ```
-
-## Observações
-
-- O motor é XeTeX (via Tectonic): `fontspec` funciona e `inputenc` é aceito. Projetos que exigem `pdflatex` especificamente costumam compilar sem mudanças.
-- `biblatex` usa o `biber` 2.17 em `tools/`, que casa com o biblatex 3.17 do pacote do Tectonic. O biber 2.17 não tem versão para Linux ARM64; nesse sistema, projetos com `biblatex` precisam do biber do sistema (`sudo apt install biber`).
-- `minted` precisa de shell-escape (ligue nas opções de compilação do projeto) e do Pygments (`pip install pygments`).
-- EPS não é suportado sem Ghostscript; converta as figuras para PDF ou PNG.
-- Depois da instalação, funciona sem internet: o editor e o visualizador de PDF vêm junto com o projeto (`static/vendor/`). A internet só é necessária para baixar pacotes LaTeX que ainda não estão no cache e para o Google Drive.
-- Ele roda só em `127.0.0.1` e é feito para uso local, por uma pessoa.
-- Erros e eventos (início, compilações, sincronização com o Drive) ficam em `logs/texdesk.log`, que guarda até 4 arquivos de 1 MB. Ao relatar um problema, anexe o trecho com o erro.
-- Ao abrir, o TexDesk confere as versões das dependências Python e instala sozinho o que faltar. Isso acontece depois de atualizar o código.
+</details>
 
 ## Contribuindo
 
-Contribuições são bem-vindas! Veja o [guia de contribuição](CONTRIBUTING.md), o [código de conduta](CODE_OF_CONDUCT.md) e o [histórico de mudanças](CHANGELOG.md). Para falhas de segurança, siga o [SECURITY.md](SECURITY.md).
+Contribuições são bem-vindas. Veja o [guia de contribuição](CONTRIBUTING.md) e o [código de conduta](CODE_OF_CONDUCT.md). Para relatar uma falha de segurança, siga a [política de segurança](SECURITY.md). As mudanças de cada versão estão no [CHANGELOG](CHANGELOG.md).
 
 ## Licença
 
-Copyright (c) 2026 [Hugo César Leal](https://github.com/hugocesarleal). Código-fonte: [github.com/hugocesarleal/texdesk](https://github.com/hugocesarleal/texdesk).
+Copyright (c) 2026 [Hugo César Leal](https://github.com/hugocesarleal).
 
-O TexDesk é distribuído sob a [licença MIT](LICENSE). As licenças das ferramentas e bibliotecas de terceiros usadas pelo projeto estão em [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+O TexDesk é distribuído sob a [licença MIT](LICENSE). As ferramentas e bibliotecas de terceiros, como Tectonic, CodeMirror, PDF.js e os dicionários do LibreOffice, mantêm as próprias licenças, listadas em [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

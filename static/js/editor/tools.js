@@ -268,7 +268,7 @@ const SPELL_LANGS = [
 ];
 const spell = { lang: "", known: new Map(), dict: new Set(store.get("spellDict", [])), ignored: new Set(), timer: 0, token: 0 };
 // argumentos que não são texto do documento
-const SPELL_SKIP = /\\(?:includegraphics|input|include|subfile|label|ref|eqref|pageref|autoref|[cC]ref|nameref|cite\w*|parencite|textcite|autocite|url|href|bibliography\w*|addbibresource|usepackage|RequirePackage|documentclass|begin|end|newcommand|renewcommand|providecommand|newenvironment|setlength|hypersetup|graphicspath|usetikzlibrary|usetheme|usecolortheme|definecolor|color|textcolor|lstinputlisting|inputminted|bibliographystyle)\*?(?:\[[^\]]*\])*\{[^}]*\}|\\begin\{[^}]*\}(?:\[[^\]]*\]|\{[^}]*\})*|\\[a-zA-Z@]+\*?\[[^\]]*\]|\b\w+\s*=|\S+@\S+|\b(?:https?|ftp):\/\/\S+|\bwww\.\S+/g;
+const SPELL_SKIP = /\\(?:begin|end)\{[^}]*\}(?:\[[^\]]*\]|\{[^}]*\})*|\\(?:includegraphics|input|include|subfile|label|ref|eqref|pageref|autoref|[cC]ref|nameref|cite\w*|parencite|textcite|autocite|url|href|bibliography\w*|addbibresource|usepackage|RequirePackage|documentclass|newcommand|renewcommand|providecommand|newenvironment|setlength|hypersetup|graphicspath|usetikzlibrary|usetheme|usecolortheme|definecolor|color|textcolor|lstinputlisting|inputminted|bibliographystyle)\*?(?:\[[^\]]*\])*\{[^}]*\}|\\[a-zA-Z@]+\*?\[[^\]]*\]|\b\w+\s*=|\S+@\S+|\b(?:https?|ftp):\/\/\S+|\bwww\.\S+/g;
 const SPELL_WORD = /\p{L}+(?:['’-]\p{L}+)*/gu;
 
 // idioma do documento pelo babel/polyglossia (o último idioma do babel é o principal)

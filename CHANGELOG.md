@@ -15,6 +15,7 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 - Ao abrir, o TexDesk instala sozinho as dependências Python que faltarem depois de uma atualização.
 
 ### Alterado
+- README reescrito, com capturas de tela, atalhos de teclado e solução de problemas.
 - O servidor passa a ser o waitress, no lugar do servidor de desenvolvimento do Flask.
 - Painel do Google Drive redesenhado: busca de projetos, projetos com problema agrupados no topo, barra de progresso só durante o envio e explicações recolhidas em "Como funciona a sincronização".
 - A lista de projetos ficou cerca de 5 vezes mais rápida (~200 ms para ~37 ms com 58 projetos) e não fica mais lenta conforme os projetos crescem: a data de modificação de cada projeto agora vem de um cache.
