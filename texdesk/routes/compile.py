@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 """Compilação, arquivos gerados (PDF) e SyncTeX."""
+
 from pathlib import Path
 
 from flask import Blueprint, abort, jsonify, request, send_file
@@ -22,11 +23,18 @@ def compile_route(name):
     main = (request.get_json(silent=True) or {}).get("main") or s["main"]
     main_path = safe_path(d, main)
     if not main_path.is_file():
-        return jsonify({"status": "failure", "message": f"Documento principal '{main}' não encontrado",
-                        "entries": [], "log": ""})
+        return jsonify(
+            {"status": "failure", "message": f"Documento principal '{main}' não encontrado", "entries": [], "log": ""}
+        )
     if not TECTONIC.exists():
-        return jsonify({"status": "failure", "entries": [], "log": "",
-                        "message": "Tectonic não instalado. Rode setup.ps1 (Windows) ou setup.sh (Linux/macOS)."})
+        return jsonify(
+            {
+                "status": "failure",
+                "entries": [],
+                "log": "",
+                "message": "Tectonic não instalado. Rode setup.ps1 (Windows) ou setup.sh (Linux/macOS).",
+            }
+        )
     lock = project_lock(name)
     if not lock.acquire(timeout=5):
         return jsonify({"status": "busy", "message": "Já existe uma compilação em andamento", "entries": []})

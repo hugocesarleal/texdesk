@@ -7,6 +7,7 @@
 O servidor é importado com TEXDESK_DATA apontando para uma pasta temporária: os testes
 nunca tocam nos projetos, nos PDFs nem na conexão com o Google Drive reais.
 """
+
 import os
 import sys
 import tempfile

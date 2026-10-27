@@ -7,6 +7,7 @@
 --abrir  abre o navegador quando o servidor estiver pronto (usado pelo iniciar.bat/.sh).
 Sai com o código 3 se já houver um TexDesk rodando (aí só abre o navegador).
 """
+
 import sys
 import threading
 import urllib.request
@@ -36,6 +37,7 @@ def main():
         return 3
 
     from .app import create_app  # só aqui: criar o app liga a sincronização com o Drive
+
     app = create_app()
     print(f"\n  TexDesk {__version__} rodando em {URL}")
     print("  NÃO feche esta janela enquanto estiver usando (pode minimizar).")

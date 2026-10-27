@@ -8,6 +8,7 @@ O servidor só escuta em 127.0.0.1, mas qualquer site aberto no navegador conseg
 requisições para ele. Sem estas barreiras, um site poderia ligar o shell-escape, enviar
 um .tex com \\write18 e compilar, executando comandos no computador.
 """
+
 from flask import abort, request
 
 from .config import PORT

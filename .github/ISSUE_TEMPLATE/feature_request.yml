@@ -1,0 +1,29 @@
+name: Sugerir uma melhoria
+description: Uma ideia de recurso novo ou de algo que poderia funcionar melhor.
+labels: [melhoria]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qual problema isso resolve?
+      description: O que você está tentando fazer e o que atrapalha hoje.
+      placeholder: 'Ex.: "Quando escrevo o TCC, preciso saber quantas palavras tem cada capítulo, e hoje não tem como ver isso."'
+    validations:
+      required: true
+  - type: textarea
+    id: proposta
+    attributes:
+      label: Como você imagina a solução?
+    validations:
+      required: true
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: Alternativas que você considerou
+      description: Outras formas de resolver, ou como você contorna isso hoje.
+  - type: checkboxes
+    id: ajuda
+    attributes:
+      label: Contribuição
+      options:
+        - label: Gostaria de implementar essa melhoria (veja o CONTRIBUTING.md)

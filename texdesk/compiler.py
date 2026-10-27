@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 """Compilação com o Tectonic e leitura dos resultados (PDF, log, mensagens)."""
+
 import os
 import re
 import subprocess
@@ -14,9 +15,35 @@ from .latexlog import parse_log
 from .storage import is_hidden, tree
 
 # extensões dos arquivos intermediários do TeX (para limpar o que o shell-escape deixa no projeto)
-INTERMEDIATE_EXT = {".aux", ".bbl", ".bcf", ".blg", ".idx", ".ilg", ".ind", ".log", ".out", ".toc", ".lof",
-                    ".lot", ".xdv", ".fls", ".nav", ".snm", ".vrb", ".glo", ".gls", ".ist", ".pyg", ".aex",
-                    ".pygtex", ".pygstyle", ".synctex", ".gz", ".xml"}
+INTERMEDIATE_EXT = {
+    ".aux",
+    ".bbl",
+    ".bcf",
+    ".blg",
+    ".idx",
+    ".ilg",
+    ".ind",
+    ".log",
+    ".out",
+    ".toc",
+    ".lof",
+    ".lot",
+    ".xdv",
+    ".fls",
+    ".nav",
+    ".snm",
+    ".vrb",
+    ".glo",
+    ".gls",
+    ".ist",
+    ".pyg",
+    ".aex",
+    ".pygtex",
+    ".pygstyle",
+    ".synctex",
+    ".gz",
+    ".xml",
+}
 
 
 def compile_project(d: Path, name: str, main: str, main_path: Path, shell_escape: bool):
@@ -32,10 +59,19 @@ def compile_project(d: Path, name: str, main: str, main_path: Path, shell_escape
     for ext in (".pdf", ".log", ".synctex.gz"):
         (out / (stem + ext)).unlink(missing_ok=True)
 
-    cmd = [str(TECTONIC), "--keep-logs", "--keep-intermediates", "--synctex",
-           "--outdir", str(out), "--chatter", "minimal",
-           # gera o PDF mesmo com erros (como -interaction=batchmode)
-           "-Zcontinue-on-errors", f"-Zsearch-path={d}"]
+    cmd = [
+        str(TECTONIC),
+        "--keep-logs",
+        "--keep-intermediates",
+        "--synctex",
+        "--outdir",
+        str(out),
+        "--chatter",
+        "minimal",
+        # gera o PDF mesmo com erros (como -interaction=batchmode)
+        "-Zcontinue-on-errors",
+        f"-Zsearch-path={d}",
+    ]
     if shell_escape:
         # roda os comandos na pasta do documento, como os outros motores
         # (necessário p/ caminhos relativos em \inputminted etc.)
@@ -49,11 +85,21 @@ def compile_project(d: Path, name: str, main: str, main_path: Path, shell_escape
     try:
         # tools/ no PATH para o Tectonic achar o biber (biblatex)
         env = {**os.environ, "PATH": str(TECTONIC.parent) + os.pathsep + os.environ.get("PATH", "")}
-        proc = subprocess.run(cmd, cwd=main_path.parent, capture_output=True, timeout=COMPILE_TIMEOUT, env=env,
-                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        proc = subprocess.run(
+            cmd,
+            cwd=main_path.parent,
+            capture_output=True,
+            timeout=COMPILE_TIMEOUT,
+            env=env,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
     except subprocess.TimeoutExpired:
-        return {"status": "timedout", "message": f"Tempo limite de {COMPILE_TIMEOUT}s excedido",
-                "entries": [], "log": ""}
+        return {
+            "status": "timedout",
+            "message": f"Tempo limite de {COMPILE_TIMEOUT}s excedido",
+            "entries": [],
+            "log": "",
+        }
     finally:
         if before is not None:
             _remove_created(d, before)
@@ -90,6 +136,7 @@ def _remove_created(d: Path, before):
     Só mexe no que não existia antes E é intermediário (pela extensão ou por estar numa
     pasta _minted*): um arquivo que o usuário criar durante a compilação fica intacto.
     """
+
     def is_intermediate(p):
         rel = p.relative_to(d).parts
         return any(x.startswith("_minted") for x in rel) or p.suffix.lower() in INTERMEDIATE_EXT
@@ -107,6 +154,7 @@ def _remove_created(d: Path, before):
 
 def parse_tectonic_stderr(stderr, existing):
     """Mensagens do próprio Tectonic (rede, arquivos ausentes) que não estão no .log."""
+
     def norm(msg):
         return msg.strip().rstrip(".")[:30]
 
@@ -120,8 +168,9 @@ def parse_tectonic_stderr(stderr, existing):
         level, f, ln, msg = m.groups()
         if f or level == "warning":
             continue  # mensagens do TeX: já vêm do .log
-        if re.match(r"(halted on potentially-recoverable error|the TeX engine had an error)", msg) \
-                and any(e["level"] == "error" for e in existing):
+        if re.match(r"(halted on potentially-recoverable error|the TeX engine had an error)", msg) and any(
+            e["level"] == "error" for e in existing
+        ):
             continue
         key = (None, norm(msg))
         if key in seen:

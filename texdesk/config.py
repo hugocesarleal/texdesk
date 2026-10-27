@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 """Caminhos e constantes do TexDesk."""
+
 import os
 import re
 from pathlib import Path
@@ -30,9 +31,36 @@ THUMB_FILE = ".thumbnail.png"
 TEMPLATE_META = ".template.json"  # descrição de um modelo (fica fora do projeto criado)
 
 NAME_RE = re.compile(r"^[\w\-. ]{1,80}$", re.UNICODE)  # nome de projeto válido
-TEXT_EXT = {".tex", ".bib", ".cls", ".sty", ".bst", ".txt", ".md", ".csv", ".dat",
-            ".tikz", ".cfg", ".def", ".ltx", ".dtx", ".ins", ".bbx", ".cbx", ".lbx",
-            ".json", ".xml", ".py", ".m", ".r", ".gp", ".asy", ".lua", ".bbl", ".log"}
+TEXT_EXT = {
+    ".tex",
+    ".bib",
+    ".cls",
+    ".sty",
+    ".bst",
+    ".txt",
+    ".md",
+    ".csv",
+    ".dat",
+    ".tikz",
+    ".cfg",
+    ".def",
+    ".ltx",
+    ".dtx",
+    ".ins",
+    ".bbx",
+    ".cbx",
+    ".lbx",
+    ".json",
+    ".xml",
+    ".py",
+    ".m",
+    ".r",
+    ".gp",
+    ".asy",
+    ".lua",
+    ".bbl",
+    ".log",
+}
 
 COMPILE_TIMEOUT = 600  # segundos
-MAX_UPLOAD_MB = 500    # limite por requisição (upload de arquivos ou de projeto .zip)
+MAX_UPLOAD_MB = 500  # limite por requisição (upload de arquivos ou de projeto .zip)

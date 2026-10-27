@@ -3,12 +3,13 @@
 # SPDX-License-Identifier: MIT
 
 """API do servidor: projetos, arquivos, modelos e compilação."""
+
 import io
 import zipfile
 
 import pytest
-
 from conftest import APP
+
 from texdesk import config
 from texdesk.security import CSRF_HEADER
 
@@ -46,6 +47,7 @@ def proj(api):
 
 
 # ---------------------------------------------------------------- projetos
+
 
 def test_modelos_disponiveis(api):
     ids = [t["id"] for t in api.get("/api/templates").get_json()]
@@ -89,8 +91,12 @@ def test_zip_ida_e_volta(api, proj):
 
 # ---------------------------------------------------------------- arquivos
 
+
 def test_escrever_ler_mover_apagar(api, proj):
-    assert api.put(f"/api/projects/{proj}/file", json={"path": "cap/intro.tex", "content": "Introdução"}).status_code == 200
+    assert (
+        api.put(f"/api/projects/{proj}/file", json={"path": "cap/intro.tex", "content": "Introdução"}).status_code
+        == 200
+    )
     assert api.get(f"/api/projects/{proj}/file?path=cap/intro.tex").get_json()["content"] == "Introdução"
     assert api.post(f"/api/projects/{proj}/move", json={"from": "cap/intro.tex", "to": "intro.tex"}).status_code == 200
     paths = {f["path"] for f in api.get(f"/api/projects/{proj}/files").get_json()}
@@ -99,7 +105,9 @@ def test_escrever_ler_mover_apagar(api, proj):
     assert api.get(f"/api/projects/{proj}/file?path=intro.tex").status_code == 404
 
 
-@pytest.mark.parametrize("path", ["../fora.tex", "../../server.py", "cap/../../fora.tex", "/etc/passwd", "C:/Windows/x"])
+@pytest.mark.parametrize(
+    "path", ["../fora.tex", "../../server.py", "cap/../../fora.tex", "/etc/passwd", "C:/Windows/x"]
+)
 def test_caminhos_fora_do_projeto_sao_recusados(api, proj, path):
     assert api.put(f"/api/projects/{proj}/file", json={"path": path, "content": "x"}).status_code == 400
     assert api.get(f"/api/projects/{proj}/file", query_string={"path": path}).status_code == 400
@@ -131,7 +139,9 @@ def test_configuracoes_e_documento_principal(api, proj):
 
 # ---------------------------------------------------------------- compilação (precisa do Tectonic)
 
-needs_tectonic = pytest.mark.skipif(not config.TECTONIC.exists(), reason="Tectonic não instalado (rode setup.ps1 ou setup.sh)")
+needs_tectonic = pytest.mark.skipif(
+    not config.TECTONIC.exists(), reason="Tectonic não instalado (rode setup.ps1 ou setup.sh)"
+)
 
 
 @needs_tectonic
@@ -144,9 +154,13 @@ def test_compilar_documento_simples(api, proj):
 @needs_tectonic
 def test_compilar_com_erro_aponta_arquivo_e_linha(api, proj):
     api.put(f"/api/projects/{proj}/file", json={"path": "cap/intro.tex", "content": "ok\n\\naoexiste\n"})
-    api.put(f"/api/projects/{proj}/file", json={
-        "path": "main.tex",
-        "content": "\\documentclass{article}\n\\begin{document}\n\\input{cap/intro}\n\\end{document}\n"})
+    api.put(
+        f"/api/projects/{proj}/file",
+        json={
+            "path": "main.tex",
+            "content": "\\documentclass{article}\n\\begin{document}\n\\input{cap/intro}\n\\end{document}\n",
+        },
+    )
     r = api.post(f"/api/projects/{proj}/compile", json={}).get_json()
     errors = [e for e in r["entries"] if e["level"] == "error"]
     assert r["status"] == "error" and r["pdf"]  # gera o PDF mesmo com erro

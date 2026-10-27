@@ -116,6 +116,10 @@ scripts/       empacotamento das releases (usado pelo GitHub Actions)
 - Depois da instalação, funciona sem internet: o editor e o visualizador de PDF vêm junto com o projeto (`static/vendor/`). A internet só é necessária para baixar pacotes LaTeX que ainda não estão no cache e para o Google Drive.
 - Ele roda só em `127.0.0.1` e é feito para uso local, por uma pessoa.
 
+## Contribuindo
+
+Contribuições são bem-vindas! Veja o [guia de contribuição](CONTRIBUTING.md), o [código de conduta](CODE_OF_CONDUCT.md) e o [histórico de mudanças](CHANGELOG.md). Para falhas de segurança, siga o [SECURITY.md](SECURITY.md).
+
 ## Licença
 
 Copyright (c) 2026 [Hugo César Leal](https://github.com/hugocesarleal). Código-fonte: [github.com/hugocesarleal/texdesk](https://github.com/hugocesarleal/texdesk).

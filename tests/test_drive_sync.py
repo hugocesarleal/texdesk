@@ -3,13 +3,14 @@
 # SPDX-License-Identifier: MIT
 
 """Sincronização com o Google Drive, contra um Drive falso em memória."""
+
 import os
 import time
 
 import pytest
+from fake_drive import FakeDrive
 
 from texdesk import drive_sync as ds
-from fake_drive import FakeDrive
 
 
 @pytest.fixture()
@@ -41,6 +42,7 @@ def touch_later(path, text):
 
 
 # ---------------------------------------------------------------- envio
+
 
 def test_envio_inicial_espelha_os_arquivos(drive, project):
     ds.sync_project(drive, project, "Relatorio")
@@ -95,6 +97,7 @@ def test_renomear_projeto_renomeia_a_pasta(drive, project):
 
 # ---------------------------------------------------------------- restauração
 
+
 def test_restaurar_baixa_arquivos_identicos(drive, project, tmp_path):
     ds.sync_project(drive, project, "Relatorio")
     pf = folder_of(drive, "Relatorio")
@@ -129,7 +132,12 @@ def test_restaurar_com_subpastas_nunca_perde_arquivos(tmp_path):
         dest = tmp_path / f"dest{i}" / "R"
         assert ds.restore_project(drive, folder_of(drive, "R"), dest, "R") == 5
         assert {p.relative_to(dest).as_posix() for p in dest.rglob("*.tex")} == {
-            "main.tex", "a/1.tex", "a/2.tex", "a/b/3.tex", "a/b/4.tex"}
+            "main.tex",
+            "a/1.tex",
+            "a/2.tex",
+            "a/b/3.tex",
+            "a/b/4.tex",
+        }
 
 
 def test_nomes_perigosos_vindos_do_drive_sao_ignorados(drive, tmp_path):
@@ -145,6 +153,7 @@ def test_nomes_perigosos_vindos_do_drive_sao_ignorados(drive, tmp_path):
 
 
 # ---------------------------------------------------------------- pastas e arquivos mexidos no Drive
+
 
 def test_pasta_apagada_no_drive_e_recriada(drive, project):
     ds.sync_project(drive, project, "Relatorio")
@@ -214,6 +223,7 @@ def test_pasta_existente_com_mesmo_nome_nao_duplica(drive, tmp_path):
 
 # ---------------------------------------------------------------- processo em segundo plano
 
+
 def test_envia_no_maximo_a_cada_intervalo(drive, tmp_path, monkeypatch):
     monkeypatch.setattr(ds, "SYNC_INTERVAL", 0.5)
     proj = tmp_path / "P"
@@ -231,7 +241,7 @@ def test_envia_no_maximo_a_cada_intervalo(drive, tmp_path, monkeypatch):
         time.sleep(0.05)
     time.sleep(1.2)  # a última alteração ainda precisa subir
 
-    gaps = [b - a for a, b in zip(syncs, syncs[1:])]
+    gaps = [b - a for a, b in zip(syncs, syncs[1:], strict=False)]
     assert syncs and all(g >= 0.45 for g in gaps), gaps
     assert len(syncs) <= 7  # ~2,2 s / 0,5 s, e não um envio por tecla
     st = m.get_status("P")

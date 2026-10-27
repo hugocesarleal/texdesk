@@ -3,7 +3,9 @@
 # SPDX-License-Identifier: MIT
 
 """Leitor do log do TeX: erros e avisos no arquivo e na linha certos."""
+
 from conftest import FIXTURES
+
 from texdesk.latexlog import parse_log, unwrap
 
 LOG = (FIXTURES / "projeto_com_erros" / "out" / "main.log").read_text(encoding="utf-8")
@@ -18,7 +20,8 @@ def test_erro_em_arquivo_incluido_aponta_para_o_arquivo_certo():
     """\\input{capitulos/intro} aparece no log sem extensão: "(capitulos/intro"."""
     errors = by_level(parse_log(LOG, "", "main.tex", KNOWN), "error")
     assert [(e["file"], e["line"], e["message"]) for e in errors] == [
-        ("capitulos/intro.tex", 2, "Undefined control sequence.")]
+        ("capitulos/intro.tex", 2, "Undefined control sequence.")
+    ]
     assert "\\comandoquenaoexiste" in errors[0]["content"]
 
 

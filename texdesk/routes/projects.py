@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 """Projetos: lista, modelos, criar, importar/exportar .zip, renomear, duplicar, excluir."""
+
 import io
 import json
 import shutil
@@ -26,21 +27,30 @@ def list_projects():
     for d in PROJECTS.iterdir():
         if not d.is_dir() or d.name.startswith("."):
             continue
-        mtime = max((p.stat().st_mtime for p in d.rglob("*")
-                     if p.is_file() and p.name not in (THUMB_FILE, SETTINGS_FILE, drive_sync.MANIFEST)),
-                    default=d.stat().st_mtime)
+        mtime = max(
+            (
+                p.stat().st_mtime
+                for p in d.rglob("*")
+                if p.is_file() and p.name not in (THUMB_FILE, SETTINGS_FILE, drive_sync.MANIFEST)
+            ),
+            default=d.stat().st_mtime,
+        )
         thumb = d / THUMB_FILE
         settings = load_settings(d)
         pdf = OUTPUT / d.name / (Path(settings["main"]).stem + ".pdf")
         tw, th = png_size(thumb)
-        items.append({
-            "name": d.name, "modified": mtime,
-            "thumb": thumb.stat().st_mtime if thumb.exists() else None,
-            "thumbW": tw, "thumbH": th,
-            "pdf": pdf.stat().st_mtime if pdf.exists() else None,
-            "pdfUrl": f"/api/projects/{quote(d.name)}/output/{quote(pdf.name)}" if pdf.exists() else None,
-            "drive": services.syncer.get_status(d.name) if settings["driveSync"] else None,
-        })
+        items.append(
+            {
+                "name": d.name,
+                "modified": mtime,
+                "thumb": thumb.stat().st_mtime if thumb.exists() else None,
+                "thumbW": tw,
+                "thumbH": th,
+                "pdf": pdf.stat().st_mtime if pdf.exists() else None,
+                "pdfUrl": f"/api/projects/{quote(d.name)}/output/{quote(pdf.name)}" if pdf.exists() else None,
+                "drive": services.syncer.get_status(d.name) if settings["driveSync"] else None,
+            }
+        )
     items.sort(key=lambda x: -x["modified"])
     return jsonify(items)
 
@@ -56,8 +66,15 @@ def list_templates():
             meta = json.loads((p / TEMPLATE_META).read_text(encoding="utf-8"))
         except (OSError, ValueError):
             pass
-        out.append({"id": p.name, "name": meta.get("name", p.name), "description": meta.get("description", ""),
-                    "order": meta.get("order", 99), "source": meta.get("source")})
+        out.append(
+            {
+                "id": p.name,
+                "name": meta.get("name", p.name),
+                "description": meta.get("description", ""),
+                "order": meta.get("order", 99),
+                "source": meta.get("source"),
+            }
+        )
     out.sort(key=lambda t: (t["order"], t["name"]))
     return jsonify(out)
 
@@ -76,8 +93,9 @@ def create_project():
         shutil.copytree(tpl, d, ignore=shutil.ignore_patterns(TEMPLATE_META))
     else:
         d.mkdir()
-        (d / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nOlá, mundo!\n\\end{document}\n",
-                                    encoding="utf-8")
+        (d / "main.tex").write_text(
+            "\\documentclass{article}\n\\begin{document}\nOlá, mundo!\n\\end{document}\n", encoding="utf-8"
+        )
     services.apply_sync_default(d)
     return jsonify({"name": name})
 
@@ -103,7 +121,7 @@ def upload_project():
         d.mkdir()
         try:
             for n in names:
-                rel = n[len(prefix):]
+                rel = n[len(prefix) :]
                 if not rel or rel.startswith("__MACOSX"):
                     continue
                 target = safe_path(d, rel)

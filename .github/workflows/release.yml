@@ -120,7 +120,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           V: ${{ needs.empacotar.outputs.versao }}
         run: |
-          cat > notas.md <<EOF
+          # a seção desta versão no CHANGELOG.md vira o início das notas da release
+          awk -v v="$V" 'index($0, "## [" v "]") == 1 {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > mudancas.md
+          test -s mudancas.md || { echo "CHANGELOG.md não tem a seção [$V]"; exit 1; }
+          { echo "## O que há nesta versão"; cat mudancas.md; } > notas.md
+          cat >> notas.md <<EOF
           ## Qual arquivo baixar
 
           | Sistema | Arquivo |
@@ -138,4 +142,4 @@ jobs:
 
           Na primeira vez a instalação prepara os pacotes LaTeX (1 a 2 minutos). Os pacotes já trazem o Tectonic e o biber.
           EOF
-          gh release create "$GITHUB_REF_NAME" dist/* --title "TexDesk $V" --notes-file notas.md --generate-notes
+          gh release create "$GITHUB_REF_NAME" dist/* --title "TexDesk $V" --notes-file notas.md

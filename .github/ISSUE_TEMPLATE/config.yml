@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Relatar uma falha de segurança
+    url: https://github.com/hugocesarleal/texdesk/security/advisories/new
+    about: Falhas de segurança devem ser relatadas em particular, não em issues públicas.

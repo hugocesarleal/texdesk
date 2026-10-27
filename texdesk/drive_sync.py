@@ -10,6 +10,7 @@
 - Um processo em segundo plano envia as alterações de projetos "sujos",
   no máximo a cada SYNC_INTERVAL segundos por projeto, só com o que mudou.
 """
+
 import base64
 import hashlib
 import json
@@ -49,6 +50,7 @@ class AuthRequired(DriveError):
 
 
 # ---------------------------------------------------------------- cliente HTTP do Drive
+
 
 class DriveClient:
     def __init__(self, state_dir: Path):
@@ -105,9 +107,13 @@ class DriveClient:
         t = self._token()
         if t and t.get("refresh_token"):
             try:  # revoga no Google; ignora falhas de rede
-                urllib.request.urlopen(urllib.request.Request(
-                    "https://oauth2.googleapis.com/revoke",
-                    data=urllib.parse.urlencode({"token": t["refresh_token"]}).encode()), timeout=10)
+                urllib.request.urlopen(
+                    urllib.request.Request(
+                        "https://oauth2.googleapis.com/revoke",
+                        data=urllib.parse.urlencode({"token": t["refresh_token"]}).encode(),
+                    ),
+                    timeout=10,
+                )
             except (urllib.error.URLError, OSError):
                 pass
         self.token_file.unlink(missing_ok=True)
@@ -123,9 +129,15 @@ class DriveClient:
         state = secrets.token_urlsafe(24)
         self._pending[state] = (verifier, redirect_uri)
         q = {
-            "client_id": cfg["client_id"], "redirect_uri": redirect_uri, "response_type": "code",
-            "scope": SCOPE, "access_type": "offline", "prompt": "consent", "state": state,
-            "code_challenge": challenge, "code_challenge_method": "S256",
+            "client_id": cfg["client_id"],
+            "redirect_uri": redirect_uri,
+            "response_type": "code",
+            "scope": SCOPE,
+            "access_type": "offline",
+            "prompt": "consent",
+            "state": state,
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
         }
         return AUTH_URL + "?" + urllib.parse.urlencode(q)
 
@@ -134,12 +146,21 @@ class DriveClient:
             raise DriveError("Sessão de login expirada; tente conectar de novo")
         verifier, redirect_uri = self._pending.pop(state)
         cfg = self.client_config()
-        tok = self._post_form(TOKEN_URL, {
-            "code": code, "client_id": cfg["client_id"], "client_secret": cfg["client_secret"],
-            "redirect_uri": redirect_uri, "grant_type": "authorization_code", "code_verifier": verifier,
-        })
+        tok = self._post_form(
+            TOKEN_URL,
+            {
+                "code": code,
+                "client_id": cfg["client_id"],
+                "client_secret": cfg["client_secret"],
+                "redirect_uri": redirect_uri,
+                "grant_type": "authorization_code",
+                "code_verifier": verifier,
+            },
+        )
         if "refresh_token" not in tok:
-            raise DriveError("O Google não devolveu refresh_token; remova o acesso do app na sua conta e conecte de novo")
+            raise DriveError(
+                "O Google não devolveu refresh_token; remova o acesso do app na sua conta e conecte de novo"
+            )
         tok["expires_at"] = time.time() + tok.get("expires_in", 3600) - 60
         self._save_token(tok)
         about = self.request("GET", f"{API}/about", params={"fields": "user(emailAddress,displayName)"})
@@ -148,13 +169,16 @@ class DriveClient:
         self.save_state(s)
 
     def _post_form(self, url, data):
-        req = urllib.request.Request(url, data=urllib.parse.urlencode(data).encode(),
-                                     headers={"Content-Type": "application/x-www-form-urlencoded"})
+        req = urllib.request.Request(
+            url,
+            data=urllib.parse.urlencode(data).encode(),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
         try:
             with urllib.request.urlopen(req, timeout=30) as r:
                 return json.load(r)
         except urllib.error.HTTPError as e:
-            raise DriveError(f"Falha no login do Google: {e.read().decode('utf-8', 'replace')[:300]}")
+            raise DriveError(f"Falha no login do Google: {e.read().decode('utf-8', 'replace')[:300]}") from e
 
     def _access_token(self):
         with self._lock:
@@ -165,13 +189,18 @@ class DriveClient:
                 return tok["access_token"]
             cfg = self.client_config()
             try:
-                new = self._post_form(TOKEN_URL, {
-                    "client_id": cfg["client_id"], "client_secret": cfg["client_secret"],
-                    "refresh_token": tok["refresh_token"], "grant_type": "refresh_token",
-                })
+                new = self._post_form(
+                    TOKEN_URL,
+                    {
+                        "client_id": cfg["client_id"],
+                        "client_secret": cfg["client_secret"],
+                        "refresh_token": tok["refresh_token"],
+                        "grant_type": "refresh_token",
+                    },
+                )
             except DriveError as e:
                 if "invalid_grant" in str(e):
-                    raise AuthRequired("Acesso ao Drive expirou ou foi revogado; conecte de novo")
+                    raise AuthRequired("Acesso ao Drive expirou ou foi revogado; conecte de novo") from e
                 raise
             tok.update(access_token=new["access_token"], expires_at=time.time() + new.get("expires_in", 3600) - 60)
             self._save_token(tok)
@@ -206,14 +235,14 @@ class DriveClient:
                         self._save_token(tok)
                     continue
                 if e.code in (429, 500, 502, 503, 504) or (e.code == 403 and "rateLimit" in msg):
-                    time.sleep(min(2 ** attempt, 16))
+                    time.sleep(min(2**attempt, 16))
                     continue
-                raise DriveError(f"Drive {e.code}: {msg[:300]}")
+                raise DriveError(f"Drive {e.code}: {msg[:300]}") from e
             except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
                 if attempt < 2:
-                    time.sleep(2 ** attempt)
+                    time.sleep(2**attempt)
                     continue
-                raise DriveError(f"Sem conexão com o Google Drive ({e})")
+                raise DriveError(f"Sem conexão com o Google Drive ({e})") from e
         raise DriveError("Drive indisponível após várias tentativas")
 
     @staticmethod
@@ -231,8 +260,11 @@ class DriveClient:
     def list_children(self, parent):
         out, token = [], None
         while True:
-            params = {"q": f"'{parent}' in parents and trashed = false", "pageSize": 1000,
-                      "fields": "nextPageToken,files(id,name,mimeType,md5Checksum,modifiedTime,size)"}
+            params = {
+                "q": f"'{parent}' in parents and trashed = false",
+                "pageSize": 1000,
+                "fields": "nextPageToken,files(id,name,mimeType,md5Checksum,modifiedTime,size)",
+            }
             if token:
                 params["pageToken"] = token
             r = self.request("GET", f"{API}/files", params=params)
@@ -271,21 +303,40 @@ class DriveClient:
         fields = {"fields": "id,md5Checksum,trashed"}
         if len(data) <= 5 * 1024 * 1024:
             if file_id:
-                r = self.request("PATCH", f"{UPLOAD}/files/{file_id}", params={"uploadType": "media", **fields},
-                                 data=data, headers={"Content-Type": "application/octet-stream"})
+                r = self.request(
+                    "PATCH",
+                    f"{UPLOAD}/files/{file_id}",
+                    params={"uploadType": "media", **fields},
+                    data=data,
+                    headers={"Content-Type": "application/octet-stream"},
+                )
             else:
                 boundary = uuid.uuid4().hex
                 meta = json.dumps({"name": name, "parents": [parent]}).encode()
-                body = (f"--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n".encode() + meta +
-                        f"\r\n--{boundary}\r\nContent-Type: application/octet-stream\r\n\r\n".encode() + data +
-                        f"\r\n--{boundary}--".encode())
-                r = self.request("POST", f"{UPLOAD}/files", params={"uploadType": "multipart", **fields},
-                                 data=body, headers={"Content-Type": f"multipart/related; boundary={boundary}"})
+                body = (
+                    f"--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n".encode()
+                    + meta
+                    + f"\r\n--{boundary}\r\nContent-Type: application/octet-stream\r\n\r\n".encode()
+                    + data
+                    + f"\r\n--{boundary}--".encode()
+                )
+                r = self.request(
+                    "POST",
+                    f"{UPLOAD}/files",
+                    params={"uploadType": "multipart", **fields},
+                    data=body,
+                    headers={"Content-Type": f"multipart/related; boundary={boundary}"},
+                )
         else:  # upload retomável p/ arquivos grandes
             meta = {} if file_id else {"name": name, "parents": [parent]}
             url = f"{UPLOAD}/files/{file_id}" if file_id else f"{UPLOAD}/files"
-            h = self.request("PATCH" if file_id else "POST", url, params={"uploadType": "resumable"},
-                             json_body=meta, want_headers=True)
+            h = self.request(
+                "PATCH" if file_id else "POST",
+                url,
+                params={"uploadType": "resumable"},
+                json_body=meta,
+                want_headers=True,
+            )
             r = self.request("PUT", h["Location"], data=data, headers={"Content-Type": "application/octet-stream"})
             if "md5Checksum" not in r:
                 r = self.request("GET", f"{API}/files/{r['id']}", params=fields)
@@ -325,6 +376,7 @@ class DriveClient:
 
 
 # ---------------------------------------------------------------- sincronização
+
 
 def md5_file(p: Path):
     h = hashlib.md5()
@@ -479,8 +531,9 @@ def _parents(rel_dir):
 
 def _safe_name(name):
     """Nome de arquivo/pasta do Drive que pode ser gravado com segurança dentro do projeto."""
-    return (bool(name) and name not in (".", "..") and not any(c in name for c in '/\\:*?"<>|\0')
-            and name == name.strip())
+    return (
+        bool(name) and name not in (".", "..") and not any(c in name for c in '/\\:*?"<>|\0') and name == name.strip()
+    )
 
 
 def remote_tree(client: DriveClient, folder_id: str):
@@ -547,9 +600,9 @@ class SyncManager:
         self.client = client
         self.projects = projects_dir
         self.is_enabled = is_enabled  # função(nome) -> bool
-        self.dirty = {}               # nome -> instante da última alteração pendente
-        self.status = {}              # nome -> dict
-        self.next_allowed = {}        # nome -> instante mínimo do próximo envio
+        self.dirty = {}  # nome -> instante da última alteração pendente
+        self.status = {}  # nome -> dict
+        self.next_allowed = {}  # nome -> instante mínimo do próximo envio
         self.lock = threading.Lock()
         self.cv = threading.Condition(self.lock)
         threading.Thread(target=self._run, daemon=True, name="drive-sync").start()

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 """Monta a aplicação Flask: segurança, rotas, erros e serviços."""
+
 from flask import Flask, jsonify
 
 from . import drive_sync, security, services
@@ -26,6 +27,7 @@ def create_app():
 
 def _register_errors(app):
     """Erros sempre em JSON (a interface mostra a mensagem), nunca a página HTML do Flask."""
+
     def json_error(e):
         return jsonify({"error": e.description}), e.code
 

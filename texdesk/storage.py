@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 """Projetos no disco: caminhos seguros, configurações, árvore de arquivos."""
+
 import json
 import re
 import threading
@@ -61,6 +62,7 @@ def is_hidden(rel: Path):
 
 # ---------------------------------------------------------------- configurações do projeto
 
+
 def load_settings(d: Path):
     f = d / SETTINGS_FILE
     s = {}
@@ -93,8 +95,12 @@ def guess_main(d: Path):
         if re.search(r"^[^%\n]*\\documentclass", t, re.M) and "\\begin{document}" in t:
             rel = p.relative_to(d)
             # prefere main.tex, depois arquivos mais rasos, evitando exemplos/modelos
-            score = (p.name.lower() != "main.tex", bool(re.search(r"exemplo|example|sample|template|modelo", p.name, re.I)),
-                     len(rel.parts), rel.as_posix())
+            score = (
+                p.name.lower() != "main.tex",
+                bool(re.search(r"exemplo|example|sample|template|modelo", p.name, re.I)),
+                len(rel.parts),
+                rel.as_posix(),
+            )
             candidates.append((score, rel.as_posix()))
     if candidates:
         return min(candidates)[1]
@@ -108,8 +114,14 @@ def tree(d: Path):
         rel = p.relative_to(d)
         if is_hidden(rel):
             continue
-        out.append({"path": rel.as_posix(), "type": "folder" if p.is_dir() else "file",
-                    "text": p.is_file() and is_text(p), "size": p.stat().st_size if p.is_file() else 0})
+        out.append(
+            {
+                "path": rel.as_posix(),
+                "type": "folder" if p.is_dir() else "file",
+                "text": p.is_file() and is_text(p),
+                "size": p.stat().st_size if p.is_file() else 0,
+            }
+        )
     return out
 
 

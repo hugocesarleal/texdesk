@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 """Arquivos de um projeto: árvore, ler/gravar, pastas, envio, mover, apagar, autocompletar."""
+
 import re
 import shutil
 from pathlib import Path
@@ -31,8 +32,13 @@ def read_file(name):
         return send_file(p)
     if not is_text(p):
         abort(415, "Arquivo binário")
-    return jsonify({"path": request.args["path"], "content": p.read_text(encoding="utf-8", errors="replace"),
-                    "mtime": p.stat().st_mtime})
+    return jsonify(
+        {
+            "path": request.args["path"],
+            "content": p.read_text(encoding="utf-8", errors="replace"),
+            "mtime": p.stat().st_mtime,
+        }
+    )
 
 
 @bp.put("/api/projects/<name>/file")

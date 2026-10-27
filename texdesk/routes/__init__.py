@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 """Rotas HTTP, uma área por módulo."""
+
 from . import compile, drive, files, pages, projects
 
 BLUEPRINTS = [pages.bp, projects.bp, files.bp, compile.bp, drive.bp]

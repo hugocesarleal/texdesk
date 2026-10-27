@@ -7,6 +7,7 @@
 Extrai erros, avisos e "badboxes" (overfull/underfull) com arquivo e linha,
 rastreando a pilha de arquivos abertos pelos parênteses do log.
 """
+
 import re
 
 LOG_WRAP = 79  # o TeX quebra linhas do log nessa largura
@@ -15,8 +16,13 @@ FILE_RE = re.compile(r'^\(\s*"?((?:\.{0,2}/|[A-Za-z]:[/\\]|/)?[^\s()"]*?\.[A-Za-
 BARE_RE = re.compile(r'^\(\s*"?((?:\.{0,2}/)?[\w\-]+(?:/[\w\-.]+)*)"?(?=[\s)]|$)')  # nome sem extensão
 LINE_RE = re.compile(r"^l\.(\d+)\s?(.*)$")
 INPUT_LINE_RE = re.compile(r"on input line (\d+)")
-BADBOX_RE = re.compile(r"^(Over|Under)full \\[hv]box .*? (?:at lines? (\d+)(?:--(\d+))?|has occurred while \\output is active|detected at line (\d+))")
-WARN_RE = re.compile(r"^(?:LaTeX|Package (\S+)|Class (\S+)|LaTeX Font|pdfTeX|Font|Missing character)(?: (\S+))? [Ww]arning\s*:?\s*(.*)$")
+BADBOX_RE = re.compile(
+    r"^(Over|Under)full \\[hv]box .*? "
+    r"(?:at lines? (\d+)(?:--(\d+))?|has occurred while \\output is active|detected at line (\d+))"
+)
+WARN_RE = re.compile(
+    r"^(?:LaTeX|Package (\S+)|Class (\S+)|LaTeX Font|pdfTeX|Font|Missing character)(?: (\S+))? [Ww]arning\s*:?\s*(.*)$"
+)
 PKG_ERR_RE = re.compile(r"^! (?:LaTeX|Package \S+|Class \S+) Error: ")
 
 
@@ -111,16 +117,31 @@ def parse_log(log: str, main_dir: str = "", main_file: str = "main.tex", known=N
             mm = re.match(r"^! (LaTeX|Package (\S+)|Class (\S+)) Error", line)
             if mm:
                 kind = mm.group(1)
-            entries.append({"level": "error", "file": current_file(), "line": lineno,
-                            "message": msg.strip(), "content": "\n".join(ctx).strip(), "kind": kind})
+            entries.append(
+                {
+                    "level": "error",
+                    "file": current_file(),
+                    "line": lineno,
+                    "message": msg.strip(),
+                    "content": "\n".join(ctx).strip(),
+                    "kind": kind,
+                }
+            )
             i = j + 1 if lineno is not None else i + 1
             continue
 
         # ---- erro no estilo file:line:error (-file-line-error)
         m = re.match(r"^(\.{0,2}/[^:]+\.\w+):(\d+): (.*)$", line)
         if m:
-            entries.append({"level": "error", "file": _norm(m.group(1), main_dir), "line": int(m.group(2)),
-                            "message": m.group(3), "content": ""})
+            entries.append(
+                {
+                    "level": "error",
+                    "file": _norm(m.group(1), main_dir),
+                    "line": int(m.group(2)),
+                    "message": m.group(3),
+                    "content": "",
+                }
+            )
             i += 1
             continue
 
@@ -132,15 +153,27 @@ def parse_log(log: str, main_dir: str = "", main_file: str = "main.tex", known=N
             # avisos de pacote continuam nas linhas seguintes com "(pkg)  "
             j = i + 1
             while j < n and pkg and lines[j].startswith(f"({pkg})"):
-                msg += " " + lines[j][len(pkg) + 2:].strip()
+                msg += " " + lines[j][len(pkg) + 2 :].strip()
                 j += 1
-            while j < n and not pkg and lines[j].strip() and not lines[j].startswith(("(", ")", "[", "!", "<")) \
-                    and not msg.rstrip().endswith("."):
+            while (
+                j < n
+                and not pkg
+                and lines[j].strip()
+                and not lines[j].startswith(("(", ")", "[", "!", "<"))
+                and not msg.rstrip().endswith(".")
+            ):
                 msg += " " + lines[j].strip()
                 j += 1
             lm = INPUT_LINE_RE.search(msg)
-            entries.append({"level": "warning", "file": current_file(), "line": int(lm.group(1)) if lm else None,
-                            "message": (f"{pkg}: " if pkg else "") + msg.strip(), "content": ""})
+            entries.append(
+                {
+                    "level": "warning",
+                    "file": current_file(),
+                    "line": int(lm.group(1)) if lm else None,
+                    "message": (f"{pkg}: " if pkg else "") + msg.strip(),
+                    "content": "",
+                }
+            )
             i = j
             continue
 
@@ -149,8 +182,15 @@ def parse_log(log: str, main_dir: str = "", main_file: str = "main.tex", known=N
         if m:
             ln = m.group(2) or m.group(4)
             ctx = lines[i + 1] if i + 1 < n else ""
-            entries.append({"level": "typesetting", "file": current_file(), "line": int(ln) if ln else None,
-                            "message": line.strip(), "content": ctx})
+            entries.append(
+                {
+                    "level": "typesetting",
+                    "file": current_file(),
+                    "line": int(ln) if ln else None,
+                    "message": line.strip(),
+                    "content": ctx,
+                }
+            )
             i += 1
             continue
 

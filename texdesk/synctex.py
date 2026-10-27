@@ -7,6 +7,7 @@
 Coordenadas devolvidas em pontos PDF (bp), origem no canto superior esquerdo
 da página — o mesmo sistema usado pelo visualizador no front-end.
 """
+
 import gzip
 import os
 import re
@@ -58,8 +59,9 @@ class SyncTex:
                     m = REC_RE.match(line)
                     if m and page:
                         k, tag, ln, x, y, w, h, d = m.groups()
-                        records.append((page, int(tag), int(ln), k, int(x), int(y),
-                                        int(w or 0), int(h or 0), int(d or 0)))
+                        records.append(
+                            (page, int(tag), int(ln), k, int(x), int(y), int(w or 0), int(h or 0), int(d or 0))
+                        )
         # sp -> bp ; offsets já estão em sp
         f = unit * (mag / 1000.0) / 65536.0 * 72.0 / 72.27
         scale = (f, xoff * f / unit if unit else 0, yoff * f / unit if unit else 0)
@@ -97,7 +99,7 @@ class SyncTex:
             return []
         # usa a linha exata ou a mais próxima com conteúdo
         lines = sorted({r[2] for r in recs})
-        best = min(lines, key=lambda l: (abs(l - line), l < line))
+        best = min(lines, key=lambda ln: (abs(ln - line), ln < line))
         hits = [r for r in recs if r[2] == best]
         boxes = [r for r in hits if r[3] in "[(" and r[6] > 0] or hits
         page = boxes[0][0]

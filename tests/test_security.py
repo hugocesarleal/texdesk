@@ -6,12 +6,13 @@
 
 Cada teste reproduz um ataque que um site aberto no navegador conseguiria fazer.
 """
+
 import io
 import json
 
 import pytest
-
 from conftest import APP
+
 from texdesk import config
 from texdesk.security import CSRF_HEADER
 
@@ -37,6 +38,7 @@ def settings(client):
 
 # ---------------------------------------------------------------- uso legítimo
 
+
 def test_interface_do_texdesk_funciona(client):
     r = post(client, "/api/projects/Alvo/settings", headers=OK, json={"autoCompile": True})
     assert r.status_code == 200 and settings(client)["autoCompile"] is True
@@ -50,11 +52,15 @@ def test_localhost_tambem_e_aceito(client):
 
 # ---------------------------------------------------------------- ataques
 
+
 def test_post_text_plain_de_outro_site_e_recusado(client):
     """Requisição 'simples' (sem preflight), como um fetch() no-cors de outro site."""
-    r = post(client, "/api/projects/Alvo/settings", data=json.dumps({"shellEscape": True}),
-             headers={"Content-Type": "text/plain", "Origin": "https://malicioso.example",
-                      "Sec-Fetch-Site": "cross-site"})
+    r = post(
+        client,
+        "/api/projects/Alvo/settings",
+        data=json.dumps({"shellEscape": True}),
+        headers={"Content-Type": "text/plain", "Origin": "https://malicioso.example", "Sec-Fetch-Site": "cross-site"},
+    )
     assert r.status_code == 403
     assert settings(client)["shellEscape"] is False
 
@@ -68,16 +74,23 @@ def test_post_sem_o_cabecalho_do_texdesk_e_recusado(client):
 
 def test_upload_por_formulario_de_outro_site_e_recusado(client):
     """Um <form enctype=multipart/form-data> comum não precisa de preflight."""
-    r = post(client, "/api/projects/Alvo/upload",
-             data={"files": (io.BytesIO(b"\\immediate\\write18{calc}"), "ataque.tex")},
-             headers={"Origin": "https://malicioso.example", "Sec-Fetch-Site": "cross-site"})
+    r = post(
+        client,
+        "/api/projects/Alvo/upload",
+        data={"files": (io.BytesIO(b"\\immediate\\write18{calc}"), "ataque.tex")},
+        headers={"Origin": "https://malicioso.example", "Sec-Fetch-Site": "cross-site"},
+    )
     assert r.status_code == 403
     assert not (config.PROJECTS / "Alvo" / "ataque.tex").exists()
 
 
 def test_origem_de_outro_site_e_recusada_mesmo_com_cabecalho(client):
-    r = post(client, "/api/projects/Alvo/settings", json={"shellEscape": True},
-             headers={**OK, "Origin": "https://malicioso.example"})
+    r = post(
+        client,
+        "/api/projects/Alvo/settings",
+        json={"shellEscape": True},
+        headers={**OK, "Origin": "https://malicioso.example"},
+    )
     assert r.status_code == 403
 
 
@@ -85,14 +98,23 @@ def test_dns_rebinding_e_recusado(client):
     """Domínio do atacante que resolve para 127.0.0.1: chega com outro Host."""
     r = client.get("/api/drive/status", base_url=f"http://malicioso.example:{config.PORT}")
     assert r.status_code == 403
-    r = post(client, "/api/projects/Alvo/settings", host=f"malicioso.example:{config.PORT}",
-             headers=OK, json={"shellEscape": True})
+    r = post(
+        client,
+        "/api/projects/Alvo/settings",
+        host=f"malicioso.example:{config.PORT}",
+        headers=OK,
+        json={"shellEscape": True},
+    )
     assert r.status_code == 403
 
 
 def test_json_com_content_type_errado_e_recusado(client):
-    r = post(client, "/api/projects/Alvo/settings", headers={**OK, "Content-Type": "text/plain"},
-             data=json.dumps({"autoCompile": True}))
+    r = post(
+        client,
+        "/api/projects/Alvo/settings",
+        headers={**OK, "Content-Type": "text/plain"},
+        data=json.dumps({"autoCompile": True}),
+    )
     assert r.status_code == 415
 
 
@@ -104,6 +126,5 @@ def test_nao_pode_ser_embutido_em_sites_de_terceiros(client):
 
 def test_upload_grande_demais_e_recusado(client, monkeypatch):
     monkeypatch.setitem(APP.config, "MAX_CONTENT_LENGTH", 1024)
-    r = post(client, "/api/projects/Alvo/upload", headers=OK,
-             data={"files": (io.BytesIO(b"x" * 4096), "grande.bin")})
+    r = post(client, "/api/projects/Alvo/upload", headers=OK, data={"files": (io.BytesIO(b"x" * 4096), "grande.bin")})
     assert r.status_code == 413

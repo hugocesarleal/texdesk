@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 """Páginas: painel de projetos e editor."""
+
 from flask import Blueprint, send_from_directory
 
 from ..config import STATIC

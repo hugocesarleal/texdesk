@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 """Google Drive: conexão (OAuth), sincronização, projetos no Drive e importação."""
+
 from urllib.parse import quote
 
 from flask import Blueprint, abort, jsonify, redirect, request
@@ -35,6 +36,7 @@ def _enable_sync(name):
 
 # ---------------------------------------------------------------- conexão
 
+
 @bp.get("/api/drive/status")
 def status():
     drive = services.drive
@@ -43,8 +45,15 @@ def status():
         configured = drive.client_config() is not None
     except drive_sync.DriveError:
         configured = False
-    return jsonify({"configured": configured, "connected": drive.connected, "user": s.get("user"),
-                    "syncAll": bool(s.get("syncAll")), "redirectUri": _redirect_uri()})
+    return jsonify(
+        {
+            "configured": configured,
+            "connected": drive.connected,
+            "user": s.get("user"),
+            "syncAll": bool(s.get("syncAll")),
+            "redirectUri": _redirect_uri(),
+        }
+    )
 
 
 @bp.post("/api/drive/credentials")
@@ -84,10 +93,17 @@ def disconnect():
 
 # ---------------------------------------------------------------- sincronização
 
+
 @bp.get("/api/drive/overview")
 def overview():
-    names = sorted((d.name for d in PROJECTS.iterdir()
-                    if d.is_dir() and not d.name.startswith(".") and services.drive_enabled(d.name)), key=str.lower)
+    names = sorted(
+        (
+            d.name
+            for d in PROJECTS.iterdir()
+            if d.is_dir() and not d.name.startswith(".") and services.drive_enabled(d.name)
+        ),
+        key=str.lower,
+    )
     ov = services.syncer.overview(names)
     ov["rootId"] = services.drive.state().get("rootId")
     return jsonify(ov)
@@ -130,13 +146,17 @@ def project_sync(name):
 
 # ---------------------------------------------------------------- projetos no Drive
 
+
 @bp.get("/api/drive/remote")
 def remote():
     """Pastas de projeto existentes no Drive, marcando as que já existem localmente."""
     drive = services.drive
     local = services.local_folder_ids()
-    items = [{"id": f["id"], "name": f["name"], "modified": f.get("modifiedTime"), "local": local.get(f["id"])}
-             for f in drive.list_children(drive.root_folder()) if f["mimeType"] == drive_sync.FOLDER_MIME]
+    items = [
+        {"id": f["id"], "name": f["name"], "modified": f.get("modifiedTime"), "local": local.get(f["id"])}
+        for f in drive.list_children(drive.root_folder())
+        if f["mimeType"] == drive_sync.FOLDER_MIME
+    ]
     return jsonify(sorted(items, key=lambda x: x["name"].lower()))
 
 
@@ -161,9 +181,11 @@ def import_candidates():
         return jsonify([])
     offered = set(drive.state().get("offered", []))
     local = services.local_folder_ids()
-    items = [{"id": f["id"], "name": f["name"], "modified": f.get("modifiedTime")}
-             for f in drive.list_children(drive.root_folder())
-             if f["mimeType"] == drive_sync.FOLDER_MIME and f["id"] not in local and f["id"] not in offered]
+    items = [
+        {"id": f["id"], "name": f["name"], "modified": f.get("modifiedTime")}
+        for f in drive.list_children(drive.root_folder())
+        if f["mimeType"] == drive_sync.FOLDER_MIME and f["id"] not in local and f["id"] not in offered
+    ]
     return jsonify(sorted(items, key=lambda x: x["name"].lower()))
 
 

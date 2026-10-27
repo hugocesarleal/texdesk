@@ -1,0 +1,56 @@
+name: Relatar um problema
+description: Algo não funciona como deveria.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por relatar! Antes de enviar, confira se já não existe uma [issue parecida](https://github.com/hugocesarleal/texdesk/issues).
+        **Falhas de segurança** não devem ser relatadas aqui: veja o [SECURITY.md](https://github.com/hugocesarleal/texdesk/blob/main/SECURITY.md).
+  - type: textarea
+    id: descricao
+    attributes:
+      label: O que aconteceu?
+      description: Descreva o problema e o que você esperava que acontecesse.
+    validations:
+      required: true
+  - type: textarea
+    id: passos
+    attributes:
+      label: Como reproduzir
+      description: Os passos para o problema acontecer de novo.
+      placeholder: |
+        1. Criei um projeto com o modelo "Artigo IFMG"
+        2. Cliquei em Recompilar
+        3. Apareceu o erro…
+    validations:
+      required: true
+  - type: dropdown
+    id: sistema
+    attributes:
+      label: Sistema
+      options:
+        - Windows
+        - Linux (x64)
+        - Linux (ARM64)
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+    validations:
+      required: true
+  - type: input
+    id: versao
+    attributes:
+      label: Versão do TexDesk
+      description: Aparece na janela do TexDesk ao iniciar ("TexDesk 0.1.0 rodando em…").
+      placeholder: "0.1.0"
+  - type: textarea
+    id: log
+    attributes:
+      label: Mensagens de erro ou log
+      description: Se o problema for na compilação, cole as mensagens do painel "Logs" ou um trecho do .tex que causa o erro.
+      render: text
+  - type: textarea
+    id: extra
+    attributes:
+      label: Mais alguma informação?
+      description: Capturas de tela, navegador usado, se usa a sincronização com o Google Drive etc.

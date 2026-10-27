@@ -3,7 +3,9 @@
 # SPDX-License-Identifier: MIT
 
 """SyncTeX: código -> PDF e PDF -> código, com o .synctex.gz do fixture."""
+
 from conftest import FIXTURES
+
 from texdesk.synctex import SyncTex
 
 PROJ = FIXTURES / "projeto_com_erros"

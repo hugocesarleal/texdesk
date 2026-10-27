@@ -1,1 +1,4 @@
-flask>=3.0
+# Dependências do TexDesk, com versões fixas para a instalação ser igual em todo computador.
+# Para atualizar: mude aqui, rode os testes (python -m pytest tests) e registre no CHANGELOG.md.
+flask==3.1.3
+werkzeug==3.1.9

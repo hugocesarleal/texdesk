@@ -7,6 +7,7 @@
 São criados uma vez, em init() (chamado por create_app), e não ao importar o módulo:
 assim importar o TexDesk não liga nada sozinho.
 """
+
 import json
 import re
 from pathlib import Path

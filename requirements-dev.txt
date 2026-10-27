@@ -1,2 +1,4 @@
+# Para desenvolver: dependências do TexDesk + testes e linter.
 -r requirements.txt
-pytest>=8
+pytest==9.1.1
+ruff==0.17.3

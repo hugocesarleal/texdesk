@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 """Google Drive falso, em memória, com a mesma interface usada por drive_sync."""
+
 import hashlib
 import threading
 
@@ -36,8 +37,12 @@ class FakeDrive:
 
     def find_child(self, parent, name, folder=None):
         for fid, f in self.files.items():
-            if (f["parent"] == parent and f["name"] == name and not f["trashed"]
-                    and (folder is None or f["folder"] == folder)):
+            if (
+                f["parent"] == parent
+                and f["name"] == name
+                and not f["trashed"]
+                and (folder is None or f["folder"] == folder)
+            ):
                 return fid
         return None
 
@@ -67,9 +72,16 @@ class FakeDrive:
         self.files[fid]["trashed"] = True
 
     def list_children(self, parent):
-        return [{"id": fid, "name": f["name"], "mimeType": ds.FOLDER_MIME if f["folder"] else "text/plain",
-                 "md5Checksum": hashlib.md5(f["data"]).hexdigest() if f["data"] is not None else None}
-                for fid, f in list(self.files.items()) if f["parent"] == parent and not f["trashed"]]
+        return [
+            {
+                "id": fid,
+                "name": f["name"],
+                "mimeType": ds.FOLDER_MIME if f["folder"] else "text/plain",
+                "md5Checksum": hashlib.md5(f["data"]).hexdigest() if f["data"] is not None else None,
+            }
+            for fid, f in list(self.files.items())
+            if f["parent"] == parent and not f["trashed"]
+        ]
 
     def download(self, fid):
         return self.files[fid]["data"]
