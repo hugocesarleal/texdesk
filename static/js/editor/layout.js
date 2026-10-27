@@ -79,7 +79,7 @@ $("#btn-settings").onclick = async () => {
       { name: "fontSize", label: "Tamanho da fonte do editor", type: "select", value: String(store.get("fontSize", 14)), options: ["12", "13", "14", "15", "16", "18", "20"] },
       { name: "spell", label: "Corretor ortográfico", type: "select", value: spellLang(), options: SPELL_LANGS },
       { name: "autoCompile", label: "Compilação automática", type: "check", value: state.settings.autoCompile },
-      { name: "shellEscape", label: "Permitir shell-escape (necessário p/ minted)", type: "check", value: state.settings.shellEscape },
+      { name: "shellEscape", label: "Permitir shell-escape (necessário para o pacote minted)", type: "check", value: state.settings.shellEscape },
       { name: "driveSync", label: "Sincronizar este projeto com o Google Drive", type: "check", value: state.settings.driveSync },
     ],
     ok: "Salvar",

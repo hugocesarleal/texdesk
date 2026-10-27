@@ -15,8 +15,15 @@ async function compile(opts = {}) {
   if (state.compiling) { state.pendingCompile = true; return; }
   state.compiling = true;
   setCompileButton();
+  let slowHint = 0;
   if (state.firstCompile && !state.pdf) {
-    $("#pdf-empty").innerHTML = "Compilando…<br><small>Na primeira vez o Tectonic baixa os pacotes necessários; pode levar alguns minutos.</small>";
+    $("#pdf-empty").textContent = "Compilando…";
+    // só explica a demora se ela acontecer (pacotes LaTeX novos são baixados uma vez)
+    slowHint = setTimeout(() => {
+      if (state.compiling && !state.pdf) {
+        $("#pdf-empty").innerHTML = "Compilando…<br><small>Baixando os pacotes LaTeX que este documento usa. Isso só acontece na primeira vez.</small>";
+      }
+    }, 8000);
   }
   try {
     await saveAll();
@@ -43,6 +50,7 @@ async function compile(opts = {}) {
   } catch (e) {
     toast("Erro na compilação: " + e.message, 5000);
   } finally {
+    clearTimeout(slowHint);
     state.compiling = false;
     setCompileButton();
     if (state.pendingCompile) { state.pendingCompile = false; compile(opts); }
@@ -86,7 +94,7 @@ function renderLogs() {
     (c.warning ? ` <span class="badge warn">${c.warning}</span>` : "");
   const list = state.entries.filter((e) => logFilter === "all" || e.level === logFilter);
   const s = state.lastStatus || {};
-  const summary = s.status === "success" ? `Compilado em ${s.time}s` : s.status ? `Compilação com problemas (${s.time ?? "?"}s)` : "Ainda não compilado";
+  const summary = s.status === "success" ? `Compilado em ${s.time}s` : s.status ? (s.time ? `Compilação com problemas (${s.time}s)` : "Compilação com problemas") : "Ainda não compilado";
   const label = { error: "Erro", warning: "Aviso", typesetting: "Diagramação" };
   $("#logs").innerHTML = `
     <div class="log-filter">

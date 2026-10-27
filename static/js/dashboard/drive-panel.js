@@ -25,7 +25,7 @@ async function openDrivePanel() {
 
     if (!st.configured) {
       body.innerHTML = `
-        <p class="note">Para acessar o Drive, o Google exige credenciais OAuth do seu próprio projeto no Google Cloud. É gratuito, não pede cartão e é feito uma vez só (uns 5 minutos). Abra cada link numa nova aba, com a mesma conta Google que vai usar o Drive.</p>
+        <p class="note">Para acessar o Drive, o Google exige credenciais OAuth do seu próprio projeto no Google Cloud. É gratuito, não pede cartão e é feito uma vez só, em cerca de 5 minutos. Abra cada link numa nova aba, com a mesma conta Google que vai usar o Drive.</p>
         <ol class="steps">
           <li><b>Criar o projeto.</b> Abra <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">Novo projeto</a>, digite um nome (ex.: <code>TexDesk</code>), deixe "Local" como está e clique em <b>Criar</b>. Espere a notificação "Projeto criado" (sino no canto superior direito) e clique em <b>Selecionar projeto</b>.
             <br><small>Confira no topo da página, ao lado do logo "Google Cloud", que o seletor mostra <b>TexDesk</b>. Todos os passos abaixo valem para o projeto selecionado ali.</small></li>
@@ -36,7 +36,7 @@ async function openDrivePanel() {
             <br>• <b>Público-alvo:</b> escolha <b>Externo</b> → <b>Próxima</b>.
             <br>• <b>Dados de contato:</b> o seu e-mail → <b>Próxima</b>. Aceite a política e clique em <b>Criar</b>.</li>
           <li><b>Liberar a sua conta.</b> No menu da esquerda do Google Auth Platform, abra <a href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noopener">Público-alvo</a>. Em <b>Usuários de teste</b>, clique em <b>+ Adicionar usuários</b>, digite o seu e-mail do Google e salve.
-            <br><small>Sem isso, o login dá o erro "access_denied". Depois de conectar, recomendo clicar em <b>Publicar app</b> nessa mesma página: no modo "Em teste" o Google faz o acesso expirar a cada 7 dias. Publicar é gratuito e, como o app só usa <code>drive.file</code>, não exige verificação.</small></li>
+            <br><small>Sem isso, o login dá o erro "access_denied". Depois de conectar, clique em <b>Publicar app</b> nessa mesma página: enquanto o app está "Em teste", o Google faz o acesso expirar a cada 7 dias. Publicar é gratuito e, como o app só usa <code>drive.file</code>, não exige verificação.</small></li>
           <li><b>Criar a credencial.</b> Abra <a href="https://console.cloud.google.com/auth/clients" target="_blank" rel="noopener">Clientes</a> → <b>+ Criar cliente</b>. Em <b>Tipo de aplicativo</b>, escolha <b>App para computador</b> (Desktop app), dê um nome qualquer e clique em <b>Criar</b>.</li>
           <li><b>Baixar o JSON.</b> Na janela "Cliente OAuth criado", clique em <b>Fazer o download do JSON</b>. Se a janela já fechou, clique no nome do cliente na lista e use o ícone de download em <b>Chaves secretas do cliente</b>. O arquivo se chama algo como <code>client_secret_….apps.googleusercontent.com.json</code>.</li>
           <li><b>Enviar aqui:</b></li>
@@ -55,7 +55,7 @@ async function openDrivePanel() {
       body.innerHTML = `
         <p>Credenciais configuradas. Agora conecte sua conta Google:</p>
         <p><a class="btn primary" href="/api/drive/connect">${icon("cloud")} Conectar ao Google Drive</a></p>
-        <p class="note">Você será levado à tela de login do Google e voltará para cá. Como o app está em modo de teste, o Google mostra um aviso de "app não verificado": clique em <b>Continuar</b>.</p>
+        <p class="note">Você será levado à tela de login do Google e voltará para cá. O Google pode avisar que o app "não foi verificado": o aviso se refere ao seu próprio projeto no Google Cloud. Clique em <b>Continuar</b>.</p>
         <p class="note">Trocar credenciais: <input type="file" id="cred-file" accept=".json"></p>`;
       body.querySelector("#cred-file").onchange = async (e) => {
         const fd = new FormData();

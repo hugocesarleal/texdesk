@@ -201,7 +201,7 @@ view.addEventListener("dblclick", async (e) => {
 });
 
 async function syncToPdf() {
-  if (!state.current || !state.pdf) return toast("Compile primeiro");
+  if (!state.current || !state.pdf) return toast("Compile o projeto primeiro");
   const line = cm.getCursor().line + 1;
   try {
     const boxes = await api(`${P}/synctex/pdf?file=${encodeURIComponent(state.current)}&line=${line}`);
@@ -225,7 +225,7 @@ async function syncToPdf() {
 }
 $("#sync-to-pdf").onclick = syncToPdf;
 $("#sync-to-code").onclick = async () => {
-  if (!state.pdf) return toast("Compile primeiro");
+  if (!state.pdf) return toast("Compile o projeto primeiro");
   // usa o ponto no topo/centro da área visível do PDF
   const pages = [...view.querySelectorAll(".pdf-page")];
   const mid = view.scrollTop + view.clientHeight / 3;

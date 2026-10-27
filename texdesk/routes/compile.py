@@ -60,7 +60,7 @@ def _synctex(name):
     s = load_settings(d)
     f = OUTPUT / name / (Path(s["main"]).stem + ".synctex.gz")
     if not f.exists():
-        abort(404, "SyncTeX indisponível — compile primeiro")
+        abort(404, "Compile o projeto primeiro")
     return SyncTex(f, d, (d / s["main"]).parent)
 
 

@@ -139,7 +139,7 @@ function stepMatch(dir) {
 }
 
 function openPdfSearch() {
-  if (!state.pdf) return toast("Compile primeiro");
+  if (!state.pdf) return toast("Compile o projeto primeiro");
   setView("pdf");
   openLogs(false);
   findBar.hidden = false;
