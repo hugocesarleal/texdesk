@@ -265,7 +265,7 @@ def set_settings(name):
     d = project_dir(name)
     s = load_settings(d)
     data = json_body()
-    for k in ("main", "autoCompile", "followOpen", "shellEscape", "driveSync"):
+    for k in ("main", "autoCompile", "shellEscape", "driveSync"):
         if k in data:
             s[k] = data[k]
     if s["main"]:

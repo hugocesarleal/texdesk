@@ -23,9 +23,9 @@ def compile_route(name):
     s = load_settings(d)
     body = request.get_json(silent=True) or {}
     main = body.get("main") or s["main"]
-    # com vários documentos no projeto, compila o que está aberto (e ele passa a ser o principal,
-    # para o PDF, o SyncTeX e a miniatura seguirem o mesmo documento)
-    if not body.get("main") and s.get("followOpen") and body.get("open"):
+    # compila o documento aberto no editor; "main" guarda o último compilado, para o PDF,
+    # o SyncTeX e a miniatura seguirem o mesmo documento
+    if not body.get("main") and body.get("open"):
         main = compile_target(d, s["main"], body["open"])
         if main != s["main"]:
             s["main"] = main

@@ -58,7 +58,6 @@
 .node:hover .acts { display: flex; }
 .node .acts .icon-btn { padding: 2px 3px; }
 .node svg { width: 15px; height: 15px; flex: none; }
-.node .main-badge { font-size: 10px; background: var(--accent); color: #fff; border-radius: 3px; padding: 0 4px; }
 .outline { border-top: 1px solid var(--border); max-height: 40%; overflow: auto; font-size: 13px; }
 .outline h4 { margin: 0; padding: 8px 10px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
 .outline .item { padding: 3px 10px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

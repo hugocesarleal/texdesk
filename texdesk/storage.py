@@ -72,7 +72,6 @@ def load_settings(d: Path):
     if not s.get("main") or not (d / s["main"]).exists():
         s["main"] = guess_main(d)
     s.setdefault("autoCompile", False)
-    s.setdefault("followOpen", True)
     s.setdefault("shellEscape", False)
     s.setdefault("driveSync", False)
     return s
@@ -138,8 +137,8 @@ def compile_target(d: Path, main: str, open_rel: str):
     """Documento a compilar quando o arquivo open_rel está aberto no editor.
 
     Um documento completo compila a si mesmo. Um capítulo compila o documento que o inclui
-    (direta ou indiretamente), de preferência o principal atual. Qualquer outro arquivo
-    mantém o principal.
+    (direta ou indiretamente), de preferência o último compilado (main). Qualquer outro arquivo
+    mantém o último compilado.
     """
     if not open_rel or not open_rel.lower().endswith(".tex"):
         return main

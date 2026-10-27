@@ -35,7 +35,6 @@ function renderTree() {
       (a.type === b.type ? a.name.localeCompare(b.name) : a.type === "folder" ? -1 : 1));
     for (const k of kids) {
       const pad = 6 + depth * 14;
-      const isMain = k.path === state.settings.main;
       if (k.type === "folder") {
         const open = state.openFolders.has(k.path);
         html.push(`<div class="node ${state.selectedFolder === k.path ? "active" : ""}" data-folder="${esc(k.path)}" style="padding-left:${pad}px">
@@ -46,9 +45,8 @@ function renderTree() {
       } else {
         const ic = IMG_EXT.test(k.name) ? "image" : "file";
         html.push(`<div class="node ${state.current === k.path ? "active" : ""}" data-file="${esc(k.path)}" style="padding-left:${pad + 15}px" title="${esc(k.path)}">
-          ${icon(ic)}<span class="nm">${esc(k.name)}</span>${isMain ? '<span class="main-badge">principal</span>' : ""}
-          <span class="acts">${/\.tex$/.test(k.name) && !isMain ? `<button class="icon-btn" data-act="main" title="Definir como documento principal">${icon("star")}</button>` : ""}
-          <button class="icon-btn" data-act="rename" title="Renomear / mover">${icon("edit")}</button>
+          ${icon(ic)}<span class="nm">${esc(k.name)}</span>
+          <span class="acts"><button class="icon-btn" data-act="rename" title="Renomear / mover">${icon("edit")}</button>
           <button class="icon-btn" data-act="delete" title="Excluir">${icon("trash")}</button></span></div>`);
       }
     }
@@ -95,12 +93,6 @@ $("#tree").addEventListener("click", async (e) => {
       await loadFiles();
       renderTabs();
     } catch (err) { toast(err.message); }
-    return;
-  }
-  if (act === "main") {
-    state.settings = await api(`${P}/settings`, { json: { main: path } });
-    renderTree();
-    toast(`Documento principal: ${path}`);
     return;
   }
   if (node.dataset.folder !== undefined) {

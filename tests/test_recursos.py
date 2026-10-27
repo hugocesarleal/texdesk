@@ -261,15 +261,12 @@ def test_compila_o_documento_aberto(tmp_path):
     assert compile_target(tmp_path, "main.tex", "") == "main.tex"
 
 
-def test_compilar_desligado_mantem_o_principal(c, proj):
+def test_compila_o_arquivo_aberto_no_editor(c, proj):
     from texdesk.storage import load_settings, project_dir
 
     doc = "\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n"
     req(c, "put", f"/api/projects/{proj}/file", json={"path": "outro.tex", "content": doc})
-    req(c, "post", f"/api/projects/{proj}/settings", json={"followOpen": False})
     req(c, "post", f"/api/projects/{proj}/compile", json={"open": "outro.tex"})
-    assert load_settings(project_dir(proj))["main"] == "main.tex"
-    req(c, "post", f"/api/projects/{proj}/settings", json={"followOpen": True})
-    r = req(c, "post", f"/api/projects/{proj}/compile", json={"open": "outro.tex"}).get_json()
     assert load_settings(project_dir(proj))["main"] == "outro.tex"
-    assert r.get("main", "outro.tex") == "outro.tex"
+    req(c, "post", f"/api/projects/{proj}/compile", json={"open": "main.tex"})
+    assert load_settings(project_dir(proj))["main"] == "main.tex"
