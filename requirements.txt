@@ -4,3 +4,4 @@ flask==3.1.3
 werkzeug==3.1.9
 waitress==3.0.2   # servidor web (no lugar do servidor de desenvolvimento do Flask)
 keyring==25.7.0   # guarda o token do Google Drive no cofre de senhas do sistema
+spylls==0.1.7   # corretor ortográfico (lê os dicionários Hunspell do LibreOffice)

@@ -8,6 +8,10 @@ O TexDesk usa os componentes abaixo. Nenhum deles é modificado. A tabela diz co
 | [CodeMirror](https://codemirror.net/5/) 5.65.16 | Editor de código | Incluído no repositório em `static/vendor/codemirror-5.65.16/`, sem modificações (licença no `LICENSE` da pasta) | MIT |
 | [PDF.js](https://mozilla.github.io/pdf.js/) 3.11.174 | Visualizador de PDF e miniaturas | Incluído no repositório em `static/vendor/pdfjs-3.11.174/`, sem modificações (licença no `LICENSE` da pasta) | Apache-2.0 |
 | [Flask](https://flask.palletsprojects.com/) | Servidor web | Instalado via `pip` (`requirements.txt`) | BSD-3-Clause |
+| [waitress](https://github.com/Pylons/waitress) | Servidor HTTP que serve o Flask | Instalado via `pip` (`requirements.txt`) | ZPL-2.1 |
+| [keyring](https://github.com/jaraco/keyring) | Guarda o token do Google Drive no cofre de senhas do sistema | Instalado via `pip` (`requirements.txt`) | MIT |
+| [Spylls](https://github.com/zverok/spylls) | Corretor ortográfico (lê os dicionários Hunspell) | Instalado via `pip` (`requirements.txt`) | MPL-2.0 |
+| [Dicionários do LibreOffice](https://github.com/LibreOffice/dictionaries) (VERO pt_BR, pt_PT, SCOWL en_US/en_GB, es_ES, fr, it_IT, de_DE) | Dicionários do corretor ortográfico | Baixados para `tools/dictionaries/` (português do Brasil e inglês dos EUA na instalação; os outros no primeiro uso) | Licença de cada dicionário, no repositório do LibreOffice (pt_BR: LGPL-3.0/MPL-2.0; en_US: licença do SCOWL, permissiva) |
 | [Tectonic](https://tectonic-typesetting.github.io/) | Motor de compilação LaTeX (XeTeX) | Baixado pelo `setup.ps1` para `tools/` | MIT |
 | [Biber](https://github.com/plk/biber) | Processamento de bibliografia do `biblatex` | Baixado pelo `setup.ps1` para `tools/` | Artistic License 2.0 |
 | [Pygments](https://pygments.org/) | Realce de código do pacote `minted` (opcional) | Instalado pelo usuário via `pip` | BSD-2-Clause |

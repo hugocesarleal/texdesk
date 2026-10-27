@@ -72,6 +72,10 @@ if [ "$(uname -s)" = Darwin ]; then xattr -dr com.apple.quarantine tools 2>/dev/
 tools/tectonic --version
 [ -x tools/biber ] && tools/biber --version
 
+# ---- dicionários do corretor ortográfico (português e inglês; os outros no primeiro uso)
+echo "Baixando os dicionários do corretor ortográfico..."
+.venv/bin/python -m texdesk.spell pt_BR en_US
+
 # ---- pré-baixa os pacotes LaTeX dos modelos (ficam no cache do Tectonic, compartilhado
 #      por todos os projetos): o primeiro documento de cada modelo compila em segundos
 echo

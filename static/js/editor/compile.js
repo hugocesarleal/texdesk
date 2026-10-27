@@ -81,7 +81,7 @@ function counts() {
 let logFilter = "all";
 function renderLogs() {
   const c = counts();
-  $("#btn-logs").innerHTML = icon("logs") + "Logs" +
+  $("#btn-logs").innerHTML = icon("logs") + '<span class="hide-xs">Logs</span>' +
     (c.error ? ` <span class="badge err">${c.error}</span>` : "") +
     (c.warning ? ` <span class="badge warn">${c.warning}</span>` : "");
   const list = state.entries.filter((e) => logFilter === "all" || e.level === logFilter);

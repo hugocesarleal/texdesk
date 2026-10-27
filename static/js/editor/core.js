@@ -41,7 +41,15 @@ $("#btn-settings").innerHTML = icon("settings");
 $("#new-file").innerHTML = icon("newFile");
 $("#new-folder").innerHTML = icon("newFolder");
 $("#upload-files").innerHTML = icon("upload");
-$("#btn-search").innerHTML = icon("zoomIn").replace("M11 8v6M8 11h6", "");
+$("#btn-search").innerHTML = icon("search");
+$("#pdf-search").innerHTML = icon("search");
+$("#btn-project-search").innerHTML = icon("search");
+$("#ps-close").innerHTML = icon("close");
+$("#btn-words").innerHTML = icon("count") + '<span class="hide-sm">Palavras</span>';
+$("#btn-history").innerHTML = icon("history") + '<span class="hide-sm">Histórico</span>';
+$("#pdf-find-prev").innerHTML = icon("chevronUp");
+$("#pdf-find-next").innerHTML = icon("chevron");
+$("#pdf-find-close").innerHTML = icon("close");
 $("#sync-to-pdf").innerHTML = icon("arrowRight");
 $("#sync-to-code").innerHTML = icon("arrowLeft");
 $("#btn-compile-menu").innerHTML = icon("chevron");
@@ -54,8 +62,8 @@ document.title = `${PROJECT} — TexDesk`;
 
 function setCompileButton() {
   $("#btn-compile").innerHTML = state.compiling
-    ? icon("refresh", "spin") + "Compilando…"
-    : icon("refresh") + "Recompilar";
+    ? icon("refresh", "spin") + '<span class="hide-xs">Compilando…</span>'
+    : icon("refresh") + '<span class="hide-xs">Recompilar</span>';
 }
 setCompileButton();
 

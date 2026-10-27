@@ -41,6 +41,8 @@
     <span class="title" id="title"></span>
     <button class="tb-btn drive-ind" id="drive-state" hidden></button>
     <span class="save-state" id="save-state"></span>
+    <button class="tb-btn" id="btn-words" title="Contagem de palavras"></button>
+    <button class="tb-btn" id="btn-history" title="Histórico de versões"></button>
     <button class="tb-btn hide-sm" id="btn-zip" title="Baixar projeto .zip"></button>
     <button class="tb-btn" id="btn-settings" title="Configurações"></button>
   </header>
@@ -52,10 +54,24 @@
         <button class="icon-btn" id="new-file" title="Novo arquivo"></button>
         <button class="icon-btn" id="new-folder" title="Nova pasta"></button>
         <button class="icon-btn" id="upload-files" title="Enviar arquivos"></button>
+        <button class="icon-btn" id="btn-project-search" title="Buscar em todos os arquivos (Ctrl+Shift+F)"></button>
         <input type="file" id="upload-input" multiple hidden>
       </div>
       <div class="tree" id="tree"></div>
       <div class="outline" id="outline"></div>
+      <div class="psearch" id="psearch" hidden>
+        <div class="ps-head">
+          <input type="text" id="ps-input" placeholder="Buscar no projeto" aria-label="Buscar em todos os arquivos" autocomplete="off" spellcheck="false">
+          <button class="icon-btn" id="ps-close" title="Voltar aos arquivos (Esc)"></button>
+        </div>
+        <div class="ps-opts">
+          <button class="ps-opt" data-opt="case" aria-pressed="false" title="Diferenciar maiúsculas e minúsculas">Aa</button>
+          <button class="ps-opt" data-opt="word" aria-pressed="false" title="Palavra inteira">ab|</button>
+          <button class="ps-opt" data-opt="regex" aria-pressed="false" title="Expressão regular">.*</button>
+          <span class="ps-summary" id="ps-summary"></span>
+        </div>
+        <div class="ps-results" id="ps-results"></div>
+      </div>
     </aside>
     <div class="splitter" id="split-1"></div>
 
@@ -87,6 +103,7 @@
           <input type="text" id="page-input" inputmode="numeric" aria-label="Página atual (digite um número e Enter)" title="Digite uma página e aperte Enter">
           <span class="page-total">/ <span id="page-count">0</span></span>
         </span>
+        <button class="icon-btn" id="pdf-search" title="Buscar no PDF (Ctrl+F com o PDF selecionado)"></button>
         <button class="icon-btn" id="zoom-out" title="Diminuir zoom"></button>
         <span class="zoom-label" id="zoom-label">100%</span>
         <button class="icon-btn" id="zoom-in" title="Aumentar zoom"></button>
@@ -94,6 +111,13 @@
         <a class="icon-btn" id="btn-download" title="Baixar PDF" download></a>
       </div>
       <div class="pdf-body">
+        <div class="pdf-find" id="pdf-find" hidden>
+          <input type="text" id="pdf-find-input" placeholder="Buscar no PDF" aria-label="Buscar no PDF" autocomplete="off" spellcheck="false">
+          <span class="count" id="pdf-find-count" aria-live="polite"></span>
+          <button class="icon-btn" id="pdf-find-prev" title="Anterior (Shift+Enter)"></button>
+          <button class="icon-btn" id="pdf-find-next" title="Próxima (Enter)"></button>
+          <button class="icon-btn" id="pdf-find-close" title="Fechar (Esc)"></button>
+        </div>
         <div class="pdf-view" id="pdf-view"><div class="pdf-empty" id="pdf-empty">Compile o projeto para ver o PDF aqui.</div></div>
         <div class="logs" id="logs"></div>
       </div>
@@ -110,7 +134,9 @@
 <script src="/static/js/editor/files.js"></script>
 <script src="/static/js/editor/compile.js"></script>
 <script src="/static/js/editor/pdf.js"></script>
+<script src="/static/js/editor/pdfsearch.js"></script>
 <script src="/static/js/editor/layout.js"></script>
+<script src="/static/js/editor/tools.js"></script>
 <script src="/static/js/editor/main.js"></script>
 </body>
 </html>

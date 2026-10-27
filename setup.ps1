@@ -31,6 +31,10 @@ if (-not (Test-Path $biber)) {
 }
 & $biber --version
 
+# Dicionários do corretor ortográfico (português e inglês; os outros idiomas são baixados no primeiro uso)
+Write-Host "Baixando os dicionários do corretor ortográfico..."
+python -m texdesk.spell pt_BR en_US
+
 # Compila os modelos uma vez para o Tectonic já baixar os pacotes LaTeX que eles usam.
 # Os pacotes ficam no cache do Tectonic (compartilhado por todos os projetos), então o
 # primeiro documento criado a partir de um modelo compila em segundos.

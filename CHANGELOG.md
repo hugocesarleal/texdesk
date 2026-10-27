@@ -5,6 +5,11 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 ## [Não lançado]
 
 ### Adicionado
+- Busca no PDF compilado (Ctrl+F com o PDF selecionado), sem diferenciar maiúsculas nem acentos, com as ocorrências destacadas nas páginas.
+- Busca em todos os arquivos do projeto (Ctrl+Shift+F), com opções de maiúsculas, palavra inteira e expressão regular.
+- Contagem de palavras do documento, com texto, títulos, legendas e fórmulas separados, e a contagem do PDF compilado.
+- Histórico de versões: o TexDesk guarda versões automaticamente enquanto você edita (e antes de apagar ou mover arquivos), e você pode salvar versões com nome, ver o que mudou e restaurar um arquivo ou o projeto inteiro.
+- Corretor ortográfico offline com os dicionários do LibreOffice, em 8 idiomas. Ele detecta o idioma do documento, não sublinha comandos, fórmulas nem rótulos, e mostra sugestões no clique direito.
 - Registro de erros e eventos em `logs/texdesk.log` (com rotação): erros inesperados com o rastro completo, compilações e falhas de sincronização com o Drive.
 - O painel do Google Drive mostra onde o acesso à conta está guardado.
 - Ao abrir, o TexDesk instala sozinho as dependências Python que faltarem depois de uma atualização.

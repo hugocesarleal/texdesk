@@ -45,6 +45,7 @@ async function loadPdf(url) {
   state.pageSizes = sizes;
   $("#page-count").textContent = sizes.length;  // o total aparece já, antes de desenhar as páginas
   await layoutPages(ratio, scrollLeft);
+  if (!findBar.hidden) runPdfSearch(true);  // refaz a busca no PDF novo
 }
 
 async function layoutPages(scrollRatio = null, scrollLeft = 0) {
@@ -83,6 +84,7 @@ async function layoutPages(scrollRatio = null, scrollLeft = 0) {
   }, { root: view, rootMargin: "300px 0px" });
   container.querySelectorAll(".pdf-page").forEach((d) => observer.observe(d));
   updatePageNav();
+  paintPdfMatches();
 }
 
 // ------------------------------------------------------------ contagem e troca de página

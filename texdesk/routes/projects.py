@@ -13,7 +13,7 @@ from urllib.parse import quote
 
 from flask import Blueprint, abort, jsonify, request, send_file
 
-from .. import drive_sync, services
+from .. import drive_sync, history, services
 from ..config import OUTPUT, PROJECTS, TEMPLATE_META, TEMPLATES, THUMB_FILE
 from ..security import json_body
 from ..storage import (
@@ -153,6 +153,7 @@ def delete_project(name):
     shutil.rmtree(OUTPUT / name, ignore_errors=True)
     services.syncer.forget(name)  # a cópia no Drive é mantida; pode ser restaurada pelo painel
     forget(name)
+    history.delete(name)
     return jsonify({"ok": True})
 
 
@@ -167,6 +168,7 @@ def rename_project(name):
     d.rename(PROJECTS / new)
     if (OUTPUT / name).exists():
         (OUTPUT / name).rename(OUTPUT / new)
+    history.rename(name, new)
     services.syncer.forget(name)
     forget(name)
     services.changed(new)  # renomeia a pasta no Drive

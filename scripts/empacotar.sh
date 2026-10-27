@@ -53,6 +53,8 @@ if [ -n "$B" ]; then
     curl -fsSL -A Wget -o "$TMP/$(basename "$B")" "$BIBER_URL/$B/download"
     extrair "$TMP/$(basename "$B")"
 fi
+# dicionários do corretor ortográfico (português e inglês; os outros são baixados no primeiro uso)
+(cd "$PASTA" && python3 -m texdesk.spell pt_BR en_US)
 chmod +x "$PASTA"/tools/* "$PASTA"/*.sh 2>/dev/null || true
 
 # compacta

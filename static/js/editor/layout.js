@@ -77,6 +77,7 @@ $("#btn-settings").onclick = async () => {
       { name: "main", label: "Documento principal", type: "select", value: state.settings.main, options: texs.length ? texs : [state.settings.main] },
       { name: "theme", label: "Tema", type: "select", value: document.documentElement.dataset.theme || "", options: [{ value: "", label: "Sistema" }, { value: "light", label: "Claro" }, { value: "dark", label: "Escuro" }] },
       { name: "fontSize", label: "Tamanho da fonte do editor", type: "select", value: String(store.get("fontSize", 14)), options: ["12", "13", "14", "15", "16", "18", "20"] },
+      { name: "spell", label: "Corretor ortográfico", type: "select", value: spellLang(), options: SPELL_LANGS },
       { name: "autoCompile", label: "Compilação automática", type: "check", value: state.settings.autoCompile },
       { name: "shellEscape", label: "Permitir shell-escape (necessário p/ minted)", type: "check", value: state.settings.shellEscape },
       { name: "driveSync", label: "Sincronizar este projeto com o Google Drive", type: "check", value: state.settings.driveSync },
@@ -95,5 +96,7 @@ $("#btn-settings").onclick = async () => {
   cm.setOption("theme", editorTheme());
   store.set("fontSize", +r.fontSize);
   applyFontSize();
+  if (r.spell !== spellLang()) store.set(`spell:${PROJECT}`, r.spell);  // só grava se mudou o automático
+  applySpellcheck();
   renderTree();
 };

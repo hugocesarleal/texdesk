@@ -10,7 +10,7 @@ from pathlib import Path
 
 from flask import Blueprint, abort, jsonify, request, send_file
 
-from .. import services
+from .. import history, services
 from ..security import json_body
 from ..storage import is_hidden, is_text, load_settings, project_dir, safe_path, save_settings, tree
 
@@ -46,6 +46,7 @@ def write_file(name):
     d = project_dir(name)
     data = json_body()
     p = safe_path(d, data.get("path"))
+    history.maybe_snapshot(d, name)  # guarda como estava antes de começar a editar
     p.parent.mkdir(parents=True, exist_ok=True)
     with open(p, "w", encoding="utf-8", newline="") as fh:
         fh.write(data.get("content", ""))
@@ -85,6 +86,7 @@ def move_file(name):
         abort(404, "Origem não existe")
     if dst.exists():
         abort(409, "Destino já existe")
+    history.snapshot(d, name)
     dst.parent.mkdir(parents=True, exist_ok=True)
     src.rename(dst)
     s = load_settings(d)
@@ -99,6 +101,7 @@ def move_file(name):
 def delete_file(name):
     d = project_dir(name)
     p = safe_path(d, request.args.get("path"))
+    history.snapshot(d, name)  # dá para recuperar o que for apagado
     if p.is_dir():
         shutil.rmtree(p)
     elif p.exists():
