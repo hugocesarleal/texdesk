@@ -59,7 +59,7 @@ def ensure_dependencies():
         if subprocess.call([sys.executable, "-m", "ensurepip", "--upgrade", "--default-pip"]) != 0:
             sys.exit(
                 "\n  Não foi possível instalar o pip. Reinstale o Python pelo python.org deixando"
-                "\n  marcada a opção \"pip\" e abra o TexDesk de novo.\n"
+                '\n  marcada a opção "pip" e abra o TexDesk de novo.\n'
             )
     print(f"\n  Instalando dependências: {', '.join(missing)}...")
     cmd = [sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check", "-r", str(req)]
