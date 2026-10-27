@@ -189,3 +189,18 @@ def test_compilar_com_erro_aponta_arquivo_e_linha(api, proj):
     errors = [e for e in r["entries"] if e["level"] == "error"]
     assert r["status"] == "error" and r["pdf"]  # gera o PDF mesmo com erro
     assert (errors[0]["file"], errors[0]["line"]) == ("cap/intro.tex", 2)
+
+
+@needs_tectonic
+def test_compilar_com_bibliografia_resolve_citacao(api, proj):
+    bib = "@book{knuth,\n  author = {Donald Knuth},\n  title = {The TeXbook},\n  year = {1984}\n}\n"
+    tex = (
+        "\\documentclass{article}\n\\begin{document}\n\\section{A}\\label{s}\nVer \\ref{s} e \\cite{knuth}.\n"
+        "\\bibliographystyle{plain}\n\\bibliography{refs}\n\\end{document}\n"
+    )
+    api.put(f"/api/projects/{proj}/file", json={"path": "refs.bib", "content": bib})
+    api.put(f"/api/projects/{proj}/file", json={"path": "main.tex", "content": tex})
+    r = api.post(f"/api/projects/{proj}/compile", json={}).get_json()
+    assert r["status"] == "success" and r["pdf"]
+    assert "undefined" not in r["log"] and "Rerun to get" not in r["log"]
+    assert "stopping at" not in r["stdout"] and "Fontconfig" not in r["stdout"]

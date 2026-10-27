@@ -14,9 +14,11 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 - Painel do Google Drive redesenhado: busca de projetos, projetos com problema agrupados no topo, barra de progresso só durante o envio e explicações recolhidas em "Como funciona a sincronização".
 - A lista de projetos ficou cerca de 5 vezes mais rápida (~200 ms para ~37 ms com 58 projetos) e não fica mais lenta conforme os projetos crescem: a data de modificação de cada projeto agora vem de um cache.
 - O token do Google Drive passa a ficar no cofre de senhas do sistema (Gerenciador de Credenciais do Windows, Chaves do macOS, Secret Service do Linux). Um `token.json` existente é migrado automaticamente, sem precisar conectar de novo.
+- A saída do compilador não mostra mais o aviso "Fontconfig error" nem as linhas repetidas de cada passada do TeX.
 
 ### Corrigido
 - Erros internos do servidor (500) agora chegam à interface como mensagem, em vez de uma página HTML.
+- Documentos com bibliografia compilam até 2 vezes mais rápido: um defeito do Tectonic 0.15 fazia o TeX rodar sempre 6 vezes. Agora são 3 passadas, e o TexDesk compila de novo no modo automático se o log ainda pedir outra.
 
 ## [0.1.0] - 2026-10-26
 

@@ -79,7 +79,13 @@ def compile_project(d: Path, name: str, main: str, main_path: Path, shell_escape
         # roda os comandos na pasta do documento, como os outros motores
         # (necessário p/ caminhos relativos em \inputminted etc.)
         cmd.append(f"-Zshell-escape-cwd={main_path.parent}")
-    cmd.append(main_path.name)
+    # Com bibliografia, o Tectonic 0.15 nunca considera o .bbl estável ("internal consistency
+    # problem when checking if main.bbl changed") e roda o TeX 6 vezes, o máximo. Fixar 2
+    # passadas depois da primeira (1ª → BibTeX/biber → 2 → 3) basta para citações, referências
+    # e sumário, e deixa a compilação até 2x mais rápida. Se o log ainda pedir outra passada,
+    # compila de novo no modo automático (abaixo), então nunca sai PDF com referência errada.
+    capped = uses_bibliography(d)
+    final_cmd = cmd + (["--reruns", str(BIB_RERUNS)] if capped else []) + [main_path.name]
 
     # com shell-escape o Tectonic grava os intermediários (.aux, .xdv, .pyg…) na pasta
     # do documento; eles são apagados depois para não sujar o projeto (nem o Drive)
@@ -88,14 +94,10 @@ def compile_project(d: Path, name: str, main: str, main_path: Path, shell_escape
     try:
         # tools/ no PATH para o Tectonic achar o biber (biblatex)
         env = {**os.environ, "PATH": str(TECTONIC.parent) + os.pathsep + os.environ.get("PATH", "")}
-        proc = subprocess.run(
-            cmd,
-            cwd=main_path.parent,
-            capture_output=True,
-            timeout=COMPILE_TIMEOUT,
-            env=env,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
+        proc = _run(final_cmd, main_path.parent, env)
+        if capped and _wants_rerun(out / (stem + ".log")):
+            logger.info("Compilação de %s pediu mais passadas: compilando de novo no modo automático", name)
+            proc = _run(cmd + [main_path.name], main_path.parent, env)
     except subprocess.TimeoutExpired:
         logger.warning("Compilação de %s passou do limite de %ds", name, COMPILE_TIMEOUT)
         return {
@@ -130,9 +132,70 @@ def compile_project(d: Path, name: str, main: str, main_path: Path, shell_escape
         "pdf": f"/api/projects/{name}/output/{stem}.pdf?t={int(time.time() * 1000)}" if has_pdf else None,
         "entries": entries,
         "log": log,
-        "stdout": stdout + stderr,
+        "stdout": clean_output(stdout + stderr),
         "time": round(elapsed, 2),
     }
+
+
+BIB_RERUNS = 2
+BIB_RE = re.compile(r"^[^%\n]*\\(?:bibliography|addbibresource|printbibliography)\b", re.M)
+RERUN_RE = re.compile(r"Rerun to get|Label\(s\) may have changed|Please rerun LaTeX|Please \(re\)run Biber")
+
+
+def uses_bibliography(d: Path):
+    """O projeto tem bibliografia (BibTeX ou biblatex)? Ignora linhas comentadas."""
+    for p in d.rglob("*.tex"):
+        if is_hidden(p.relative_to(d)):
+            continue
+        try:
+            if BIB_RE.search(p.read_text(encoding="utf-8", errors="ignore")):
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def _wants_rerun(log_file: Path):
+    try:
+        return bool(RERUN_RE.search(log_file.read_text(encoding="utf-8", errors="replace")))
+    except OSError:
+        return False
+
+
+def _run(cmd, cwd, env):
+    return subprocess.run(
+        cmd,
+        cwd=cwd,
+        capture_output=True,
+        timeout=COMPILE_TIMEOUT,
+        env=env,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+
+
+# Saída do Tectonic que não ajuda quem usa: o Fontconfig no Windows (ele usa as próprias
+# fontes) e o aviso do defeito do .bbl, que já é contornado acima.
+NOISE_RE = re.compile(
+    r"^(Fontconfig (error|warning):"
+    r"|warning: internal consistency problem when checking if .* changed"
+    r"|warning: TeX rerun seems needed, but stopping at)"
+)
+
+
+def clean_output(text: str):
+    """Saída do compilador sem ruído e sem as linhas repetidas de cada passada do TeX."""
+    seen, kept, repeated = set(), [], 0
+    for line in text.splitlines():
+        if NOISE_RE.match(line.strip()):
+            continue
+        if line.strip() and line in seen:
+            repeated += 1
+            continue
+        seen.add(line)
+        kept.append(line)
+    if repeated:
+        kept.append(f"\n({repeated} linha(s) repetida(s) das outras passadas do TeX foram omitidas)")
+    return "\n".join(kept).strip()
 
 
 def _snapshot(d: Path):
