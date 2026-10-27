@@ -4,6 +4,10 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.2.0] - 2026-10-27
+
+Ferramentas de escrita: busca no PDF e no projeto, corretor ortográfico, contagem de palavras e histórico de versões.
+
 ### Adicionado
 - Busca no PDF compilado (Ctrl+F com o PDF selecionado), sem diferenciar maiúsculas nem acentos, com as ocorrências destacadas nas páginas.
 - Busca em todos os arquivos do projeto (Ctrl+Shift+F), com opções de maiúsculas, palavra inteira e expressão regular.
@@ -21,6 +25,7 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 - A lista de projetos ficou cerca de 5 vezes mais rápida (~200 ms para ~37 ms com 58 projetos) e não fica mais lenta conforme os projetos crescem: a data de modificação de cada projeto agora vem de um cache.
 - O token do Google Drive passa a ficar no cofre de senhas do sistema (Gerenciador de Credenciais do Windows, Chaves do macOS, Secret Service do Linux). Um `token.json` existente é migrado automaticamente, sem precisar conectar de novo.
 - A saída do compilador não mostra mais o aviso "Fontconfig error" nem as linhas repetidas de cada passada do TeX.
+- A barra do visualizador de PDF fica compacta no celular.
 
 ### Corrigido
 - Erros internos do servidor (500) agora chegam à interface como mensagem, em vez de uma página HTML.
@@ -57,5 +62,6 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.1.0...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/hugocesarleal/texdesk/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/hugocesarleal/texdesk/releases/tag/v0.1.0
