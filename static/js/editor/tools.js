@@ -301,6 +301,8 @@ const BABEL_LANGS = [
   [/^spanish$/, "es_ES"], [/^(french|francais)$/, "fr_FR"], [/^italian$/, "it_IT"], [/^n?german$/, "de_DE"],
 ];
 function detectLang(text) {
+  // sem os comentários: o modelo ABNT comenta cada opção do \documentclass na própria linha
+  text = text.replace(/(^|[^\\])%.*$/gm, "$1");
   let names = [];
   const cls = text.match(/^[^%\n]*\\documentclass\[([^\]]*)\]/m);  // ex.: \documentclass[brazil]{abntex2}
   if (cls) names = cls[1].split(",").map((x) => x.trim());
