@@ -4,6 +4,11 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.5.0] - 2026-10-28
+
+### Adicionado
+- Mudanças feitas fora do editor (por um agente de IA ou outro programa) aparecem em segundos, sendo digitadas no lugar onde aconteceram, com o trecho novo destacado. Dá para continuar digitando enquanto isso.
+
 ## [0.4.1] - 2026-10-27
 
 ### Mudado
@@ -106,7 +111,8 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.4.1...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/hugocesarleal/texdesk/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/hugocesarleal/texdesk/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/hugocesarleal/texdesk/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/hugocesarleal/texdesk/compare/v0.3.0...v0.3.1

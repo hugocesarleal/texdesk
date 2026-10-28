@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: MIT
 
 // Editor, parte 1: estado da página, ícones da barra, CodeMirror e salvamento automático.
-// Os arquivos do editor são carregados nesta ordem: core, files, compile, pdf, layout, main.
+// Os arquivos do editor são carregados nesta ordem: completions, core, live, files, compile, pdf,
+// pdfsearch, layout, tools, insert, main.
 
 const $ = (s, el = document) => el.querySelector(s);
 const PROJECT = decodeURIComponent(location.pathname.split("/").pop());
@@ -155,7 +156,7 @@ cm.on("inputRead", (c, change) => {
 
 cm.on("change", () => {
   const d = state.docs[state.current];
-  if (!d) return;
+  if (!d || d.applying || d.typing) return;  // mudança vinda do disco (live.js): não é para salvar
   setSaveState("Editando…");
   $("#tabs .tab.on")?.classList.toggle("dirty", d.doc.getValue() !== d.saved);
   clearTimeout(d.timer);
@@ -171,6 +172,7 @@ async function saveDoc(path, force = false) {
   const d = state.docs[path];
   if (!d) return;
   clearTimeout(d.timer);
+  finishTyping(d);
   if (d.conflict && !force) return;  // esperando o usuário escolher qual versão fica
   const content = d.doc.getValue();
   if (content === d.saved && !force) { setSaveState("Salvo"); renderTabs(); return; }
@@ -238,6 +240,7 @@ async function saveAll() {
 }
 
 window.addEventListener("beforeunload", (e) => {
+  finishAllTyping();
   const dirty = Object.values(state.docs).some((d) => d.doc.getValue() !== d.saved);
   if (dirty) { saveAll(); e.preventDefault(); e.returnValue = ""; }
 });

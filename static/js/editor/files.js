@@ -248,8 +248,9 @@ $("#tabs").addEventListener("wheel", (e) => {
 }, { passive: false });
 
 // ------------------------------------------------------------ mudanças feitas fora do editor
-// Confere de tempos em tempos (e ao voltar para a janela) se algum arquivo aberto mudou no
-// disco. Sem alterações pendentes aqui, recarrega sozinho; com alterações, pergunta.
+// Confere a cada segundo e meio (e ao voltar para a janela) se algum arquivo aberto mudou no
+// disco. Sem alterações pendentes aqui, mostra a mudança sendo digitada (live.js); com
+// alterações, pergunta qual versão fica.
 let externalBusy = false;
 async function checkExternalChanges() {
   if (externalBusy || document.hidden || !state.files.length) return;
@@ -270,15 +271,16 @@ async function checkExternalChanges() {
       let disk;
       try { disk = await api(`${P}/file?path=${encodeURIComponent(path)}`); } catch (e) { continue; }
       if (state.docs[path] !== d || d.saving || d.gen !== gens[path]) continue;
+      finishTyping(d);  // uma mudança nova chegou antes de a anterior terminar de ser digitada
       if (isDirty(path)) resolveConflict(path, disk);
       else if (disk.content !== d.saved) {
-        loadDiskVersion(path, disk.content, disk.mtime);
-        toast(`${path} foi alterado fora do editor e foi recarregado.`, 4000);
+        typeDiskVersion(path, disk.content, disk.mtime);
+        if (path !== state.current) toast(`${path} foi alterado fora do editor.`, 4000);
       } else d.mtime = disk.mtime;
     }
   } finally { externalBusy = false; }
 }
-setInterval(checkExternalChanges, 4000);
+setInterval(checkExternalChanges, 1500);
 addEventListener("focus", checkExternalChanges);
 document.addEventListener("visibilitychange", checkExternalChanges);
 

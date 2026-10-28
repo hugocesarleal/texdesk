@@ -81,7 +81,7 @@ Depois, rode `iniciar.bat` (Windows) ou `./iniciar.sh` (Linux e macOS). Na prime
 - Buscar e substituir no arquivo (Ctrl+F, Ctrl+H) e em todos os arquivos do projeto (Ctrl+Shift+F), com opções de maiúsculas, palavra inteira e expressão regular. Antes de substituir em vários arquivos, o projeto é guardado no histórico.
 - Cole uma imagem (Ctrl+V) ou arraste uma para o código: ela é salva na pasta de figuras e entra no texto como uma figura com legenda e rótulo.
 - **Referência** importa uma referência pelo DOI para o `.bib` do projeto e insere o `\cite` no texto.
-- Se um arquivo aberto for alterado fora do editor (outro programa, outra aba), o TexDesk recarrega o arquivo ou, se houver alterações não salvas, pergunta qual versão manter.
+- Se um arquivo aberto for alterado fora do editor (um agente de IA, outro programa, outra aba), a mudança aparece em segundos, sendo digitada no lugar onde aconteceu, sem precisar recarregar a página. Se houver alterações não salvas, o TexDesk pergunta qual versão manter.
 - Estrutura do documento (capítulos e seções) para navegar pelo texto.
 - Salvamento automático e compilação automática opcional.
 
