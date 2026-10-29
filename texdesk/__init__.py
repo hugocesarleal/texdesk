@@ -9,4 +9,4 @@ que baixa pacotes sob demanda), lê o log do TeX e, se ligado, sincroniza os pro
 com o Google Drive. Para rodar: ``python -m texdesk``.
 """
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"

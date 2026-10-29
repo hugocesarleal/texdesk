@@ -81,9 +81,12 @@ def main():
 
     ensure_dependencies()
     logs.setup()
-    from waitress import serve
+    from waitress.server import create_server
 
+    from . import services, updater
     from .app import create_app  # só aqui: criar o app liga a sincronização com o Drive
+
+    updater.cleanup()  # o pacote e o backup de uma atualização anterior
 
     app = create_app()
     log.info("TexDesk %s iniciado em %s (dados em %s)", __version__, URL, DATA)
@@ -96,7 +99,28 @@ def main():
     # waitress: servidor de produção (o do Flask é só para desenvolvimento). Várias threads,
     # porque uma compilação longa não pode travar o resto da interface, e um tempo de
     # conexão maior que o limite de compilação, para não cortar a resposta no meio.
-    serve(app, host="127.0.0.1", port=PORT, threads=16, channel_timeout=COMPILE_TIMEOUT + 60, ident="TexDesk")
+    server = create_server(
+        app, host="127.0.0.1", port=PORT, threads=16, channel_timeout=COMPILE_TIMEOUT + 60, ident="TexDesk"
+    )
+    restart = threading.Event()
+
+    def stop_for_update():
+        """Chamado pelo atualizador: para o Drive e o servidor, e o main() abre o novo."""
+        restart.set()
+        services.syncer.stop()
+
+        def close_all():  # na thread do servidor: sem conexões nem porta, o run() volta
+            for channel in list(server._map.values()):
+                channel.close()
+
+        server.trigger.pull_trigger(close_all)
+
+    updater.restart_hook = stop_for_update
+    server.run()
+    server.task_dispatcher.shutdown()
+    if restart.is_set():
+        print("\n  TexDesk atualizado. Reiniciando...\n")
+        return updater.run_new_server()
     return 0
 
 

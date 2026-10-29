@@ -613,7 +613,16 @@ class SyncManager:
         self.next_allowed = {}  # nome -> instante mínimo do próximo envio
         self.lock = threading.Lock()
         self.cv = threading.Condition(self.lock)
-        threading.Thread(target=self._run, daemon=True, name="drive-sync").start()
+        self.stopped = False
+        self.thread = threading.Thread(target=self._run, daemon=True, name="drive-sync")
+        self.thread.start()
+
+    def stop(self, timeout=60):
+        """Para o worker depois do envio em andamento (antes de reiniciar o servidor)."""
+        with self.cv:
+            self.stopped = True
+            self.cv.notify()
+        self.thread.join(timeout)
 
     def mark_dirty(self, name, check_only=False):
         """check_only: só conferir (ex.: ao iniciar o servidor). Não aparece como
@@ -670,6 +679,8 @@ class SyncManager:
     def _run(self):
         while True:
             with self.cv:
+                if self.stopped:
+                    return
                 now = time.time()
                 ready = [n for n in self.dirty if now >= self.next_allowed.get(n, 0)]
                 if not ready:

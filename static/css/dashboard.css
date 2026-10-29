@@ -126,6 +126,8 @@
 }
 .update-banner > svg { width: 18px; height: 18px; color: var(--accent); flex: none; }
 .update-banner span { flex: 1; }
+.update-banner .spin { animation: spin 1s linear infinite; }
+.update-banner progress { width: 160px; accent-color: var(--accent); }
 .tag-filter { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: -6px 0 14px; }
 .tag-filter > svg { width: 15px; height: 15px; color: var(--muted); }
 .chip {

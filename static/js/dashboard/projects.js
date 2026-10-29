@@ -290,10 +290,61 @@ async function checkUpdate() {
   if (!r || !r.newer || dashStore.get("updateDismissed", "") === r.latest) return;
   const el = $("#update");
   el.innerHTML = `${icon("info")}<span>Há uma versão nova do TexDesk: <b>${esc(r.latest)}</b> (você usa a ${esc(r.current)}).</span>
-    <a class="btn small primary" href="${esc(r.url)}" target="_blank" rel="noopener">Ver novidades</a>
+    <a class="btn small" href="${esc(r.url)}" target="_blank" rel="noopener">Ver novidades</a>
+    ${r.install ? `<button class="btn small primary" data-install>Atualizar agora</button>` : ""}
     <button class="icon-btn" data-dismiss title="Dispensar">${icon("close")}</button>`;
   el.hidden = false;
   el.querySelector("[data-dismiss]").onclick = () => { dashStore.set("updateDismissed", r.latest); el.hidden = true; };
+  const btn = el.querySelector("[data-install]");
+  if (btn) btn.onclick = () => installUpdate(r);
+}
+
+// baixa e instala a versão nova pelo servidor, acompanha o progresso e recarrega a página
+// quando o servidor novo abrir (ele reinicia na mesma janela do iniciar.bat/.sh)
+async function installUpdate(r) {
+  const ok = await modal({
+    title: `Atualizar para a versão ${r.latest}?`,
+    ok: "Atualizar",
+    body: `<p>${r.install === "git"
+      ? "O TexDesk vai rodar <code>git pull</code> na pasta dele e reiniciar."
+      : "O TexDesk vai baixar o pacote novo do GitHub, instalar por cima da versão atual e reiniciar."}
+      Leva menos de um minuto.</p>
+      <p class="muted small">Seus projetos, PDFs, histórico e a conexão com o Google Drive ficam como estão.
+      Se houver documentos abertos em outras abas, recarregue essas abas (F5) depois da atualização.</p>`,
+  });
+  if (!ok) return;
+  const el = $("#update");
+  const show = (text, percent = null) => {
+    el.innerHTML = `${icon("refresh", "spin")}<span>${esc(text)}</span>` +
+      (percent !== null ? `<progress max="100" value="${percent}"></progress>` : "");
+  };
+  show("Preparando a atualização…");
+  let s;
+  try { s = await api("/api/update/install", { json: {} }); } catch (e) { return updateFailed(e.message, r); }
+  const boot = s.boot;
+  const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+  for (;;) {
+    await sleep(700);
+    // sem resposta: o servidor está reiniciando. Respondeu com outro "boot" (ou sem esta rota,
+    // numa versão que ainda não a tinha): é o servidor novo, e a página recarrega
+    let res = null;
+    try { res = await fetch("/api/update/status", { cache: "no-store" }); } catch (e) { /* reiniciando */ }
+    s = res && res.ok ? await res.json().catch(() => null) : null;
+    if (res && (!res.ok || (s && s.boot !== boot))) { location.reload(); return; }
+    if (!s) { show("Reiniciando o TexDesk…"); continue; }
+    if (s.stage === "error") return updateFailed(s.error, r);
+    if (s.stage === "downloading") show(`Baixando a versão ${s.version}… ${s.percent}%`, s.percent);
+    else if (s.stage === "installing") show("Instalando…");
+    else if (s.stage === "restarting") show("Reiniciando o TexDesk…");
+  }
+}
+
+function updateFailed(message, r) {
+  const el = $("#update");
+  el.innerHTML = `${icon("info")}<span>${esc(message)}</span>
+    <a class="btn small" href="${esc(r.url)}" target="_blank" rel="noopener">Baixar no GitHub</a>
+    <button class="btn small primary" data-retry>Tentar de novo</button>`;
+  el.querySelector("[data-retry]").onclick = () => installUpdate(r);
 }
 
 // ------------------------------------------------------------ instalar como aplicativo

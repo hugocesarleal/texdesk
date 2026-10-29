@@ -4,6 +4,11 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.7.0] - 2026-10-29
+
+### Adicionado
+- Botão **Atualizar agora** no aviso de versão nova: o TexDesk baixa o pacote do sistema, confere a assinatura SHA-256 publicada pelo GitHub, instala por cima e reinicia sozinho, na mesma janela. Projetos, PDFs, histórico e a conexão com o Google Drive não são tocados, e, se algo falhar no meio, a versão anterior volta. Em instalações feitas com `git clone`, o botão roda `git pull`. O botão aparece a partir desta versão: quem usa uma versão anterior ainda precisa baixar esta pelo GitHub uma vez.
+
 ## [0.6.0] - 2026-10-29
 
 ### Mudado
@@ -121,7 +126,8 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.6.0...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/hugocesarleal/texdesk/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/hugocesarleal/texdesk/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/hugocesarleal/texdesk/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/hugocesarleal/texdesk/compare/v0.4.1...v0.5.0

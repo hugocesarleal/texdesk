@@ -60,7 +60,7 @@ No Debian e no Ubuntu, pode ser preciso instalar o `python3-venv` antes:
 sudo apt install python3-venv
 ```
 
-Para atualizar, baixe o pacote novo e extraia por cima da pasta antiga. Seus projetos, em `projects/`, são mantidos. O painel avisa quando sai uma versão nova (ele consulta as releases do GitHub uma vez por dia; para desligar, defina a variável de ambiente `TEXDESK_UPDATE_CHECK=0`).
+Para atualizar, clique em **Atualizar agora** no aviso de versão nova do painel. O TexDesk baixa o pacote do seu sistema, confere a assinatura SHA-256 publicada pelo GitHub, instala por cima e reinicia na mesma janela. Seus projetos, PDFs, histórico e a conexão com o Google Drive não são tocados. Se instalou com `git clone`, o botão roda `git pull`. Também dá para baixar o pacote novo e extrair por cima da pasta antiga. O painel consulta as releases do GitHub uma vez por dia; para desligar o aviso e o botão, defina a variável de ambiente `TEXDESK_UPDATE_CHECK=0`.
 
 <details>
 <summary><b>Instalar a partir do código-fonte</b></summary>
@@ -239,6 +239,7 @@ texdesk/               servidor (python -m texdesk)
   texttools.py         busca e substituição no projeto e contagem de palavras
   spell.py             corretor ortográfico (dicionários Hunspell) e dicionário pessoal
   online.py            referências pelo DOI e aviso de versão nova
+  updater.py           atualização pelo painel (baixa, confere, instala e reinicia)
   drive_sync.py        sincronização com o Google Drive (OAuth, envio incremental, restauração)
   services.py          conexão com o Drive e processo de sincronização
   routes/              rotas HTTP: pages, projects, files, compile, tools, drive

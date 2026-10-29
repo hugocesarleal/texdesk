@@ -3,13 +3,13 @@
 # SPDX-License-Identifier: MIT
 
 """Ferramentas do editor: busca e substituição, contagem de palavras, histórico de versões,
-corretor ortográfico, referências por DOI e aviso de versão nova."""
+corretor ortográfico, referências por DOI, aviso de versão nova e atualização."""
 
 import re
 
 from flask import Blueprint, abort, jsonify, request
 
-from .. import history, online, services, spell, texttools
+from .. import history, online, services, spell, texttools, updater
 from ..security import json_body
 from ..storage import load_settings, project_dir, safe_path
 
@@ -123,7 +123,23 @@ def spell_check():
 
 @bp.get("/api/update")
 def update_check():
-    return jsonify(online.latest_release())
+    r = online.latest_release()
+    # "install": como o botão Atualizar instala ("package", "git" ou None: só o link)
+    return jsonify(r and r | {"install": updater.install_kind()})
+
+
+@bp.post("/api/update/install")
+def update_install():
+    try:
+        updater.start()
+    except updater.UpdateError as e:
+        abort(400, str(e))
+    return jsonify(updater.status())
+
+
+@bp.get("/api/update/status")
+def update_status():
+    return jsonify(updater.status())
 
 
 @bp.get("/api/doi")
