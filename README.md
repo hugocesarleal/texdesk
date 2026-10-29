@@ -9,6 +9,7 @@
   <a href="https://github.com/hugocesarleal/texdesk/actions/workflows/tests.yml"><img src="https://github.com/hugocesarleal/texdesk/actions/workflows/tests.yml/badge.svg" alt="Testes"></a>
   <img src="https://img.shields.io/badge/Windows%20%7C%20Linux%20%7C%20macOS-555" alt="Windows, Linux e macOS">
   <a href="LICENSE"><img src="https://img.shields.io/badge/licen%C3%A7a-MIT-138a36" alt="Licença MIT"></a>
+  <a href="https://github.com/hugocesarleal/texdesk/releases"><img src="https://img.shields.io/github/downloads/hugocesarleal/texdesk/total?label=downloads&color=138a36" alt="Downloads"></a>
   <img src="https://visitor-badge.laobi.icu/badge?page_id=hugocesarleal.texdesk&left_text=visitantes&right_color=%23138a36" alt="Visitantes">
 </p>
 
