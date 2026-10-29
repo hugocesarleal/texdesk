@@ -14,7 +14,9 @@ function scheduleAutoCompile() {
 async function compile(opts = {}) {
   if (state.compiling) { state.pendingCompile = true; return; }
   state.compiling = true;
+  state.refining = !!opts.refine;
   setCompileButton();
+  let refine = false;
   let slowHint = 0;
   if (state.firstCompile && !state.pdf) {
     $("#pdf-empty").textContent = "Compilando…";
@@ -44,6 +46,9 @@ async function compile(opts = {}) {
       $("#btn-download").setAttribute("download", PROJECT + ".pdf");
       await loadPdf(r.pdf);
       if (state.pdf) saveThumbnail(PROJECT, state.pdf).catch(() => {});
+      // a passada reaproveitou a compilação anterior e as referências mudaram: o PDF já
+      // aparece, e outra passada acerta as páginas das referências e o sumário
+      refine = r.rerun && (opts.refine || 0) < 2;
     } else {
       if (!state.pdf) $("#pdf-empty").innerHTML = "Não foi possível gerar o PDF. Veja os logs.";
       if (!opts.auto) openLogs(true);
@@ -54,8 +59,10 @@ async function compile(opts = {}) {
   } finally {
     clearTimeout(slowHint);
     state.compiling = false;
+    state.refining = false;
     setCompileButton();
-    if (state.pendingCompile) { state.pendingCompile = false; compile(opts); }
+    if (state.pendingCompile) { state.pendingCompile = false; compile({ auto: opts.auto }); }
+    else if (refine) compile({ auto: true, refine: (opts.refine || 0) + 1 });
   }
 }
 
@@ -96,7 +103,7 @@ function renderLogs() {
     (c.warning ? ` <span class="badge warn">${c.warning}</span>` : "");
   const list = state.entries.filter((e) => logFilter === "all" || e.level === logFilter);
   const s = state.lastStatus || {};
-  const summary = s.status === "success" ? `Compilado em ${s.time}s` : s.status ? (s.time ? `Compilação com problemas (${s.time}s)` : "Compilação com problemas") : "Ainda não compilado";
+  const summary = s.status === "success" ? `Compilado em ${s.time}s${s.rerun ? " · atualizando as referências…" : ""}` : s.status ? (s.time ? `Compilação com problemas (${s.time}s)` : "Compilação com problemas") : "Ainda não compilado";
   const label = { error: "Erro", warning: "Aviso", typesetting: "Diagramação" };
   $("#logs").innerHTML = `
     <div class="log-filter">

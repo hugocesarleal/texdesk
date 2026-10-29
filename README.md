@@ -88,7 +88,7 @@ Depois, rode `iniciar.bat` (Windows) ou `./iniciar.sh` (Linux e macOS). Na prime
 - Salvamento automático e compilação automática opcional.
 
 ### Compilação e PDF
-- Tectonic (XeTeX), com BibTeX e biber automáticos e quantas passadas forem necessárias para as referências.
+- Tectonic (XeTeX), com BibTeX e biber automáticos e quantas passadas forem necessárias para as referências. Cada compilação aproveita as referências da anterior: o PDF aparece depois de uma passada só, e, se as referências mudarem, outra passada as acerta em segundo plano.
 - O PDF é gerado mesmo quando há erros, como no modo `batchmode`.
 - Erros, avisos e caixas overfull/underfull aparecem no arquivo e na linha certos, inclusive em arquivos incluídos com `\input`.
 - Dicas em português para os erros mais comuns. Quando falta um pacote, um botão o adiciona ao preâmbulo.

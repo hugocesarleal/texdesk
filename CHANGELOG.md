@@ -4,6 +4,11 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.6.0] - 2026-10-29
+
+### Mudado
+- A compilação ficou cerca de 2 vezes mais rápida em documentos grandes (num TCC de 49 páginas, de 23 s para 12 s). O TexDesk aproveita as referências, a bibliografia e o sumário da compilação anterior e mostra o PDF depois de uma passada só. Se as referências mudarem, outra passada as acerta em segundo plano. Depois de um erro, a próxima compilação começa do zero.
+
 ## [0.5.1] - 2026-10-28
 
 ### Corrigido
@@ -116,7 +121,8 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.5.1...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/hugocesarleal/texdesk/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/hugocesarleal/texdesk/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/hugocesarleal/texdesk/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/hugocesarleal/texdesk/compare/v0.4.0...v0.4.1

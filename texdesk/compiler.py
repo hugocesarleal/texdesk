@@ -86,6 +86,17 @@ def compile_project(d: Path, name: str, main: str, main_path: Path, shell_escape
     # compila de novo no modo automático (abaixo), então nunca sai PDF com referência errada.
     capped = uses_bibliography(d)
     final_cmd = cmd + (["--reruns", str(BIB_RERUNS)] if capped else []) + [main_path.name]
+    # O Tectonic sempre começa do zero, sem o .aux/.bbl da compilação anterior, e por isso
+    # precisa de 3 passadas. Com a saída anterior no caminho de busca, uma passada basta
+    # (o TCC de teste caiu de 23 s para 12 s). Se as referências mudarem nessa passada, a
+    # resposta pede outra ("rerun"), que a interface faz depois de mostrar o PDF.
+    # Com shell-escape os intermediários ficam na pasta do projeto e são apagados.
+    ok_marker = out / (stem + OK_SUFFIX)
+    incremental = not shell_escape and ok_marker.exists()
+    ok_marker.unlink(missing_ok=True)
+    if incremental:
+        aux_before = _aux_state(out, stem)
+        final_cmd = cmd + ["--reruns", "0", f"-Zsearch-path={out}", main_path.name]
 
     # com shell-escape o Tectonic grava os intermediários (.aux, .xdv, .pyg…) na pasta
     # do documento; eles são apagados depois para não sujar o projeto (nem o Drive)
@@ -95,7 +106,7 @@ def compile_project(d: Path, name: str, main: str, main_path: Path, shell_escape
         # tools/ no PATH para o Tectonic achar o biber (biblatex)
         env = {**os.environ, "PATH": str(TECTONIC.parent) + os.pathsep + os.environ.get("PATH", "")}
         proc = _run(final_cmd, main_path.parent, env)
-        if capped and _wants_rerun(out / (stem + ".log")):
+        if not incremental and capped and _wants_rerun(out / (stem + ".log")):
             logger.info("Compilação de %s pediu mais passadas: compilando de novo no modo automático", name)
             proc = _run(cmd + [main_path.name], main_path.parent, env)
     except subprocess.TimeoutExpired:
@@ -124,7 +135,19 @@ def compile_project(d: Path, name: str, main: str, main_path: Path, shell_escape
     has_errors = proc.returncode != 0 or any(e["level"] == "error" for e in entries)
     status = "failure" if not has_pdf else ("error" if has_errors else "success")
     n_errors = sum(e["level"] == "error" for e in entries)
-    logger.info("Compilação de %s: %s em %.1fs (%d erro(s) no documento)", name, status, elapsed, n_errors)
+    # depois de um erro a próxima compilação começa do zero: um .aux estragado não fica preso
+    rerun = False
+    if status == "success" and not shell_escape:
+        ok_marker.touch()
+        rerun = incremental and (aux_before != _aux_state(out, stem) or bool(RERUN_RE.search(log)))
+    logger.info(
+        "Compilação de %s: %s em %.1fs (%d erro(s) no documento%s)",
+        name,
+        status,
+        elapsed,
+        n_errors,
+        ", reaproveitando a anterior" if incremental else "",
+    )
     if status == "failure" and not entries:  # nem PDF nem erro do TeX: problema no próprio Tectonic
         logger.warning("Tectonic sem PDF para %s (código %s): %s", name, proc.returncode, stderr.strip()[-500:])
     return {
@@ -134,7 +157,21 @@ def compile_project(d: Path, name: str, main: str, main_path: Path, shell_escape
         "log": log,
         "stdout": clean_output(stdout + stderr),
         "time": round(elapsed, 2),
+        "rerun": rerun,
     }
+
+
+# marca uma compilação sem erros, cuja saída pode ser reaproveitada pela próxima
+OK_SUFFIX = ".texdesk-ok"
+# arquivos que o TeX grava numa passada e lê na seguinte (referências, bibliografia, sumário,
+# listas de figuras e tabelas, marcadores do PDF e navegação do beamer)
+AUX_EXT = (".aux", ".bbl", ".toc", ".lof", ".lot", ".out", ".nav", ".snm")
+
+
+def _aux_state(out: Path, stem: str):
+    """Conteúdo dos arquivos que a próxima passada lê (com os .aux dos capítulos do \\include)."""
+    files = [out / (stem + ext) for ext in AUX_EXT] + list(out.rglob("*/*.aux"))
+    return {p: p.read_bytes() for p in files if p.is_file()}
 
 
 BIB_RERUNS = 2

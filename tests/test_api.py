@@ -204,3 +204,42 @@ def test_compilar_com_bibliografia_resolve_citacao(api, proj):
     assert r["status"] == "success" and r["pdf"]
     assert "undefined" not in r["log"] and "Rerun to get" not in r["log"]
     assert "stopping at" not in r["stdout"] and "Fontconfig" not in r["stdout"]
+
+
+@needs_tectonic
+def test_compilacao_reaproveita_a_anterior(api, proj):
+    def compilar(corpo):
+        tex = "\\documentclass{article}\n\\begin{document}\n" + corpo + "\n\\end{document}\n"
+        api.put(f"/api/projects/{proj}/file", json={"path": "main.tex", "content": tex})
+        return api.post(f"/api/projects/{proj}/compile", json={}).get_json()
+
+    a = "\\section{A}\\label{a}\nVer \\ref{a}."
+    r = compilar(a)  # a primeira começa do zero, com todas as passadas
+    assert r["status"] == "success" and not r["rerun"] and "undefined" not in r["log"]
+    # com a saída anterior, uma passada já resolve a referência
+    r = compilar(a + " Mais texto.")
+    assert r["status"] == "success" and not r["rerun"] and "undefined" not in r["log"]
+    # referência nova: a passada pede outra, que deixa tudo certo
+    b = a + "\n\\section{B}\\label{b}\nVer \\ref{b}."
+    assert compilar(b)["rerun"] is True
+    r = compilar(b)
+    assert not r["rerun"] and "undefined" not in r["log"]
+
+
+@needs_tectonic
+def test_depois_de_um_erro_compila_do_zero(api, proj):
+    api.put(
+        f"/api/projects/{proj}/file",
+        json={
+            "path": "main.tex",
+            "content": "\\documentclass{article}\n\\begin{document}\nok\n\\naoexiste\n\\end{document}\n",
+        },
+    )
+    assert api.post(f"/api/projects/{proj}/compile", json={}).get_json()["status"] == "error"
+    assert not (config.OUTPUT / proj / "main.texdesk-ok").exists()
+    tex = "\\documentclass{article}\n\\begin{document}\n\\section{A}\\label{a}\nVer \\ref{a}.\n\\end{document}\n"
+    api.put(f"/api/projects/{proj}/file", json={"path": "main.tex", "content": tex})
+    r = api.post(f"/api/projects/{proj}/compile", json={}).get_json()
+    # do zero, com todas as passadas: a referência nova já sai certa, sem pedir outra
+    assert r["status"] == "success" and not r["rerun"] and "undefined" not in r["log"]
+    assert (config.OUTPUT / proj / "main.texdesk-ok").exists()

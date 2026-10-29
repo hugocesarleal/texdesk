@@ -69,7 +69,7 @@ document.title = `${PROJECT} — TexDesk`;
 
 function setCompileButton() {
   $("#btn-compile").innerHTML = state.compiling
-    ? icon("refresh", "spin") + '<span class="hide-xs">Compilando…</span>'
+    ? icon("refresh", "spin") + `<span class="hide-xs">${state.refining ? "Atualizando referências…" : "Compilando…"}</span>`
     : icon("refresh") + '<span class="hide-xs">Recompilar</span>';
 }
 setCompileButton();
