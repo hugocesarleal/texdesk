@@ -91,7 +91,23 @@
         <button class="icon-btn" id="btn-search" title="Buscar (Ctrl+F)"></button>
         <button class="icon-btn" id="btn-replace" title="Buscar e substituir (Ctrl+H)"></button>
       </div>
-      <div class="editor-wrap" id="editor-wrap"></div>
+      <div class="editor-wrap" id="editor-wrap">
+        <div class="code-find" id="code-find" hidden>
+          <div class="row">
+            <input type="text" id="code-find-input" placeholder="Buscar no código" aria-label="Buscar no código" autocomplete="off" spellcheck="false">
+            <span class="count" id="code-find-count" aria-live="polite"></span>
+            <button class="icon-btn" id="code-find-prev" title="Anterior (Shift+Enter)"></button>
+            <button class="icon-btn" id="code-find-next" title="Próxima (Enter)"></button>
+            <button class="icon-btn" id="code-find-toggle" aria-pressed="false" title="Substituir (Ctrl+H)"></button>
+            <button class="icon-btn" id="code-find-close" title="Fechar (Esc)"></button>
+          </div>
+          <div class="row" id="code-find-replace" hidden>
+            <input type="text" id="code-find-repl" placeholder="Substituir por" aria-label="Substituir por" autocomplete="off" spellcheck="false">
+            <button class="btn small" id="code-find-one" title="Substituir esta ocorrência (Enter)">Substituir</button>
+            <button class="btn small" id="code-find-all" title="Substituir todas (Ctrl+Enter)">Tudo</button>
+          </div>
+        </div>
+      </div>
       <div class="preview" id="preview" hidden></div>
     </section>
 
@@ -148,6 +164,7 @@
 <script src="/static/js/editor/compile.js"></script>
 <script src="/static/js/editor/pdf.js"></script>
 <script src="/static/js/editor/pdfsearch.js"></script>
+<script src="/static/js/editor/codefind.js"></script>
 <script src="/static/js/editor/layout.js"></script>
 <script src="/static/js/editor/tools.js"></script>
 <script src="/static/js/editor/insert.js"></script>

@@ -82,7 +82,7 @@ Depois, rode `iniciar.bat` (Windows) ou `./iniciar.sh` (Linux e macOS). Na prime
 - Realce de sintaxe LaTeX, com autocompletar de comandos, ambientes, rótulos (`\ref`), citações (`\cite`) e pacotes.
 - Abas com os arquivos abertos. Um ponto na aba indica alteração ainda não salva.
 - Corretor ortográfico offline, com os dicionários do LibreOffice, em 8 idiomas. Ele detecta o idioma pelo `babel` e não sublinha comandos, fórmulas nem rótulos. O clique direito numa palavra mostra sugestões e a opção de adicioná-la ao seu dicionário pessoal, que vale para todos os projetos.
-- Buscar e substituir no arquivo (Ctrl+F, Ctrl+H) e em todos os arquivos do projeto (Ctrl+Shift+F), com opções de maiúsculas, palavra inteira e expressão regular. Antes de substituir em vários arquivos, o projeto é guardado no histórico.
+- Buscar e substituir no arquivo (Ctrl+F, Ctrl+H), com as ocorrências aparecendo enquanto você digita, e em todos os arquivos do projeto (Ctrl+Shift+F), com opções de maiúsculas, palavra inteira e expressão regular. Antes de substituir em vários arquivos, o projeto é guardado no histórico.
 - Cole uma imagem (Ctrl+V) ou arraste uma para o código: ela é salva na pasta de figuras e entra no texto como uma figura com legenda e rótulo.
 - **Referência** importa uma referência pelo DOI para o `.bib` do projeto e insere o `\cite` no texto.
 - Se um arquivo aberto for alterado fora do editor (um agente de IA, outro programa, outra aba), a mudança aparece em segundos, sendo digitada no lugar onde aconteceu, sem precisar recarregar a página. Se houver alterações não salvas, o TexDesk pergunta qual versão manter.

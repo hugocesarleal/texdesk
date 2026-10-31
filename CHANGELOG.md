@@ -4,6 +4,11 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.7.3] - 2026-10-31
+
+### Mudado
+- A busca no código (Ctrl+F) agora funciona como a do PDF: mostra as ocorrências enquanto você digita, sem precisar apertar Enter, ignora maiúsculas e acentos, some ao clicar em outro lugar e fica dentro da área do código, sem cobrir o menu superior. Ctrl+H abre a mesma barra com a linha de substituir.
+
 ## [0.7.2] - 2026-10-31
 
 ### Mudado
@@ -139,7 +144,8 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.7.2...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.7.3...HEAD
+[0.7.3]: https://github.com/hugocesarleal/texdesk/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/hugocesarleal/texdesk/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/hugocesarleal/texdesk/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/hugocesarleal/texdesk/compare/v0.6.0...v0.7.0

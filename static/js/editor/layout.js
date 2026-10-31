@@ -67,8 +67,8 @@ $("#toggle-files").onclick = () => {
 
 // ------------------------------------------------------------ outros botões
 $("#btn-zip").onclick = async () => { await saveAll(); location.href = `${P}/zip`; };
-$("#btn-search").onclick = () => cm.execCommand("find");
-$("#btn-replace").onclick = () => cm.execCommand("replace");
+$("#btn-search").onclick = () => (codeBar.hidden ? openCodeFind() : closeCodeFind(true));
+$("#btn-replace").onclick = () => (codeBar.hidden || replRow.hidden ? openCodeFind(true) : closeCodeFind(true));
 
 // ------------------------------------------------------------ atalhos de teclado
 const MOD = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl";
