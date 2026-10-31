@@ -4,7 +4,8 @@
 
 """Atalho do TexDesk na área de trabalho, com o logo, que abre o iniciar.bat/.sh.
 
-Na primeira abertura o painel pergunta se o usuário quer o atalho. O atalho aponta para a
+Na primeira abertura (e de novo se o atalho for apagado) o painel pergunta se o usuário quer
+o atalho, até ele responder "Agora não". O atalho aponta para a
 pasta atual do TexDesk: se ela for movida, o painel percebe (a pasta guardada no estado é
 outra) e pergunta se quer atualizar o atalho.
 
@@ -86,9 +87,11 @@ def status():
     ask = None
     if not launcher().is_file():
         ask = None  # instalação sem o script de iniciar (ex.: rodando só com python -m texdesk)
-    elif not state:
-        ask = "create"  # primeira abertura
-    elif state.get("path") and exists and state.get("root") != str(ROOT):
+    elif state.get("declined"):
+        ask = None  # respondeu "Agora não" (o botão no fim do painel ainda cria o atalho)
+    elif not state.get("path") or not exists:
+        ask = "create"  # primeira abertura, ou o atalho foi apagado
+    elif state.get("root") != str(ROOT):
         ask = "update"  # a pasta do TexDesk mudou de lugar e o atalho aponta para a antiga
     return {
         "ask": ask,
@@ -103,9 +106,10 @@ def status():
 def decline():
     """'Agora não': não pergunta de novo (o atalho continua disponível no painel)."""
     state = _load()
-    state["declined"] = True
-    if state.get("path"):
-        state["root"] = str(ROOT)  # recusou atualizar: não pergunta de novo para esta pasta
+    if status()["ask"] == "update":
+        state["root"] = str(ROOT)  # não pergunta de novo para esta pasta, mas pergunta se o atalho sumir
+    else:
+        state["declined"] = True  # não quer o atalho: criar pelo botão desfaz isto
     _save(state)
 
 

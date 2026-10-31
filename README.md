@@ -47,7 +47,7 @@ Baixe o pacote do seu sistema na [página de releases](https://github.com/hugoce
 
 O TexDesk abre no navegador, em `http://127.0.0.1:5050`. Crie um projeto, escreva e aperte **Ctrl+S** para compilar.
 
-Na primeira abertura, o painel pergunta se você quer um atalho **TexDesk**, com o logo, na área de trabalho. Ele abre o TexDesk com dois cliques (roda o `iniciar.bat` ou o `iniciar.sh` da pasta). O atalho aponta para a pasta onde o TexDesk está: se você mover a pasta, abra o TexDesk pelo `iniciar` no lugar novo, e o painel pergunta se você quer atualizar o atalho. O botão **Atalho na área de trabalho**, no fim do painel, cria o atalho de novo a qualquer momento.
+Na primeira abertura (e de novo se o atalho for apagado), o painel pergunta se você quer um atalho **TexDesk**, com o logo, na área de trabalho. Ele abre o TexDesk com dois cliques (roda o `iniciar.bat` ou o `iniciar.sh` da pasta). O atalho aponta para a pasta onde o TexDesk está: se você mover a pasta, abra o TexDesk pelo `iniciar` no lugar novo, e o painel pergunta se você quer atualizar o atalho. O botão **Atalho na área de trabalho**, no fim do painel, cria o atalho de novo a qualquer momento.
 
 No Chrome e no Edge, o botão **Instalar app** do painel (ou o ícone de instalar na barra de endereço) abre o TexDesk numa janela própria, com ícone na barra de tarefas. A janela usa o servidor local, então o `iniciar` precisa estar rodando.
 

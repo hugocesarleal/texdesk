@@ -70,12 +70,24 @@ def test_recusar_a_atualizacao_nao_pergunta_de_novo(desktop, fake_writer):
     assert shortcut.status()["ask"] is None
 
 
-def test_atalho_apagado_pelo_usuario_nao_pergunta(desktop, fake_writer):
+def test_atalho_apagado_pergunta_de_novo(desktop, fake_writer):
     shortcut.create()
     shortcut.shortcut_file(desktop).unlink()
+    assert shortcut.status()["ask"] == "create"
+    shortcut.decline()  # "Agora não": aí para de perguntar
+    assert shortcut.status()["ask"] is None
+    shortcut.create()  # o botão do painel cria de novo e volta a acompanhar o atalho
+    shortcut.shortcut_file(desktop).unlink()
+    assert shortcut.status()["ask"] == "create"
+
+
+def test_atalho_apagado_depois_de_recusar_a_atualizacao_pergunta(desktop, fake_writer):
+    shortcut.create()
     state = DATA / shortcut.STATE_FILE
     state.write_text(json.dumps({**json.loads(state.read_text()), "root": "/antiga"}), encoding="utf-8")
-    assert shortcut.status()["ask"] is None
+    shortcut.decline()  # não quis atualizar
+    shortcut.shortcut_file(desktop).unlink()
+    assert shortcut.status()["ask"] == "create"
 
 
 def test_desktop_do_linux(tmp_path, monkeypatch):
