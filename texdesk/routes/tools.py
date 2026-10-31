@@ -3,13 +3,13 @@
 # SPDX-License-Identifier: MIT
 
 """Ferramentas do editor: busca e substituição, contagem de palavras, histórico de versões,
-corretor ortográfico, referências por DOI, aviso de versão nova e atualização."""
+corretor ortográfico, referências por DOI, aviso de versão nova, atualização e atalho na área de trabalho."""
 
 import re
 
 from flask import Blueprint, abort, jsonify, request
 
-from .. import history, online, services, spell, texttools, updater
+from .. import history, online, services, shortcut, spell, texttools, updater
 from ..security import json_body
 from ..storage import load_settings, project_dir, safe_path
 
@@ -140,6 +140,25 @@ def update_install():
 @bp.get("/api/update/status")
 def update_status():
     return jsonify(updater.status())
+
+
+@bp.get("/api/shortcut")
+def shortcut_status():
+    return jsonify(shortcut.status())
+
+
+@bp.post("/api/shortcut")
+def shortcut_create():
+    try:
+        return jsonify({"path": shortcut.create()})
+    except shortcut.ShortcutError as e:
+        abort(400, str(e))
+
+
+@bp.post("/api/shortcut/decline")
+def shortcut_decline():
+    shortcut.decline()
+    return jsonify(shortcut.status())
 
 
 @bp.get("/api/doi")

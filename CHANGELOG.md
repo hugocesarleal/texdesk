@@ -4,6 +4,14 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.7.1] - 2026-10-31
+
+### Adicionado
+- Atalho na área de trabalho, com o logo do TexDesk: na primeira abertura, o painel pergunta se você quer criá-lo. Ele abre o `iniciar.bat` no Windows e o `iniciar.sh` no Linux (`.desktop`) e no macOS (`.command`). Se a pasta do TexDesk mudar de lugar, o painel percebe e pergunta se você quer atualizar o atalho. O botão **Atalho na área de trabalho**, no fim do painel, cria o atalho de novo.
+
+### Mudado
+- Menos espaço entre os parágrafos das janelas de confirmação, e caminhos longos quebram só onde precisam.
+
 ## [0.7.0] - 2026-10-29
 
 ### Adicionado
@@ -126,7 +134,8 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.7.0...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/hugocesarleal/texdesk/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/hugocesarleal/texdesk/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/hugocesarleal/texdesk/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/hugocesarleal/texdesk/compare/v0.5.0...v0.5.1

@@ -101,7 +101,10 @@ def main():
     # "maskable": o sistema recorta em círculo ou quadrado; o desenho fica na área segura (80%)
     draw_logo(512, padding=0.1, background=(19, 138, 54, 255)).save(OUT / "icon-maskable-512.png", optimize=True)
     draw_logo(180).save(OUT / "apple-touch-icon.png", optimize=True)
-    for p in sorted(OUT.glob("*.png")):
+    # ícone do atalho na área de trabalho do Windows (os outros sistemas usam o PNG de 512)
+    sizes = (16, 24, 32, 48, 64, 128, 256)
+    draw_logo(256).save(OUT / "texdesk.ico", sizes=[(s, s) for s in sizes])
+    for p in sorted([*OUT.glob("*.png"), *OUT.glob("*.ico")]):
         print(p.relative_to(ROOT), p.stat().st_size // 1024, "KB")
 
 

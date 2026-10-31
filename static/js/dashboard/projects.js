@@ -347,6 +347,48 @@ function updateFailed(message, r) {
   el.querySelector("[data-retry]").onclick = () => installUpdate(r);
 }
 
+// ------------------------------------------------------------ atalho na área de trabalho
+// Na primeira abertura pergunta se quer o atalho; se a pasta do TexDesk mudou de lugar,
+// pergunta se quer apontar o atalho para a pasta nova. O botão no fim da página cria de novo.
+const START_SCRIPT = { windows: "iniciar.bat", linux: "iniciar.sh", macos: "iniciar.sh" };
+
+async function checkShortcut() {
+  let s;
+  try { s = await api("/api/shortcut"); } catch (e) { return; }
+  $("#shortcut").innerHTML = icon("install") + "Atalho na área de trabalho";
+  $("#shortcut").hidden = false;
+  $("#shortcut").onclick = () => askShortcut(s, true);
+  // outra janela já aberta (ex.: importar do Drive): pergunta na próxima vez
+  if (s.ask && !document.querySelector(".modal-bg")) askShortcut(s, false);
+}
+
+async function askShortcut(s, fromButton) {
+  const script = START_SCRIPT[s.system] || "iniciar";
+  const moved = s.ask === "update" && !fromButton;
+  const ok = await modal({
+    title: moved ? "Atualizar o atalho da área de trabalho?" : "Criar um atalho na área de trabalho?",
+    ok: moved ? "Atualizar o atalho" : (s.exists ? "Recriar o atalho" : "Criar atalho"),
+    cancel: fromButton ? "Cancelar" : "Agora não",
+    body: moved
+      ? `<p>A pasta do TexDesk mudou de lugar, e o atalho <b>TexDesk</b> da área de trabalho ainda abre a pasta antiga.</p>
+         <p class="muted small">Antes: <code>${esc(s.oldRoot || "")}</code><br>Agora: <code>${esc(s.root)}</code></p>`
+      : `<p class="muted small">Se mudar a pasta do TexDesk de lugar, abra pelo <code>${esc(script)}</code> no lugar novo para atualizar o atalho.</p>`,
+  });
+  if (!ok) {
+    if (!fromButton) api("/api/shortcut/decline", { json: {} }).catch(() => {});
+    return;
+  }
+  try {
+    const r = await api("/api/shortcut", { json: {} });
+    toast(moved ? "Atalho atualizado." : "Atalho criado na área de trabalho.");
+    s.exists = true;
+    s.ask = null;
+    s.path = r.path;
+  } catch (e) {
+    toast(e.message, 6000);
+  }
+}
+
 // ------------------------------------------------------------ instalar como aplicativo
 // Chrome e Edge oferecem instalar o TexDesk numa janela própria (com o manifesto do site)
 let installPrompt = null;

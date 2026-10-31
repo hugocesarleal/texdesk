@@ -47,6 +47,8 @@ Baixe o pacote do seu sistema na [página de releases](https://github.com/hugoce
 
 O TexDesk abre no navegador, em `http://127.0.0.1:5050`. Crie um projeto, escreva e aperte **Ctrl+S** para compilar.
 
+Na primeira abertura, o painel pergunta se você quer um atalho **TexDesk**, com o logo, na área de trabalho. Ele abre o TexDesk com dois cliques (roda o `iniciar.bat` ou o `iniciar.sh` da pasta). O atalho aponta para a pasta onde o TexDesk está: se você mover a pasta, abra o TexDesk pelo `iniciar` no lugar novo, e o painel pergunta se você quer atualizar o atalho. O botão **Atalho na área de trabalho**, no fim do painel, cria o atalho de novo a qualquer momento.
+
 No Chrome e no Edge, o botão **Instalar app** do painel (ou o ícone de instalar na barra de endereço) abre o TexDesk numa janela própria, com ícone na barra de tarefas. A janela usa o servidor local, então o `iniciar` precisa estar rodando.
 
 Na primeira vez, a instalação prepara tudo sozinha, em 1 a 2 minutos:
@@ -240,6 +242,7 @@ texdesk/               servidor (python -m texdesk)
   spell.py             corretor ortográfico (dicionários Hunspell) e dicionário pessoal
   online.py            referências pelo DOI e aviso de versão nova
   updater.py           atualização pelo painel (baixa, confere, instala e reinicia)
+  shortcut.py          atalho na área de trabalho (Windows, Linux e macOS)
   drive_sync.py        sincronização com o Google Drive (OAuth, envio incremental, restauração)
   services.py          conexão com o Drive e processo de sincronização
   routes/              rotas HTTP: pages, projects, files, compile, tools, drive
