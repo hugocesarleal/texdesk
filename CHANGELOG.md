@@ -4,6 +4,12 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.8.0] - 2026-11-03
+
+### Mudado
+- No Windows, o TexDesk agora roda num ambiente Python só dele, na pasta `.venv/`, como já acontecia no Linux e no macOS. As dependências não se misturam mais com as de outros programas no Python do sistema. Quem já usa o TexDesk ganha o `.venv` sozinho, ao atualizar pelo botão ou ao abrir pelo `iniciar.bat`.
+- Nos três sistemas, se o `.venv` parar de funcionar (por exemplo, quando o Python do sistema muda de versão), o `iniciar` o cria de novo.
+
 ## [0.7.3] - 2026-10-31
 
 ### Mudado
@@ -144,7 +150,8 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.7.3...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/hugocesarleal/texdesk/compare/v0.7.3...v0.8.0
 [0.7.3]: https://github.com/hugocesarleal/texdesk/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/hugocesarleal/texdesk/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/hugocesarleal/texdesk/compare/v0.7.0...v0.7.1

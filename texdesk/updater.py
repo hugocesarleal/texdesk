@@ -291,7 +291,26 @@ def _git_pull(root):
         raise UpdateError("O git pull falhou: " + (msg[-1] if msg else f"código {r.returncode}"))
 
 
+def venv_python(root: Path) -> Path:
+    return root / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+
+
+def server_python(root: Path) -> str:
+    """O Python do .venv do TexDesk, onde o iniciar.bat/.sh roda o servidor.
+
+    Quem atualiza de uma versão que instalava no Python do sistema (no Windows, até a 0.7.3)
+    ganha o .venv aqui; as dependências entram pelo ensure_dependencies do servidor novo.
+    """
+    py = venv_python(root)
+    if not py.is_file():
+        print("\n  Criando o ambiente Python do TexDesk (.venv)...")
+        if subprocess.call([sys.executable, "-m", "venv", str(root / ".venv")]) != 0 or not py.is_file():
+            log.warning("Não foi possível criar o .venv; o servidor novo usa o Python atual")
+            return sys.executable
+    return str(py)
+
+
 def run_new_server():
     """Depois que o servidor antigo parou: abre o novo e espera por ele (mesma janela)."""
     time.sleep(0.5)
-    return subprocess.call([sys.executable, "-m", "texdesk"], cwd=ROOT)
+    return subprocess.call([server_python(ROOT), "-m", "texdesk"], cwd=ROOT)

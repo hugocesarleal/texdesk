@@ -38,6 +38,11 @@ PY="${PYTHON:-python3}"
 command -v "$PY" >/dev/null || erro "Python 3 não encontrado. Instale o Python 3.10 ou mais novo."
 "$PY" -c 'import sys; sys.exit(sys.version_info < (3, 10))' \
     || erro "É preciso o Python 3.10 ou mais novo (encontrado: $("$PY" --version 2>&1))."
+# o .venv quebra se o Python que o criou for removido ou trocado de versão (ex.: brew upgrade)
+if [ -x .venv/bin/python ] && ! .venv/bin/python -c '' 2>/dev/null; then
+    echo "O ambiente Python (.venv) não funciona mais. Criando de novo..."
+    rm -rf .venv
+fi
 if [ ! -x .venv/bin/python ]; then
     echo "Criando o ambiente Python (.venv)..."
     "$PY" -m venv .venv || erro "Não foi possível criar o .venv. No Debian/Ubuntu: sudo apt install python3-venv"

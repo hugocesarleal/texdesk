@@ -2,19 +2,34 @@
 # Copyright (c) 2026 Hugo César Leal (https://github.com/hugocesarleal)
 # SPDX-License-Identifier: MIT
 
-# Instala as dependências do TexDesk: Flask (Python) e o motor Tectonic.
+# Instala o TexDesk no Windows: ambiente Python (.venv), Tectonic, biber
+# e os pacotes LaTeX dos modelos. É o equivalente do setup.sh (Linux e macOS).
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
-Write-Host "Instalando dependências Python..."
-# o instalador do Python deixa desmarcar o pip; o ensurepip (da biblioteca padrão) o repõe
-python -c "import importlib.util, sys; sys.exit(importlib.util.find_spec('pip') is None)"
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "O pip não está instalado neste Python. Instalando..."
-    python -m ensurepip --upgrade --default-pip
-    if ($LASTEXITCODE -ne 0) { throw "Não foi possível instalar o pip. Reinstale o Python pelo python.org com a opção pip marcada." }
+# ---- Python 3.10+ num ambiente isolado (.venv): as dependências do TexDesk não se
+#      misturam com as de outros programas no Python do sistema
+if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+    throw "Python não encontrado. Instale o Python 3.10 ou mais novo pelo python.org, marcando 'Add Python to PATH'."
 }
-python -m pip install -r requirements.txt
+python -c "import sys; sys.exit(sys.version_info < (3, 10))"
+if ($LASTEXITCODE -ne 0) { throw "É preciso o Python 3.10 ou mais novo (encontrado: $(python --version 2>&1))." }
+$py = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
+if (Test-Path $py) {
+    # o .venv quebra se o Python que o criou for desinstalado ou trocado de versão
+    & $py -c "" 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "O ambiente Python (.venv) não funciona mais. Criando de novo..."
+        Remove-Item -Recurse -Force (Join-Path $PSScriptRoot ".venv")
+    }
+}
+if (-not (Test-Path $py)) {
+    Write-Host "Criando o ambiente Python (.venv)..."
+    python -m venv .venv
+    if ($LASTEXITCODE -ne 0) { throw "Não foi possível criar o .venv (veja o erro acima). Reinstale o Python pelo python.org." }
+}
+Write-Host "Instalando dependências Python..."
+& $py -m pip install --quiet --disable-pip-version-check -r requirements.txt
 if ($LASTEXITCODE -ne 0) { throw "Não foi possível instalar as dependências (veja o erro acima)." }
 
 $exe = Join-Path $PSScriptRoot "tools\tectonic.exe"
@@ -41,7 +56,7 @@ if (-not (Test-Path $biber)) {
 
 # Dicionários do corretor ortográfico (português e inglês; os outros idiomas são baixados no primeiro uso)
 Write-Host "Baixando os dicionários do corretor ortográfico..."
-python -m texdesk.spell pt_BR en_US
+& $py -m texdesk.spell pt_BR en_US
 
 # Compila os modelos uma vez para o Tectonic já baixar os pacotes LaTeX que eles usam.
 # Os pacotes ficam no cache do Tectonic (compartilhado por todos os projetos), então o

@@ -52,7 +52,7 @@ Na primeira abertura (e de novo se o atalho for apagado), o painel pergunta se v
 No Chrome e no Edge, o botão **Instalar app** do painel (ou o ícone de instalar na barra de endereço) abre o TexDesk numa janela própria, com ícone na barra de tarefas. A janela usa o servidor local, então o `iniciar` precisa estar rodando.
 
 Na primeira vez, a instalação prepara tudo sozinha, em 1 a 2 minutos:
-- instala as dependências Python (no Linux e no macOS, num ambiente isolado em `.venv/`);
+- cria um ambiente Python só do TexDesk, na pasta `.venv/`, e instala as dependências nele, sem mexer no Python do sistema (se o ambiente quebrar, por exemplo quando o Python do sistema muda de versão, o `iniciar` o cria de novo);
 - baixa os dicionários do corretor ortográfico (português e inglês);
 - compila os modelos, para os pacotes LaTeX mais comuns já ficarem no cache.
 

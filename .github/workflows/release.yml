@@ -100,8 +100,8 @@ jobs:
         run: |
           Set-Location "$env:RUNNER_TEMP/pkg/$env:PACOTE"
           Copy-Item -Recurse "$env:GITHUB_WORKSPACE/tests" .
-          python -m pip install --quiet pytest
-          python -m pytest tests -v -rs
+          .venv\Scripts\python -m pip install --quiet pytest
+          .venv\Scripts\python -m pytest tests -v -rs
 
   publicar:
     needs: [empacotar, testar]

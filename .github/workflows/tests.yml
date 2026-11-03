@@ -64,5 +64,5 @@ jobs:
       - name: Rodar os testes (Windows)
         if: runner.os == 'Windows'
         run: |
-          python -m pip install --quiet -r requirements-dev.txt
-          python -m pytest tests -v -rs
+          .venv\Scripts\python -m pip install --quiet -r requirements-dev.txt
+          .venv\Scripts\python -m pytest tests -v -rs

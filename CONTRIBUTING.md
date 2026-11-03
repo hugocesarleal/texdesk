@@ -21,16 +21,18 @@ cd texdesk
 Rode a instalação uma vez. Ela baixa o Tectonic e o biber para a pasta `tools/` e prepara os pacotes LaTeX dos modelos:
 
 - **Windows:** `powershell -ExecutionPolicy Bypass -File setup.ps1`
-- **Linux e macOS:** `./setup.sh` (cria o ambiente Python em `.venv/`)
+- **Linux e macOS:** `./setup.sh`
+
+As duas criam o ambiente Python em `.venv/`.
 
 Depois instale as ferramentas de desenvolvimento (testes e linter):
 
 ```bash
-python -m pip install -r requirements-dev.txt          # Windows
-.venv/bin/python -m pip install -r requirements-dev.txt  # Linux e macOS
+.venv\Scripts\python -m pip install -r requirements-dev.txt  # Windows
+.venv/bin/python -m pip install -r requirements-dev.txt      # Linux e macOS
 ```
 
-Para abrir o TexDesk: `python -m texdesk --abrir` (ou `iniciar.bat` / `./iniciar.sh`).
+Para abrir o TexDesk: `iniciar.bat` ou `./iniciar.sh` (ou `python -m texdesk --abrir` com o Python do `.venv`).
 
 ## Organização do código
 

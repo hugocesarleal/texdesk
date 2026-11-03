@@ -156,3 +156,33 @@ def test_atualizacao_desligada_nao_comeca(monkeypatch):
     monkeypatch.setenv("TEXDESK_UPDATE_CHECK", "0")
     with pytest.raises(updater.UpdateError, match="desligada"):
         updater.start()
+
+
+def test_servidor_novo_roda_no_venv(tmp_path, monkeypatch):
+    calls = []
+
+    def fake_call(cmd, **kw):
+        calls.append(cmd)
+        py = updater.venv_python(tmp_path)
+        py.parent.mkdir(parents=True)
+        py.write_text("")
+        return 0
+
+    monkeypatch.setattr(updater.subprocess, "call", fake_call)
+    py = updater.server_python(tmp_path)  # sem .venv (Windows até a 0.7.3): cria
+    assert py == str(updater.venv_python(tmp_path))
+    assert calls == [[updater.sys.executable, "-m", "venv", str(tmp_path / ".venv")]]
+    assert updater.server_python(tmp_path) == py  # com .venv: só usa
+    assert len(calls) == 1
+
+
+def test_sem_venv_o_servidor_novo_usa_o_python_atual(tmp_path, monkeypatch):
+    monkeypatch.setattr(updater.subprocess, "call", lambda cmd, **kw: 1)
+    assert updater.server_python(tmp_path) == updater.sys.executable
+
+
+def test_iniciar_bat_continua_certo_depois_de_trocado():
+    # o cmd relê o iniciar.bat do mesmo byte depois que o Python sai; até a 0.7.3, esse byte é
+    # o 317 (com CRLF, como fica no pacote). Ali precisa começar o trecho final do arquivo novo.
+    bat = (updater.ROOT / "iniciar.bat").read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+    assert bat[317:].startswith(b":depois\r\n")

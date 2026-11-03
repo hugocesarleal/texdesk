@@ -6,7 +6,8 @@
 # Abre o TexDesk no Linux e no macOS (equivalente do iniciar.bat).
 cd "$(dirname "$0")"
 
-if [ ! -f tools/.setup-ok ] || [ ! -x .venv/bin/python ]; then
+# instala na primeira vez, e de novo se o ambiente Python (.venv) sumir ou quebrar
+if [ ! -f tools/.setup-ok ] || ! .venv/bin/python -c '' 2>/dev/null; then
     ./setup.sh || { echo "A instalação não terminou. Veja a mensagem acima."; exit 1; }
 fi
 
