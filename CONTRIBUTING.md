@@ -68,4 +68,4 @@ ruff format .                 # formata o código no padrão do projeto
 
 ## Licença
 
-Ao contribuir, você concorda que sua contribuição seja distribuída sob a [licença MIT](LICENSE) do projeto. Os arquivos dos modelos do IFMG (`templates/ifmg-*`) são de outro autor e seguem a GPL-3.0; mudanças neles devem ir para os [repositórios originais](THIRD_PARTY_NOTICES.md#modelos-do-ifmg-gpl-30).
+Ao contribuir, você concorda que sua contribuição seja distribuída sob a [licença MIT](LICENSE) do projeto. Os modelos do IFMG são de outro autor, seguem a GPL-3.0 e são baixados do repositório dele na instalação (`texdesk/external_templates.py`); mudanças neles devem ir para os [repositórios originais](THIRD_PARTY_NOTICES.md#modelos-do-ifmg-gpl-30).

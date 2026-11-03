@@ -81,6 +81,11 @@ tools/tectonic --version
 echo "Baixando os dicionários do corretor ortográfico..."
 .venv/bin/python -m texdesk.spell pt_BR en_US
 
+# ---- modelos do IFMG: a versão mais recente, direto do repositório do autor (Marcos Roberto
+#      Ribeiro). Sem internet, não impede a instalação: o TexDesk tenta de novo ao abrir
+echo "Baixando os modelos do IFMG..."
+.venv/bin/python -m texdesk.external_templates || true
+
 # ---- pré-baixa os pacotes LaTeX dos modelos (ficam no cache do Tectonic, compartilhado
 #      por todos os projetos): o primeiro documento de cada modelo compila em segundos
 echo
@@ -88,7 +93,8 @@ echo "Preparando os pacotes LaTeX dos modelos (só na primeira vez; pode levar a
 export PATH="$PWD/tools:$PATH"   # para o Tectonic achar o biber
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-for tpl in templates/*/; do
+for tpl in templates/*/ tools/templates/*/; do
+    [ -d "$tpl" ] || continue   # tools/templates/ vazia (sem internet)
     name="$(basename "$tpl")"
     cp -R "$tpl" "$work/$name"
     mkdir -p "$work/$name/out"

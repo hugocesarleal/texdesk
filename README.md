@@ -100,7 +100,7 @@ Depois, rode `iniciar.bat` (Windows) ou `./iniciar.sh` (Linux e macOS). Na prime
 
 ### Projetos
 - Painel com busca, miniatura da primeira página de cada documento, ordem por data ou nome, etiquetas para filtrar e projetos fixados no topo.
-- Modelos para começar: em branco, trabalho acadêmico nas normas da ABNT ([abnTeX2](https://www.abntex.net.br/)), [Slides IFMG](https://github.com/ribeiromarcos/ifslides2024) e [Artigo IFMG](https://github.com/ribeiromarcos/iftex2024).
+- Modelos para começar: em branco, trabalho acadêmico nas normas da ABNT ([abnTeX2](https://www.abntex.net.br/)), [Slides IFMG](https://github.com/ribeiromarcos/ifslides2024) e [Artigo IFMG](https://github.com/ribeiromarcos/iftex2024). Os modelos do IFMG, de Marcos Roberto Ribeiro, são baixados do repositório dele na instalação, na versão mais recente e sem modificações. Se a instalação for feita sem internet, o TexDesk os baixa quando for aberto.
 - Importar e exportar `.zip`, renomear e duplicar.
 - Lixeira: um projeto excluído fica 30 dias nela, com o histórico de versões, e pode ser restaurado.
 - Árvore de arquivos com pastas, envio por arrastar e soltar, renomear e mover.
@@ -240,6 +240,7 @@ texdesk/               servidor (python -m texdesk)
   trash.py             lixeira de projetos (30 dias)
   texttools.py         busca e substituição no projeto e contagem de palavras
   spell.py             corretor ortográfico (dicionários Hunspell) e dicionário pessoal
+  external_templates.py  modelos do IFMG, baixados do repositório do autor
   online.py            referências pelo DOI e aviso de versão nova
   updater.py           atualização pelo painel (baixa, confere, instala e reinicia)
   shortcut.py          atalho na área de trabalho (Windows, Linux e macOS)

@@ -4,6 +4,14 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.9.0] - 2026-11-03
+
+### Mudado
+- Os modelos Slides IFMG e Artigo IFMG agora são baixados do repositório do autor, Marcos Roberto Ribeiro ([ifslides2024](https://github.com/ribeiromarcos/ifslides2024) e [iftex2024](https://github.com/ribeiromarcos/iftex2024)), na versão mais recente e sem modificações. Eles não vêm mais junto com o TexDesk. O Slides IFMG passa a usar o exemplo original do autor (`apresentacao.tex`, com as figuras). Se a instalação for feita sem internet, ou se você atualizou de uma versão anterior, o TexDesk baixa os modelos quando for aberto. Projetos já criados não mudam.
+
+### Corrigido
+- No Windows, a instalação parava com um erro quando o ambiente Python (`.venv`) já existia, e por isso não conseguia recriar um `.venv` quebrado.
+
 ## [0.8.1] - 2026-11-03
 
 ### Mudado
@@ -150,7 +158,8 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.8.1...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/hugocesarleal/texdesk/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/hugocesarleal/texdesk/compare/v0.7.3...v0.8.1
 [0.7.3]: https://github.com/hugocesarleal/texdesk/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/hugocesarleal/texdesk/compare/v0.7.1...v0.7.2

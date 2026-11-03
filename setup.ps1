@@ -17,8 +17,10 @@ if ($LASTEXITCODE -ne 0) { throw "É preciso o Python 3.10 ou mais novo (encontr
 $py = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
 if (Test-Path $py) {
     # o .venv quebra se o Python que o criou for desinstalado ou trocado de versão
-    & $py -c "" 2>$null
-    if ($LASTEXITCODE -ne 0) {
+    # (try: com $ErrorActionPreference = "Stop", um python.exe que nem abre lança exceção)
+    $ok = $false
+    try { & $py -c "pass" 2>$null; $ok = ($LASTEXITCODE -eq 0) } catch { }
+    if (-not $ok) {
         Write-Host "O ambiente Python (.venv) não funciona mais. Criando de novo..."
         Remove-Item -Recurse -Force (Join-Path $PSScriptRoot ".venv")
     }
@@ -58,13 +60,21 @@ if (-not (Test-Path $biber)) {
 Write-Host "Baixando os dicionários do corretor ortográfico..."
 & $py -m texdesk.spell pt_BR en_US
 
+# Modelos do IFMG: a versão mais recente, direto do repositório do autor (Marcos Roberto Ribeiro).
+# Sem internet, não impede a instalação: o TexDesk tenta de novo quando for aberto.
+Write-Host "Baixando os modelos do IFMG..."
+& $py -m texdesk.external_templates
+
 # Compila os modelos uma vez para o Tectonic já baixar os pacotes LaTeX que eles usam.
 # Os pacotes ficam no cache do Tectonic (compartilhado por todos os projetos), então o
 # primeiro documento criado a partir de um modelo compila em segundos.
 Write-Host "`nPreparando os pacotes LaTeX dos modelos (só na primeira vez; pode levar alguns minutos)..."
 $env:PATH = (Join-Path $PSScriptRoot "tools") + ";" + $env:PATH  # para o Tectonic achar o biber
 $work = Join-Path $env:TEMP ("texdesk-modelos-" + [guid]::NewGuid().ToString("N").Substring(0, 8))
-foreach ($tpl in Get-ChildItem (Join-Path $PSScriptRoot "templates") -Directory) {
+$modelos = @(Get-ChildItem (Join-Path $PSScriptRoot "templates") -Directory)
+$baixados = Join-Path $PSScriptRoot "tools\templates"
+if (Test-Path $baixados) { $modelos += Get-ChildItem $baixados -Directory | Where-Object { -not $_.Name.StartsWith(".") } }
+foreach ($tpl in $modelos) {
     $dir = Join-Path $work $tpl.Name
     Copy-Item -Recurse $tpl.FullName $dir
     New-Item -ItemType Directory (Join-Path $dir "out") | Out-Null
@@ -85,3 +95,4 @@ Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
 # marca a instalação como completa (o iniciar.bat roda este script enquanto o marcador não existir)
 Set-Content -Path (Join-Path $PSScriptRoot "tools\.setup-ok") -Value (Get-Date -Format s)
 Write-Host "`nPronto! Rode iniciar.bat para abrir o TexDesk."
+exit 0  # um download que falhou acima (modelos do IFMG sem internet) não é falha da instalação

@@ -13,7 +13,7 @@ from urllib.parse import quote
 
 from flask import Blueprint, abort, jsonify, request, send_file
 
-from .. import drive_sync, history, services, trash
+from .. import drive_sync, external_templates, history, services, trash
 from ..config import OUTPUT, PROJECTS, TEMPLATE_META, TEMPLATES, THUMB_FILE
 from ..security import json_body
 from ..storage import (
@@ -68,12 +68,19 @@ def list_projects():
     return jsonify(items)
 
 
+def template_dirs():
+    """Modelos que vêm com o TexDesk e os baixados do repositório de cada autor."""
+    found = {}
+    for root in (external_templates.EXTERNAL, TEMPLATES):  # os do TexDesk ganham num nome repetido
+        if root.is_dir():
+            found.update({p.name: p for p in root.iterdir() if p.is_dir() and not p.name.startswith(".")})
+    return found
+
+
 @bp.get("/api/templates")
 def list_templates():
     out = []
-    for p in TEMPLATES.iterdir():
-        if not p.is_dir():
-            continue
+    for p in template_dirs().values():
         meta = {}
         try:
             meta = json.loads((p / TEMPLATE_META).read_text(encoding="utf-8"))
@@ -101,8 +108,8 @@ def create_project():
     d = PROJECTS / name
     if d.exists():
         abort(409, "Já existe um projeto com esse nome")
-    tpl = TEMPLATES / (data.get("template") or "blank")
-    if tpl.is_dir() and TEMPLATES in tpl.resolve().parents:
+    tpl = template_dirs().get(data.get("template") or "blank")
+    if tpl:
         # copy (sem copy2): os arquivos ganham a data de agora, e o projeto novo aparece no topo
         shutil.copytree(tpl, d, ignore=shutil.ignore_patterns(TEMPLATE_META), copy_function=shutil.copy)
     else:

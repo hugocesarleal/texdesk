@@ -8,9 +8,9 @@ import io
 import zipfile
 
 import pytest
-from conftest import APP
+from conftest import APP, FAKE_REPOS, github_zip
 
-from texdesk import config
+from texdesk import config, external_templates
 from texdesk.security import CSRF_HEADER
 
 BASE = f"http://127.0.0.1:{config.PORT}"
@@ -49,12 +49,28 @@ def proj(api):
 # ---------------------------------------------------------------- projetos
 
 
-def test_modelos_disponiveis(api):
+@pytest.fixture()
+def ifmg(tmp_path, monkeypatch):
+    """Modelos do IFMG montados de .zip falsos, numa pasta temporária."""
+    for tid in external_templates.SOURCES:
+        external_templates.build(tid, github_zip(external_templates.SOURCES[tid]["repo"], FAKE_REPOS[tid]), tmp_path)
+    monkeypatch.setattr(external_templates, "EXTERNAL", tmp_path)
+
+
+def test_modelos_disponiveis(api, ifmg):
     ids = [t["id"] for t in api.get("/api/templates").get_json()]
     assert ids == ["blank", "ifmg-slides", "ifmg-artigo", "abnt"]
 
 
-def test_criar_a_partir_de_modelo_nao_copia_metadados(api):
+def test_modelos_do_ifmg_ainda_nao_baixados(api, tmp_path, monkeypatch):
+    monkeypatch.setattr(external_templates, "EXTERNAL", tmp_path / "vazia")
+    ids = [t["id"] for t in api.get("/api/templates").get_json()]
+    assert ids == ["blank", "abnt"]
+    assert api.post("/api/projects", json={"name": "Sem IFMG", "template": "ifmg-slides"}).status_code == 200
+    api.delete("/api/projects/Sem IFMG")
+
+
+def test_criar_a_partir_de_modelo_nao_copia_metadados(api, ifmg):
     api.delete("/api/projects/Slides API")
     assert api.post("/api/projects", json={"name": "Slides API", "template": "ifmg-slides"}).status_code == 200
     files = {f["path"] for f in api.get("/api/projects/Slides API/files").get_json()}

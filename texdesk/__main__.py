@@ -83,10 +83,11 @@ def main():
     logs.setup()
     from waitress.server import create_server
 
-    from . import services, updater
+    from . import external_templates, services, updater
     from .app import create_app  # só aqui: criar o app liga a sincronização com o Drive
 
     updater.cleanup()  # o pacote e o backup de uma atualização anterior
+    external_templates.fetch_missing_async()  # modelos do IFMG, se a instalação não os baixou
 
     app = create_app()
     log.info("TexDesk %s iniciado em %s (dados em %s)", __version__, URL, DATA)
