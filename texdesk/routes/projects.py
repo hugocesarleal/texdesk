@@ -64,6 +64,17 @@ def list_projects():
                 "pinned": bool(settings.get("pinned")),
             }
         )
+    # projetos vindos do Drive que ainda estão sendo baixados (ou cuja importação falhou)
+    for job in services.importer.items():
+        items.append(
+            {
+                "name": job["name"],
+                "modified": job["added"],
+                "importing": {k: job[k] for k in ("state", "done", "total", "error")},
+                "tags": [],
+                "pinned": False,
+            }
+        )
     items.sort(key=lambda x: -x["modified"])
     return jsonify(items)
 

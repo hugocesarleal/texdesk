@@ -12,6 +12,7 @@ from conftest import APP, FAKE_REPOS, github_zip
 
 from texdesk import config, external_templates
 from texdesk.security import CSRF_HEADER
+from texdesk.storage import load_settings
 
 BASE = f"http://127.0.0.1:{config.PORT}"
 H = {CSRF_HEADER: "1"}
@@ -259,3 +260,79 @@ def test_depois_de_um_erro_compila_do_zero(api, proj):
     # do zero, com todas as passadas: a referência nova já sai certa, sem pedir outra
     assert r["status"] == "success" and not r["rerun"] and "undefined" not in r["log"]
     assert (config.OUTPUT / proj / "main.texdesk-ok").exists()
+
+
+# ---------------------------------------------------------------- importação do Drive
+
+
+def test_importacao_do_drive_aparece_na_lista_enquanto_baixa(api, tmp_path, monkeypatch):
+    import threading
+    import time
+
+    from fake_drive import FakeDrive
+
+    from texdesk import drive_sync, services
+
+    drive = FakeDrive()
+    pf = drive.create_folder("Do Drive", drive.root_folder())
+    drive.upload(b"\\documentclass{article}", "main.tex", pf)
+    gate = threading.Event()
+    download = drive.download
+    drive.download = lambda fid: (gate.wait(5), download(fid))[1]
+    monkeypatch.setattr(services, "importer", drive_sync.ImportQueue(drive, config.PROJECTS, services.imported))
+
+    r = api.post("/api/drive/import", json={"id": pf, "name": "Do Drive"}).get_json()
+    assert r == {"name": "Do Drive", "queued": True}
+    assert api.post("/api/drive/import", json={"id": pf, "name": "Do Drive"}).status_code == 409
+    (item,) = [p for p in api.get("/api/projects").get_json() if p["name"] == "Do Drive"]
+    assert item["importing"]["state"] in ("queued", "importing")
+    gate.set()
+    for _ in range(250):
+        if not services.importer.items():
+            break
+        time.sleep(0.02)
+    (item,) = [p for p in api.get("/api/projects").get_json() if p["name"] == "Do Drive"]
+    assert "importing" not in item
+    assert load_settings(config.PROJECTS / "Do Drive")["driveSync"]
+    api.delete("/api/projects/Do Drive")
+
+
+# ---------------------------------------------------------------- PDF guardado da última compilação
+
+
+@needs_tectonic
+def test_ao_reabrir_mostra_o_pdf_salvo_se_nada_mudou(api, proj):
+    assert api.get(f"/api/projects/{proj}/compiled").get_json() == {"fresh": False}  # nunca compilado
+    r = api.post(f"/api/projects/{proj}/compile", json={}).get_json()
+    assert r["status"] == "success"
+    last = api.get(f"/api/projects/{proj}/compiled?open=main.tex").get_json()
+    assert last["fresh"] and last["status"] == "success" and last["main"] == "main.tex"
+    assert last["entries"] == r["entries"] and last["log"] == r["log"]
+    assert api.get(last["pdf"]).data[:4] == b"%PDF"
+    # mudou um arquivo: precisa compilar de novo
+    api.put(
+        f"/api/projects/{proj}/file",
+        json={"path": "main.tex", "content": "\\documentclass{article}\\begin{document}novo\\end{document}\n"},
+    )
+    assert api.get(f"/api/projects/{proj}/compiled").get_json() == {"fresh": False}
+    r = api.post(f"/api/projects/{proj}/compile", json={}).get_json()
+    if r["rerun"]:  # passada de referências pendente: o PDF ainda não vale
+        assert api.get(f"/api/projects/{proj}/compiled").get_json() == {"fresh": False}
+        r = api.post(f"/api/projects/{proj}/compile", json={}).get_json()  # a que o editor faz sozinho
+    assert not r["rerun"]
+    assert api.get(f"/api/projects/{proj}/compiled").get_json()["fresh"]
+    # arquivo novo também conta
+    api.put(f"/api/projects/{proj}/file", json={"path": "notas.txt", "content": "x"})
+    assert api.get(f"/api/projects/{proj}/compiled").get_json() == {"fresh": False}
+
+
+@needs_tectonic
+def test_compilacao_sem_pdf_nao_deixa_pdf_salvo(api, proj):
+    api.post(f"/api/projects/{proj}/compile", json={})
+    api.put(
+        f"/api/projects/{proj}/file",
+        json={"path": "main.tex", "content": "\\documentclass{article}\n\\begin{document}\n"},
+    )
+    r = api.post(f"/api/projects/{proj}/compile", json={}).get_json()
+    assert r["status"] == "failure"
+    assert api.get(f"/api/projects/{proj}/compiled").get_json() == {"fresh": False}

@@ -4,6 +4,12 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.10.0] - 2026-11-03
+
+### Mudado
+- Ao abrir um projeto, o TexDesk mostra na hora o PDF da última compilação, com os mesmos logs, se nada mudou desde então. Se qualquer arquivo foi alterado, criado ou apagado (no TexDesk, no Drive ou fora dele), ou se o documento principal ou o shell-escape mudou, ele compila de novo, como antes.
+- Importar projetos do Google Drive não trava mais o TexDesk. A janela de importação fecha na hora, e cada projeto aparece na lista como "Importando do Google Drive", com quantos arquivos já chegaram, até ficar pronto. Se um projeto não puder ser importado, ele fica na lista com o erro e os botões **Tentar de novo** e **Descartar**.
+
 ## [0.9.0] - 2026-11-03
 
 ### Mudado
@@ -158,7 +164,8 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.9.0...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/hugocesarleal/texdesk/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/hugocesarleal/texdesk/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/hugocesarleal/texdesk/compare/v0.7.3...v0.8.1
 [0.7.3]: https://github.com/hugocesarleal/texdesk/compare/v0.7.2...v0.7.3

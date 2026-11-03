@@ -90,7 +90,7 @@ Depois, rode `iniciar.bat` (Windows) ou `./iniciar.sh` (Linux e macOS). Na prime
 - Salvamento automático e compilação automática opcional.
 
 ### Compilação e PDF
-- Tectonic (XeTeX), com BibTeX e biber automáticos e quantas passadas forem necessárias para as referências. Cada compilação aproveita as referências da anterior: o PDF aparece depois de uma passada só, e, se as referências mudarem, outra passada as acerta em segundo plano.
+- Tectonic (XeTeX), com BibTeX e biber automáticos e quantas passadas forem necessárias para as referências. Cada compilação aproveita as referências da anterior: o PDF aparece depois de uma passada só, e, se as referências mudarem, outra passada as acerta em segundo plano. Ao reabrir um projeto que não mudou desde a última compilação, o PDF dela aparece na hora, sem compilar de novo.
 - O PDF é gerado mesmo quando há erros, como no modo `batchmode`.
 - Erros, avisos e caixas overfull/underfull aparecem no arquivo e na linha certos, inclusive em arquivos incluídos com `\input`.
 - Dicas em português para os erros mais comuns. Quando falta um pacote, um botão o adiciona ao preâmbulo.
@@ -149,7 +149,7 @@ Como funciona:
 - Os projetos ficam em `TexDesk/<projeto>` no seu Drive.
 - O app pede só o escopo `drive.file`: ele enxerga apenas os arquivos que ele mesmo criou, nunca o resto do seu Drive.
 - Arquivos apagados no TexDesk vão para a lixeira do Drive. Excluir um projeto no TexDesk (mesmo esvaziando a lixeira do TexDesk) não o apaga do Drive.
-- Em outro computador, use as mesmas credenciais. O TexDesk oferece importar os projetos que já estão no Drive.
+- Em outro computador, use as mesmas credenciais. O TexDesk oferece importar os projetos que já estão no Drive. A importação acontece em segundo plano: os projetos aparecem na lista na hora, com o andamento, e você pode continuar usando o TexDesk enquanto eles chegam.
 - O acesso à conta fica no cofre de senhas do sistema (Gerenciador de Credenciais no Windows, Chaves no macOS, Secret Service no Linux).
 - A sincronização vai do computador para o Drive. Se o mesmo projeto for editado em dois computadores ao mesmo tempo, as alterações não são mescladas: vale a última versão enviada.
 

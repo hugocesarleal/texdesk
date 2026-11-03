@@ -30,7 +30,6 @@ async function offerDriveImport() {
           <span class="nm">${esc(c.name)}</span>
           <span class="st drive-off">${c.modified ? "alterado " + timeAgo(Date.parse(c.modified) / 1000) : ""}</span>
         </label>`).join("")}</div>
-      <div id="imp-progress" hidden></div>
       <div class="actions"><button class="btn" data-later>Agora não</button>
         <button class="btn primary" data-import>Importar</button></div>
     </div>`;
@@ -56,32 +55,19 @@ async function offerDriveImport() {
     toast("Tudo bem. Os projetos continuam no Drive: use Google Drive → Só no Drive para baixar depois.", 6000);
   };
 
+  // a importação roda em segundo plano no servidor: a janela fecha na hora e cada projeto
+  // aparece na lista como "importando", com o andamento, até chegar inteiro
   btn.onclick = async () => {
     const chosen = boxes.filter((b) => b.checked).map((b) => ({ id: b.value, name: b.dataset.name }));
-    bg.querySelector(".imp-head").hidden = true;
-    bg.querySelector(".imp-list").hidden = true;
-    bg.querySelector(".actions").hidden = true;
-    const prog = bg.querySelector("#imp-progress");
-    prog.hidden = false;
-    const done = [], failed = [];
-    for (const [i, c] of chosen.entries()) {
-      prog.innerHTML = `<div class="dp-progress busy">${icon("cloudUp")}<div class="grow">
-          <b>Importando ${i + 1} de ${chosen.length}: ${esc(c.name)}</b>
-          <small>Baixando os arquivos do Drive…</small>
-          <div class="bar"><span style="width:${Math.round((i / chosen.length) * 100)}%"></span></div></div></div>`;
-      try {
-        const r = await api("/api/drive/import", { json: c });
-        done.push(r);
-      } catch (e) { failed.push({ name: c.name, error: e.message }); }
+    btn.disabled = true;
+    const queued = [], failed = [];
+    for (const c of chosen) {
+      try { queued.push(await api("/api/drive/import", { json: c })); } catch (e) { failed.push(`${c.name}: ${e.message}`); }
     }
     await markOffered();
-    prog.innerHTML = `<div class="dp-progress ${failed.length ? "err" : "ok"}">${icon(failed.length ? "cloudOff" : "cloudCheck")}<div class="grow">
-        <b>${done.length} ${done.length === 1 ? "projeto importado" : "projetos importados"}${failed.length ? `, ${failed.length} com erro` : ""}</b>
-        <small>${done.length ? "Eles já aparecem na sua lista e continuam sincronizados com o Drive." : ""}</small></div></div>
-      ${failed.map((f) => `<div class="err-box" style="margin-top:8px">${esc(f.name)}: ${esc(f.error)}</div>`).join("")}
-      ${done.some((d) => !chosen.find((c) => c.name === d.name)) ? `<p class="note" style="margin-top:8px">Alguns nomes foram ajustados porque já existia um projeto com o mesmo nome neste computador.</p>` : ""}
-      <div class="actions" style="margin-top:12px"><button class="btn primary" data-close>Fechar</button></div>`;
-    prog.querySelector("[data-close]").onclick = () => bg.remove();
+    bg.remove();
+    if (queued.length) toast(`Importando ${queued.length === 1 ? "1 projeto" : queued.length + " projetos"} do Google Drive em segundo plano. Você pode continuar usando o TexDesk.`, 5000);
+    if (failed.length) toast(`Não foi possível importar: ${failed.join("; ")}`, 8000);
     load();
   };
 }

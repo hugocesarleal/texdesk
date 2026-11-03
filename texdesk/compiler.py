@@ -4,6 +4,8 @@
 
 """Compilação com o Tectonic e leitura dos resultados (PDF, log, mensagens)."""
 
+import hashlib
+import json
 import logging
 import os
 import re
@@ -163,6 +165,51 @@ def compile_project(d: Path, name: str, main: str, main_path: Path, shell_escape
 
 # marca uma compilação sem erros, cuja saída pode ser reaproveitada pela próxima
 OK_SUFFIX = ".texdesk-ok"
+# resultado da última compilação (para mostrar o PDF ao reabrir, se nada mudou desde então)
+LAST_SUFFIX = ".texdesk-last.json"
+
+
+def inputs_fingerprint(d: Path, main: str, shell_escape: bool):
+    """Resumo do que entra na compilação: caminho, tamanho e data de cada arquivo do projeto,
+    o documento principal e o shell-escape. Qualquer mudança (até salvar sem alterar) muda o resumo."""
+    h = hashlib.sha256(f"{main}\0{bool(shell_escape)}".encode())
+    for p in sorted(d.rglob("*")):
+        rel = p.relative_to(d)
+        if is_hidden(rel) or not p.is_file():  # .project.json, .drive.json, miniatura…
+            continue
+        st = p.stat()
+        h.update(f"\0{rel.as_posix()}\0{st.st_size}\0{st.st_mtime_ns}".encode())
+    return h.hexdigest()
+
+
+def save_last(name: str, main: str, fingerprint: str, result: dict):
+    """Guarda o resultado de uma compilação que gerou PDF (sem o PDF, que já está na saída)."""
+    f = OUTPUT / name / (Path(main).stem + LAST_SUFFIX)
+    if not result.get("pdf"):
+        f.unlink(missing_ok=True)  # o PDF anterior foi apagado: não há o que mostrar
+        return
+    data = {k: v for k, v in result.items() if k != "pdf"} | {"main": main, "fingerprint": fingerprint}
+    f.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+
+def load_last(d: Path, name: str, main: str, shell_escape: bool):
+    """Resultado da última compilação de main, se o PDF ainda vale (nada mudou desde então)."""
+    out = OUTPUT / name
+    stem = Path(main).stem
+    try:
+        data = json.loads((out / (stem + LAST_SUFFIX)).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    pdf = out / (stem + ".pdf")
+    # uma passada de referências que ficou para trás (o usuário saiu antes dela) também invalida
+    if data.get("main") != main or data.get("rerun") or not pdf.is_file():
+        return None
+    if data.get("fingerprint") != inputs_fingerprint(d, main, shell_escape):
+        return None
+    data.pop("fingerprint")
+    return data | {"pdf": f"/api/projects/{name}/output/{stem}.pdf?t={int(pdf.stat().st_mtime * 1000)}"}
+
+
 # arquivos que o TeX grava numa passada e lê na seguinte (referências, bibliografia, sumário,
 # listas de figuras e tabelas, marcadores do PDF e navegação do beamer)
 AUX_EXT = (".aux", ".bbl", ".toc", ".lof", ".lot", ".out", ".nav", ".snm")

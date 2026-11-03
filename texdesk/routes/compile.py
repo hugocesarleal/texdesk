@@ -9,7 +9,7 @@ from pathlib import Path
 from flask import Blueprint, abort, jsonify, request, send_file
 
 from .. import services
-from ..compiler import compile_project
+from ..compiler import compile_project, inputs_fingerprint, load_last, save_last
 from ..config import OUTPUT, TECTONIC
 from ..storage import compile_target, load_settings, project_dir, project_lock, safe_path, save_settings
 from ..synctex import SyncTex
@@ -49,9 +49,28 @@ def compile_route(name):
     if not lock.acquire(timeout=5):
         return jsonify({"status": "busy", "message": "Já existe uma compilação em andamento", "entries": []})
     try:
-        return jsonify(compile_project(d, name, main, main_path, bool(s.get("shellEscape"))) | {"main": main})
+        shell_escape = bool(s.get("shellEscape"))
+        # antes de compilar: o que mudar durante a compilação conta como mudança depois
+        fingerprint = inputs_fingerprint(d, main, shell_escape)
+        result = compile_project(d, name, main, main_path, shell_escape) | {"main": main}
+        save_last(name, main, fingerprint, result)
+        return jsonify(result)
     finally:
         lock.release()
+
+
+@bp.get("/api/projects/<name>/compiled")
+def last_compiled(name):
+    """Ao abrir o editor: o PDF e os logs da última compilação, se nada mudou desde então.
+
+    Assim quem compilou, fechou e voltou não espera outra compilação. Se algum arquivo,
+    o documento principal ou o shell-escape mudou, responde {"fresh": false} e o editor compila.
+    """
+    d = project_dir(name)
+    s = load_settings(d)
+    main = compile_target(d, s["main"], request.args.get("open", ""))
+    last = load_last(d, name, main, bool(s.get("shellEscape")))
+    return jsonify(last | {"fresh": True} if last else {"fresh": False})
 
 
 @bp.get("/api/projects/<name>/output/<path:fname>")

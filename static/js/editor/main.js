@@ -53,5 +53,5 @@ setInterval(loadMeta, 15000);
   loadMeta();
   pollDrive();
   setSaveState("Salvo");
-  compile({ auto: true });
+  showLastOrCompile();
 })();

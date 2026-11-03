@@ -18,15 +18,17 @@ from .storage import load_settings, save_settings, touch
 
 drive: drive_sync.DriveClient = None
 syncer: drive_sync.SyncManager = None
+importer: drive_sync.ImportQueue = None
 
 
 def init():
-    global drive, syncer
+    global drive, syncer, importer
     if syncer is not None:
         return
     drive = drive_sync.DriveClient(DRIVE_STATE)
     syncer = drive_sync.SyncManager(drive, PROJECTS, drive_enabled)
     syncer.mark_all()  # envia o que mudou enquanto o servidor estava desligado
+    importer = drive_sync.ImportQueue(drive, PROJECTS, imported)
 
 
 def drive_enabled(name):
@@ -52,6 +54,26 @@ def apply_sync_default(d: Path):
         changed(d.name)
 
 
+def enable_sync(name):
+    s = load_settings(PROJECTS / name)
+    s["driveSync"] = True
+    save_settings(PROJECTS / name, s)
+    changed(name)  # se o nome local difere do Drive, a pasta lá é renomeada
+
+
+def mark_offered(ids):
+    """Projetos do Drive já oferecidos para importar (importados ou recusados): não pergunta de novo."""
+    s = drive.state()
+    s["offered"] = sorted(set(s.get("offered", [])) | set(ids))
+    drive.save_state(s)
+
+
+def imported(name, folder_id):
+    """Chamado pela fila de importação quando um projeto do Drive chega inteiro."""
+    enable_sync(name)
+    mark_offered([folder_id])
+
+
 def local_folder_ids():
     """{id da pasta no Drive: nome do projeto local} dos projetos já ligados ao Drive."""
     out = {}
@@ -66,7 +88,8 @@ def local_folder_ids():
 def free_project_name(remote_name):
     """Nome de projeto local válido e livre para uma pasta vinda do Drive."""
     base = re.sub(r"\s+", " ", re.sub(r"[^\w\-. ]", " ", remote_name)).strip(" .")[:76] or "Projeto"
+    reserved = importer.reserved() if importer else set()  # nomes de importações em andamento
     name, i = base, 2
-    while (PROJECTS / name).exists():
+    while (PROJECTS / name).exists() or name in reserved:
         name, i = f"{base}-{i}", i + 1
     return name

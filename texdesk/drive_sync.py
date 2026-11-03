@@ -566,12 +566,15 @@ def remote_tree(client: DriveClient, folder_id: str):
     return files, folders
 
 
-def restore_project(client: DriveClient, folder_id: str, dest: Path, remote_name: str):
+def restore_project(client: DriveClient, folder_id: str, dest: Path, remote_name: str, progress=None):
     """Baixa uma pasta de projeto do Drive para dest e grava o manifesto.
 
     Se o nome local for diferente, a próxima sincronização renomeia a pasta no Drive.
+    progress(baixados, total) é chamado a cada arquivo, para mostrar o andamento.
     """
     files, folders = remote_tree(client, folder_id)
+    if progress:
+        progress(0, len(files))
     dest.mkdir(parents=True)
     m = {"folderId": folder_id, "folderName": remote_name, "files": {}, "folders": folders}
     lock = threading.Lock()
@@ -588,6 +591,8 @@ def restore_project(client: DriveClient, folder_id: str, dest: Path, remote_name
         st = target.stat()
         with lock:
             m["files"][rel] = {"id": info["id"], "md5": info["md5"], "mtime": st.st_mtime, "size": st.st_size}
+            if progress:
+                progress(len(m["files"]), len(files))
 
     try:
         if files:
@@ -599,6 +604,115 @@ def restore_project(client: DriveClient, folder_id: str, dest: Path, remote_name
         raise
     save_manifest(dest, m)
     return len(m["files"])
+
+
+IMPORT_PREFIX = ".importando-"  # pasta oculta onde um projeto é baixado antes de aparecer
+
+
+class ImportQueue:
+    """Importação de projetos do Drive em segundo plano, um de cada vez.
+
+    Cada projeto é baixado numa pasta oculta e só vira projeto quando chega inteiro. Enquanto
+    isso, o nome fica reservado e o painel mostra o andamento (items()). Uma importação que
+    falha fica na lista, com o erro, até ser repetida ou descartada.
+    """
+
+    def __init__(self, client: DriveClient, projects_dir: Path, on_done):
+        self.client = client
+        self.projects = projects_dir
+        self.on_done = on_done  # função(nome, id da pasta no Drive), depois de importar
+        self.jobs = {}  # nome local -> {id, remote, state (queued|importing|error), done, total, error, added}
+        self.lock = threading.Lock()
+        self.thread = None  # existe enquanto há importação na fila
+        for d in projects_dir.glob(IMPORT_PREFIX + "*"):  # importação interrompida (servidor fechado)
+            shutil.rmtree(d, ignore_errors=True)
+
+    def reserved(self):
+        with self.lock:
+            return set(self.jobs)
+
+    def importing_ids(self):
+        with self.lock:
+            return {j["id"] for j in self.jobs.values()}
+
+    def add(self, name, folder_id, remote_name):
+        with self.lock:
+            self.jobs[name] = {
+                "id": folder_id,
+                "remote": remote_name,
+                "state": "queued",
+                "done": 0,
+                "total": None,
+                "error": None,
+                "added": time.time(),
+            }
+            if self.thread is None:
+                self.thread = threading.Thread(target=self._run, daemon=True, name="drive-import")
+                self.thread.start()
+
+    def retry(self, name):
+        with self.lock:
+            job = self.jobs.get(name)
+            if not job or job["state"] != "error":
+                return False
+            self.jobs.pop(name)
+        self.add(name, job["id"], job["remote"])
+        return True
+
+    def dismiss(self, name):
+        with self.lock:
+            job = self.jobs.get(name)
+            if job and job["state"] == "error":
+                self.jobs.pop(name)
+                return True
+        return False
+
+    def items(self):
+        with self.lock:
+            return [dict(j, name=n) for n, j in self.jobs.items()]
+
+    def _next(self):
+        with self.lock:
+            for name, job in self.jobs.items():
+                if job["state"] == "queued":
+                    job["state"] = "importing"
+                    return name, dict(job)
+            self.thread = None  # sai da fila vazia; o próximo add() abre outra thread
+        return None, None
+
+    def _run(self):
+        while True:
+            name, job = self._next()
+            if not name:
+                return
+
+            def progress(done, total, name=name):
+                with self.lock:
+                    self.jobs[name].update(done=done, total=total)
+
+            tmp = self.projects / (IMPORT_PREFIX + name)
+            shutil.rmtree(tmp, ignore_errors=True)
+            try:
+                restore_project(self.client, job["id"], tmp, job["remote"], progress)
+                final = name
+                if (self.projects / final).exists():  # alguém criou um projeto com esse nome no meio
+                    i = 2
+                    while (self.projects / f"{name}-{i}").exists():
+                        i += 1
+                    final = f"{name}-{i}"
+                tmp.rename(self.projects / final)
+                self.on_done(final, job["id"])
+                log.info("Drive: %s importado", final)
+                with self.lock:
+                    self.jobs.pop(name, None)
+            except Exception as e:
+                shutil.rmtree(tmp, ignore_errors=True)
+                if isinstance(e, DriveError):
+                    log.warning("Drive: falha ao importar %s: %s", name, e)
+                else:
+                    log.exception("Drive: erro inesperado ao importar %s", name)
+                with self.lock:
+                    self.jobs[name].update(state="error", error=str(e) or e.__class__.__name__)
 
 
 class SyncManager:

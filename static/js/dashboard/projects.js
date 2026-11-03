@@ -51,7 +51,7 @@ function render() {
     return;
   }
   $("#list").innerHTML = `<table class="proj-table"><thead><tr><th colspan="2">Nome</th><th class="when">Última modificação</th><th></th></tr></thead><tbody>
-    ${items.map((p) => `<tr data-name="${esc(p.name)}" class="${p.pinned ? "pinned" : ""}">
+    ${items.map((p) => p.importing ? importRow(p) : `<tr data-name="${esc(p.name)}" class="${p.pinned ? "pinned" : ""}">
       <td class="thumb"><a href="/project/${encodeURIComponent(p.name)}" tabindex="-1">${thumbHtml(p)}</a></td>
       <td class="name">${p.pinned ? `<span class="pin-mark" title="Fixado no topo">${icon("pin")}</span>` : ""}<a href="/project/${encodeURIComponent(p.name)}">${esc(p.name)}</a> ${driveIcon(p.drive)}
         ${(p.tags || []).length ? `<div class="proj-tags">${p.tags.map((t) => `<button class="chip small" data-tag="${esc(t)}" title="Mostrar só os projetos com esta etiqueta">${esc(t)}</button>`).join("")}</div>` : ""}</td>
@@ -64,6 +64,23 @@ function render() {
         <button class="icon-btn" data-act="zip" title="Baixar .zip">${icon("download")}</button>
         <button class="icon-btn" data-act="delete" title="Excluir">${icon("trash")}</button>
       </td></tr>`).join("")}</tbody></table>`;
+}
+
+// projeto vindo do Drive que ainda está sendo baixado (ou cuja importação falhou)
+function importRow(p) {
+  const st = p.importing;
+  const err = st.state === "error";
+  const pct = st.total ? Math.round((st.done / st.total) * 100) : 0;
+  const what = err ? `Não foi possível importar do Google Drive: ${esc(st.error)}`
+    : st.state === "queued" ? "Na fila para importar do Google Drive"
+    : st.total == null ? "Importando do Google Drive…"
+    : `Importando do Google Drive: ${st.done} de ${st.total} ${st.total === 1 ? "arquivo" : "arquivos"}`;
+  return `<tr data-name="${esc(p.name)}" class="importing${err ? " import-err" : ""}">
+    <td class="thumb"><span class="thumb-slot"><span class="thumb-empty">${icon(err ? "cloudOff" : "cloud", err ? "" : "pulse")}</span></span></td>
+    <td class="name"><span class="nm">${esc(p.name)}</span><div class="import-st">${what}</div>
+      ${err ? "" : `<div class="import-bar"><span style="width:${pct}%"></span></div>`}</td>
+    <td class="when">${err ? "" : st.state === "queued" ? "na fila" : `${pct}%`}</td>
+    <td class="acts">${err ? `<button class="btn small" data-imp="retry">Tentar de novo</button> <button class="btn small" data-imp="dismiss" title="O projeto continua no Drive, em Google Drive → Só no Drive">Descartar</button>` : ""}</td></tr>`;
 }
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = "/static/vendor/pdfjs-3.11.174/pdf.worker.min.js";
@@ -168,6 +185,31 @@ setInterval(async () => {
   }
 }, 3000);
 
+// acompanha as importações do Drive: atualiza o andamento e mostra cada projeto quando chega
+const importSig = (list) => JSON.stringify(list.filter((p) => p.importing).map((p) => [p.name, p.importing.state]));
+setInterval(async () => {
+  if (!projects.some((p) => p.importing && p.importing.state !== "error")) return;
+  const fresh = await api("/api/projects").catch(() => null);
+  if (!fresh) return;
+  if (importSig(fresh) === importSig(projects) && fresh.length === projects.length) {
+    // só o andamento mudou: troca as linhas, sem redesenhar a lista
+    for (const f of fresh.filter((x) => x.importing)) {
+      const row = document.querySelector(`tr[data-name="${CSS.escape(f.name)}"]`);
+      if (row) row.outerHTML = importRow(f);
+    }
+    projects = fresh;
+    return;
+  }
+  const was = new Map(projects.filter((p) => p.importing).map((p) => [p.name, p.importing.state]));
+  const done = fresh.filter((f) => !f.importing && was.has(f.name) && was.get(f.name) !== "error").map((f) => f.name);
+  const failed = fresh.filter((f) => f.importing?.state === "error" && was.get(f.name) !== "error").map((f) => f.name);
+  projects = fresh;
+  render();
+  fillThumbnails();
+  if (done.length) toast(done.length === 1 ? `${done[0]} foi importado do Google Drive` : `${done.length} projetos importados do Google Drive`);
+  if (failed.length) toast(`Não foi possível importar ${failed.join(", ")}. Veja na lista.`, 6000);
+}, 1000);
+
 $("#search").oninput = render;
 $("#sort").onchange = () => { dashStore.set("dashSort", $("#sort").value); render(); };
 
@@ -181,6 +223,15 @@ $("#tags").onclick = (e) => { const c = e.target.closest("[data-tag]"); if (c) s
 $("#list").onclick = async (e) => {
   const chip = e.target.closest("[data-tag]");
   if (chip) { setTagFilter(chip.dataset.tag); return; }
+  const imp = e.target.closest("button[data-imp]");
+  if (imp) {
+    const name = imp.closest("tr").dataset.name;
+    try {
+      await api(`/api/drive/import/${imp.dataset.imp}`, { json: { name } });
+      load();
+    } catch (err) { toast(err.message); }
+    return;
+  }
   const b = e.target.closest("button[data-act]");
   if (!b) return;
   const name = b.closest("tr").dataset.name;

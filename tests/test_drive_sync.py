@@ -5,6 +5,7 @@
 """Sincronização com o Google Drive, contra um Drive falso em memória."""
 
 import os
+import threading
 import time
 
 import pytest
@@ -150,6 +151,102 @@ def test_nomes_perigosos_vindos_do_drive_sao_ignorados(drive, tmp_path):
     assert ds.restore_project(drive, pf, dest, "P") == 1
     assert {p.name for p in dest.iterdir()} == {"main.tex", ds.MANIFEST}
     assert not (tmp_path / "proj" / "..").is_file()
+
+
+# ---------------------------------------------------------------- importação em segundo plano
+
+
+def wait_imports(q, timeout=10):
+    end = time.time() + timeout
+    while time.time() < end:
+        if all(j["state"] == "error" for j in q.items()):
+            return
+        time.sleep(0.02)
+    raise AssertionError("a importação não terminou")
+
+
+def test_importa_em_segundo_plano_e_so_mostra_o_projeto_inteiro(drive, project, tmp_path):
+    ds.sync_project(drive, project, "Relatorio")
+    pf = folder_of(drive, "Relatorio")
+    projects = tmp_path / "projects"
+    projects.mkdir()
+    gate = threading.Event()
+    download = drive.download
+
+    def slow_download(fid):
+        gate.wait(5)  # segura o download para ver o estado "importando"
+        return download(fid)
+
+    drive.download = slow_download
+    done = []
+    q = ds.ImportQueue(drive, projects, lambda name, fid: done.append((name, fid)))
+    q.add("Relatorio", pf, "Relatorio")
+    assert q.reserved() == {"Relatorio"}
+    assert q.importing_ids() == {pf}
+    time.sleep(0.2)
+    (job,) = q.items()
+    assert job["state"] == "importing" and job["total"] == 4 and job["done"] == 0
+    assert not (projects / "Relatorio").exists()  # pela metade não aparece como projeto
+    gate.set()
+    wait_imports(q)
+    assert q.items() == []
+    assert done == [("Relatorio", pf)]
+    assert (projects / "Relatorio" / "capitulos" / "introducao.tex").is_file()
+    assert [d.name for d in projects.iterdir()] == ["Relatorio"]  # sem a pasta oculta temporária
+
+
+def test_falha_na_importacao_fica_na_lista_e_pode_repetir(drive, project, tmp_path):
+    ds.sync_project(drive, project, "Relatorio")
+    pf = folder_of(drive, "Relatorio")
+    projects = tmp_path / "projects"
+    projects.mkdir()
+    download = drive.download
+
+    def offline(fid):
+        raise ds.DriveError("sem conexão")
+
+    drive.download = offline
+    done = []
+    q = ds.ImportQueue(drive, projects, lambda name, fid: done.append(name))
+    q.add("Relatorio", pf, "Relatorio")
+    wait_imports(q)
+    (job,) = q.items()
+    assert job["state"] == "error" and "sem conexão" in job["error"]
+    assert list(projects.iterdir()) == []
+    drive.download = download
+    assert q.retry("Relatorio")
+    wait_imports(q)
+    assert done == ["Relatorio"] and q.items() == []
+    drive.download = offline
+    q.add("Outro", pf, "Relatorio")
+    wait_imports(q)
+    assert q.dismiss("Outro") and q.items() == []
+    assert not q.dismiss("Outro")
+
+
+def test_projeto_criado_com_o_mesmo_nome_durante_a_importacao(drive, project, tmp_path):
+    ds.sync_project(drive, project, "Relatorio")
+    projects = tmp_path / "projects"
+    projects.mkdir()
+    gate = threading.Event()
+    download = drive.download
+    drive.download = lambda fid: (gate.wait(5), download(fid))[1]
+    done = []
+    q = ds.ImportQueue(drive, projects, lambda name, fid: done.append(name))
+    q.add("Relatorio", folder_of(drive, "Relatorio"), "Relatorio")
+    time.sleep(0.1)
+    (projects / "Relatorio").mkdir()  # o usuário criou um projeto com esse nome enquanto isso
+    gate.set()
+    wait_imports(q)
+    assert done == ["Relatorio-2"]
+    assert (projects / "Relatorio-2" / "main.tex").is_file()
+
+
+def test_importacao_interrompida_e_limpa_ao_abrir(drive, tmp_path):
+    projects = tmp_path / "projects"
+    (projects / (ds.IMPORT_PREFIX + "Meio")).mkdir(parents=True)
+    ds.ImportQueue(drive, projects, lambda *a: None)
+    assert list(projects.iterdir()) == []
 
 
 # ---------------------------------------------------------------- pastas e arquivos mexidos no Drive

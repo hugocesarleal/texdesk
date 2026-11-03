@@ -21,19 +21,6 @@ def _redirect_uri():
     return f"http://127.0.0.1:{request.host.split(':')[-1]}/api/drive/callback"
 
 
-def _mark_offered(ids):
-    s = services.drive.state()
-    s["offered"] = sorted(set(s.get("offered", [])) | set(ids))
-    services.drive.save_state(s)
-
-
-def _enable_sync(name):
-    s = load_settings(PROJECTS / name)
-    s["driveSync"] = True
-    save_settings(PROJECTS / name, s)
-    services.changed(name)  # se o nome local difere do Drive, a pasta lá é renomeada
-
-
 # ---------------------------------------------------------------- conexão
 
 
@@ -167,10 +154,12 @@ def restore():
     name = (data.get("name") or "").strip()
     if not valid_name(name):
         abort(400, "Nome inválido")
-    if (PROJECTS / name).exists():
+    if (PROJECTS / name).exists() or name in services.importer.reserved():
         abort(409, "Já existe um projeto local com esse nome; escolha outro")
+    if data["id"] in services.importer.importing_ids():
+        abort(409, "Esse projeto já está sendo importado")
     n = drive_sync.restore_project(services.drive, data["id"], PROJECTS / name, data.get("remoteName") or name)
-    _enable_sync(name)
+    services.enable_sync(name)
     return jsonify({"name": name, "files": n})
 
 
@@ -181,11 +170,11 @@ def import_candidates():
     if not drive.connected:
         return jsonify([])
     offered = set(drive.state().get("offered", []))
-    local = services.local_folder_ids()
+    skip = set(services.local_folder_ids()) | offered | services.importer.importing_ids()
     items = [
         {"id": f["id"], "name": f["name"], "modified": f.get("modifiedTime")}
         for f in drive.list_children(drive.root_folder())
-        if f["mimeType"] == drive_sync.FOLDER_MIME and f["id"] not in local and f["id"] not in offered
+        if f["mimeType"] == drive_sync.FOLDER_MIME and f["id"] not in skip
     ]
     return jsonify(sorted(items, key=lambda x: x["name"].lower()))
 
@@ -193,19 +182,38 @@ def import_candidates():
 @bp.post("/api/drive/offered")
 def offered():
     """Marca projetos do Drive como já oferecidos (importados ou recusados): não pergunta de novo."""
-    _mark_offered(json_body().get("ids") or [])
+    services.mark_offered(json_body().get("ids") or [])
     return jsonify({"ok": True})
 
 
 @bp.post("/api/drive/import")
 def import_project():
-    """Importa um projeto do Drive com um nome local livre e liga a sincronização."""
+    """Põe um projeto do Drive na fila de importação, com um nome local livre, e responde na hora.
+
+    O download acontece em segundo plano (services.importer); enquanto isso, o projeto aparece
+    na lista do painel como "importando". Ao terminar, a sincronização é ligada.
+    """
     data = json_body()
     fid, remote_name = data.get("id"), data.get("name") or "Projeto"
-    if fid in services.local_folder_ids():
+    if not fid:
+        abort(400, "Falta o projeto do Drive")
+    if fid in services.local_folder_ids() or fid in services.importer.importing_ids():
         abort(409, "Esse projeto já está neste computador")
     name = services.free_project_name(remote_name)
-    n = drive_sync.restore_project(services.drive, fid, PROJECTS / name, remote_name)
-    _enable_sync(name)
-    _mark_offered([fid])
-    return jsonify({"name": name, "files": n})
+    services.importer.add(name, fid, remote_name)
+    return jsonify({"name": name, "queued": True})
+
+
+@bp.post("/api/drive/import/retry")
+def import_retry():
+    if not services.importer.retry(json_body().get("name")):
+        abort(404, "Essa importação não está com erro")
+    return jsonify({"ok": True})
+
+
+@bp.post("/api/drive/import/dismiss")
+def import_dismiss():
+    """Descarta uma importação que falhou (o projeto continua no Drive, em "Só no Drive")."""
+    if not services.importer.dismiss(json_body().get("name")):
+        abort(404, "Essa importação não está com erro")
+    return jsonify({"ok": True})

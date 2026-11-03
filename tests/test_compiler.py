@@ -49,3 +49,31 @@ def test_saida_sem_ruido_e_sem_repeticoes():
 
 def test_saida_limpa_fica_igual():
     assert clean_output("note: Writing main.pdf\n") == "note: Writing main.pdf"
+
+
+# ---------------------------------------------------------------- PDF guardado da última compilação
+
+
+def test_impressao_digital_muda_com_qualquer_alteracao(tmp_path):
+    import os
+
+    from texdesk.compiler import inputs_fingerprint
+
+    (tmp_path / "cap").mkdir()
+    (tmp_path / "main.tex").write_text("a")
+    (tmp_path / "cap" / "intro.tex").write_text("b")
+    (tmp_path / ".project.json").write_text("{}")
+    fp = inputs_fingerprint(tmp_path, "main.tex", False)
+    assert inputs_fingerprint(tmp_path, "main.tex", False) == fp
+    # arquivos internos (configurações, miniatura, manifesto do Drive) não contam
+    (tmp_path / ".project.json").write_text('{"tags": ["x"]}')
+    (tmp_path / ".thumbnail.png").write_bytes(b"png")
+    assert inputs_fingerprint(tmp_path, "main.tex", False) == fp
+    assert inputs_fingerprint(tmp_path, "outro.tex", False) != fp
+    assert inputs_fingerprint(tmp_path, "main.tex", True) != fp
+    st = (tmp_path / "cap" / "intro.tex").stat()
+    os.utime(tmp_path / "cap" / "intro.tex", ns=(st.st_atime_ns, st.st_mtime_ns + 10**9))
+    assert inputs_fingerprint(tmp_path, "main.tex", False) != fp
+    fp = inputs_fingerprint(tmp_path, "main.tex", False)
+    (tmp_path / "figura.png").write_bytes(b"novo")
+    assert inputs_fingerprint(tmp_path, "main.tex", False) != fp

@@ -33,27 +33,9 @@ async function compile(opts = {}) {
     const r = await api(`${P}/compile`, { json: { open: state.current } });
     state.firstCompile = false;
     if (r.status === "busy") return;
-    if (r.main) state.settings.main = r.main;  // o documento compilado (o PDF e o SyncTeX são dele)
-    state.entries = r.entries || [];
-    state.lastLog = r.log || "";
-    state.lastOut = r.stdout || "";
-    state.lastStatus = r;
-    renderLogs();
-    applyMarkers();
-    if (r.pdf) {
-      state.pdfUrl = r.pdf;
-      $("#btn-download").href = r.pdf.split("?")[0];
-      $("#btn-download").setAttribute("download", PROJECT + ".pdf");
-      await loadPdf(r.pdf);
-      if (state.pdf) saveThumbnail(PROJECT, state.pdf).catch(() => {});
-      // a passada reaproveitou a compilação anterior e as referências mudaram: o PDF já
-      // aparece, e outra passada acerta as páginas das referências e o sumário
-      refine = r.rerun && (opts.refine || 0) < 2;
-    } else {
-      if (!state.pdf) $("#pdf-empty").innerHTML = "Não foi possível gerar o PDF. Veja os logs.";
-      if (!opts.auto) openLogs(true);
-    }
-    if (r.message) toast(r.message, 5000);
+    // a passada reaproveitou a compilação anterior e as referências mudaram: o PDF já
+    // aparece, e outra passada acerta as páginas das referências e o sumário
+    refine = (await showResult(r, opts)) && r.rerun && (opts.refine || 0) < 2;
   } catch (e) {
     toast("Erro na compilação: " + e.message, 5000);
   } finally {
@@ -64,6 +46,39 @@ async function compile(opts = {}) {
     if (state.pendingCompile) { state.pendingCompile = false; compile({ auto: opts.auto }); }
     else if (refine) compile({ auto: true, refine: (opts.refine || 0) + 1 });
   }
+}
+
+// mostra o resultado de uma compilação (ou da última, guardada); devolve se saiu PDF
+async function showResult(r, opts = {}) {
+  if (r.main) state.settings.main = r.main;  // o documento compilado (o PDF e o SyncTeX são dele)
+  state.entries = r.entries || [];
+  state.lastLog = r.log || "";
+  state.lastOut = r.stdout || "";
+  state.lastStatus = r;
+  renderLogs();
+  applyMarkers();
+  if (r.pdf) {
+    state.pdfUrl = r.pdf;
+    $("#btn-download").href = r.pdf.split("?")[0];
+    $("#btn-download").setAttribute("download", PROJECT + ".pdf");
+    await loadPdf(r.pdf);
+    if (state.pdf && !r.cached) saveThumbnail(PROJECT, state.pdf).catch(() => {});
+  } else {
+    if (!state.pdf) $("#pdf-empty").innerHTML = "Não foi possível gerar o PDF. Veja os logs.";
+    if (!opts.auto) openLogs(true);
+  }
+  if (r.message) toast(r.message, 5000);
+  return !!r.pdf;
+}
+
+// Ao abrir o projeto: se nada mudou desde a última compilação, mostra o PDF guardado dela,
+// sem compilar de novo. Se algum arquivo mudou (aqui, no Drive ou fora do TexDesk), compila.
+async function showLastOrCompile() {
+  let r = null;
+  try { r = await api(`${P}/compiled?open=${encodeURIComponent(state.current || "")}`); } catch (e) { /* compila */ }
+  if (!r || !r.fresh || state.compiling) return compile({ auto: true });
+  state.firstCompile = false;
+  await showResult({ ...r, cached: true }, { auto: true });
 }
 
 $("#btn-compile").onclick = () => compile();
@@ -103,7 +118,8 @@ function renderLogs() {
     (c.warning ? ` <span class="badge warn">${c.warning}</span>` : "");
   const list = state.entries.filter((e) => logFilter === "all" || e.level === logFilter);
   const s = state.lastStatus || {};
-  const summary = s.status === "success" ? `Compilado em ${s.time}s${s.rerun ? " · atualizando as referências…" : ""}` : s.status ? (s.time ? `Compilação com problemas (${s.time}s)` : "Compilação com problemas") : "Ainda não compilado";
+  const summary = s.cached ? (s.status === "success" ? "PDF da última compilação (nada mudou desde então)" : "PDF da última compilação, que teve problemas (nada mudou desde então)")
+    : s.status === "success" ? `Compilado em ${s.time}s${s.rerun ? " · atualizando as referências…" : ""}` : s.status ? (s.time ? `Compilação com problemas (${s.time}s)` : "Compilação com problemas") : "Ainda não compilado";
   const label = { error: "Erro", warning: "Aviso", typesetting: "Diagramação" };
   $("#logs").innerHTML = `
     <div class="log-filter">

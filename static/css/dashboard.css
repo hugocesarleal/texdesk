@@ -164,7 +164,7 @@
 .proj-table td.when { color: var(--muted); white-space: nowrap; }
 .proj-table td.thumb { width: 84px; padding: 6px 0 6px 12px; }
 /* caixa fixa de 72x64; a miniatura cabe inteira nela, em pé ou deitada */
-.proj-table td.thumb a { display: flex; align-items: center; justify-content: center; width: 72px; height: 64px; }
+.proj-table td.thumb a, .proj-table td.thumb .thumb-slot { display: flex; align-items: center; justify-content: center; width: 72px; height: 64px; }
 .proj-table td.thumb img {
   display: block; max-width: 72px; max-height: 64px; width: auto; height: auto;
   border: 1px solid var(--border); border-radius: 3px; background: #fff; cursor: zoom-in;
@@ -187,6 +187,16 @@
 }
 .thumb-empty svg { width: 18px; height: 18px; }
 .proj-table td.acts { text-align: right; white-space: nowrap; }
+/* projeto sendo importado do Drive */
+.proj-table tr.importing td.name .nm { font-weight: 600; color: var(--muted); }
+.proj-table .import-st { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+.proj-table tr.import-err .import-st { color: var(--error); }
+.proj-table .import-bar { height: 4px; max-width: 280px; margin-top: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.proj-table .import-bar span { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width .4s; }
+.proj-table tr.importing .thumb-empty { color: var(--accent); }
+.proj-table tr.import-err .thumb-empty { color: var(--error); }
+.proj-table tr.importing .pulse { animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
 .empty { text-align: center; color: var(--muted); padding: 48px 16px; }
 .dash-foot { max-width: 980px; margin: 0 auto; padding: 8px 16px 32px; text-align: center; font-size: 12.5px; color: var(--muted); line-height: 1.7; }
 .dash-foot a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
