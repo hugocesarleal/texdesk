@@ -184,5 +184,8 @@ def test_sem_venv_o_servidor_novo_usa_o_python_atual(tmp_path, monkeypatch):
 def test_iniciar_bat_continua_certo_depois_de_trocado():
     # o cmd relê o iniciar.bat do mesmo byte depois que o Python sai; até a 0.7.3, esse byte é
     # o 317 (com CRLF, como fica no pacote). Ali precisa começar o trecho final do arquivo novo.
-    bat = (updater.ROOT / "iniciar.bat").read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+    path = updater.ROOT / "iniciar.bat"
+    if not path.exists():
+        pytest.skip("o pacote do Linux e do macOS não traz o iniciar.bat")
+    bat = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
     assert bat[317:].startswith(b":depois\r\n")
