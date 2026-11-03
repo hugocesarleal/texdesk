@@ -207,7 +207,56 @@ function timeAgo(ts) {
   return new Date(ts * 1000).toLocaleDateString("pt-BR");
 }
 
-// tema salvo por usuário (claro/escuro/sistema)
+// ------------------------------------------------------------ temas de cores
+// "" é o padrão (claro ou escuro, igual ao sistema). Os outros ficam em static/css/themes.css;
+// os que não são o padrão usam o tema "texdesk" no editor de código, com as cores de cada um.
+const THEMES = [
+  { id: "", name: "Padrão", desc: "Claro ou escuro, igual ao sistema" },
+  { id: "light", name: "Padrão claro", desc: "Verde, fundo claro" },
+  { id: "dark", name: "Padrão escuro", desc: "Verde, fundo escuro" },
+  { id: "oceano", name: "Oceano", desc: "Azul, fundo escuro" },
+  { id: "ameixa", name: "Ameixa", desc: "Roxo, fundo escuro" },
+  { id: "grafite", name: "Grafite", desc: "Laranja, fundo escuro" },
+  { id: "papel", name: "Papel", desc: "Sépia, fundo claro e quente" },
+  { id: "ceu", name: "Céu", desc: "Azul, fundo claro" },
+];
+
+function currentTheme() {
+  return document.documentElement.dataset.theme || "";
+}
+
+function applyTheme(id) {
+  if (!THEMES.some((t) => t.id === id)) id = "";
+  if (id) document.documentElement.dataset.theme = id; else delete document.documentElement.dataset.theme;
+  if (typeof cm !== "undefined") cm.setOption("theme", editorTheme());  // no editor
+}
+
+function saveTheme(id) {
+  applyTheme(id);
+  try { id ? localStorage.setItem("theme", id) : localStorage.removeItem("theme"); } catch (e) { /* sem storage */ }
+}
+
+// Miniaturas dos temas: cada uma desenhada com as cores do próprio tema
+function themePickerHtml(selected = currentTheme()) {
+  const sample = '<span class="c">\\section</span><span class="b">{</span>Olá<span class="b">}</span><br>'
+    + '<span class="c">\\begin</span><span class="b">{</span><span class="a">itemize</span><span class="b">}</span><br>'
+    + '<span class="m">$x^2$</span> <span class="k">% nota</span>';
+  const part = (id) => `<div data-theme="${id}"><div class="sw-bar"><i></i></div><div class="sw-code">${sample}</div></div>`;
+  return `<div class="theme-grid" role="radiogroup" aria-label="Tema de cores">${THEMES.map((t) => `
+    <label class="theme-card"><input type="radio" name="theme" value="${t.id}" ${t.id === selected ? "checked" : ""}>
+      ${t.id ? `<span class="theme-swatch" data-theme="${t.id}"><span class="sw-bar"><i></i></span><span class="sw-code">${sample}</span></span>`
+        : `<span class="theme-swatch split">${part("light")}${part("dark")}</span>`}
+      <span class="nm">${esc(t.name)}</span><span class="ds">${esc(t.desc)}</span></label>`).join("")}</div>`;
+}
+
+// Mostra o tema escolhido na hora; devolve uma função que desfaz (para "Cancelar")
+function previewThemes(container) {
+  const before = currentTheme();
+  container.addEventListener("change", (e) => { if (e.target.name === "theme") applyTheme(e.target.value); });
+  return () => applyTheme(before);
+}
+
+// tema salvo por usuário
 (function () {
   try {
     const t = localStorage.getItem("theme");

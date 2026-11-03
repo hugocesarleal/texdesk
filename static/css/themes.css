@@ -1,0 +1,137 @@
+/*
+ * TexDesk — https://github.com/hugocesarleal/texdesk
+ * Copyright (c) 2026 Hugo César Leal (https://github.com/hugocesarleal)
+ * SPDX-License-Identifier: MIT
+ *
+ * Temas de cores, escolhidos em Configurações → Aparência. O padrão (claro e escuro, em
+ * base.css) continua igual; cada tema daqui troca as cores da interface e do código LaTeX.
+ * Os seletores valem para o <html> e para as miniaturas do seletor de tema, que mostram
+ * cada tema com as próprias cores (data-theme numa <div>).
+ *
+ * Cores do código (modo stex do CodeMirror):
+ *   --tok-command  comandos (\section, \begin)       --tok-arg      ambiente, pacote, rótulo
+ *   --tok-math     matemática ($…$, \[ \])            --tok-bracket  chaves e colchetes
+ *   --tok-comment  comentários (% …)                  --tok-error    chave sem par
+ */
+
+/* ---------------- padrão (só para as miniaturas; o <html> usa base.css) */
+[data-theme="light"] {
+  --bg: #f4f5f6; --panel: #ffffff; --panel-2: #f0f2f4; --border: #d9dde2; --text: #1b222c; --muted: #5f6b7a;
+  --accent: #138a36; --toolbar: #1b222c; --code-bg: #ffffff; --code-text: #1b222c;
+  --tok-command: #117700; --tok-arg: #221199; --tok-math: #770088; --tok-bracket: #999977; --tok-comment: #aa5500;
+}
+.theme-swatch[data-theme="dark"], .theme-swatch [data-theme="dark"] {
+  --bg: #12161c; --panel: #1b2129; --panel-2: #222a34; --border: #323c49; --text: #e3e7ec; --muted: #94a0b0;
+  --accent: #2fb45a; --toolbar: #0d1117; --code-bg: #212121; --code-text: #eeffff;
+  --tok-command: #ff5370; --tok-arg: #f78c6c; --tok-math: #c792ea; --tok-bracket: #89ddff; --tok-comment: #616161;
+}
+
+/* ---------------- Oceano (escuro, azul) */
+[data-theme="oceano"] {
+  color-scheme: dark;
+  --bg: #0e1622; --panel: #152030; --panel-2: #1b293b; --border: #2a3b52; --text: #dbe5f1; --muted: #8b9cb5;
+  --accent: #3d9df5; --accent-hover: #2b88df; --accent-soft: #17324f;
+  --toolbar: #0a111b; --toolbar-text: #dbe5f1; --toolbar-hover: #1b293b;
+  --error: #ff6b6b; --error-soft: #3b1f27; --warning: #f2b544; --warning-soft: #3a3018; --info: #7fb4ff; --info-soft: #182a42;
+  --pdf-bg: #213046; --shadow: 0 2px 12px rgba(0, 0, 0, .45);
+  --code-bg: #111b29; --code-text: #d6e2f2; --code-gutter: #4f6584; --code-cursor: #5cc8ff;
+  --code-selection: rgba(61, 157, 245, .28); --code-active: rgba(255, 255, 255, .035);
+  --tok-command: #5cc8ff; --tok-arg: #7fdbca; --tok-math: #ffcb6b; --tok-bracket: #a6b8d0; --tok-comment: #5f7896; --tok-error: #ff6b6b;
+}
+
+/* ---------------- Ameixa (escuro, roxo) */
+[data-theme="ameixa"] {
+  color-scheme: dark;
+  --bg: #16121d; --panel: #1f1929; --panel-2: #282035; --border: #3b3149; --text: #ede6f6; --muted: #a497b8;
+  --accent: #c27ae0; --accent-hover: #ad63cc; --accent-soft: #382447;
+  --toolbar: #110d17; --toolbar-text: #ede6f6; --toolbar-hover: #2a2238;
+  --error: #ff6e7a; --error-soft: #3d1d28; --warning: #f1c46b; --warning-soft: #3a2f1a; --info: #a3a8ff; --info-soft: #252640;
+  --pdf-bg: #2b2438; --shadow: 0 2px 12px rgba(0, 0, 0, .45);
+  --code-bg: #1b1624; --code-text: #ede6f6; --code-gutter: #5d5072; --code-cursor: #ff79c6;
+  --code-selection: rgba(194, 122, 224, .28); --code-active: rgba(255, 255, 255, .035);
+  --tok-command: #ff79c6; --tok-arg: #8be9fd; --tok-math: #f1fa8c; --tok-bracket: #bdb1d0; --tok-comment: #7c6f96; --tok-error: #ff5555;
+}
+
+/* ---------------- Grafite (escuro neutro, laranja) */
+[data-theme="grafite"] {
+  color-scheme: dark;
+  --bg: #151515; --panel: #1e1e1e; --panel-2: #262626; --border: #393939; --text: #e9e9e9; --muted: #9c9c9c;
+  --accent: #f08c2a; --accent-hover: #dc7a18; --accent-soft: #3a2a18;
+  --toolbar: #0e0e0e; --toolbar-text: #e9e9e9; --toolbar-hover: #2a2a2a;
+  --error: #ff6b5e; --error-soft: #3b1f1c; --warning: #f2c14e; --warning-soft: #3a3119; --info: #78b7e6; --info-soft: #1f2c37;
+  --pdf-bg: #2a2a2a; --shadow: 0 2px 12px rgba(0, 0, 0, .5);
+  --code-bg: #1a1a1a; --code-text: #e6e6e6; --code-gutter: #575757; --code-cursor: #f08c2a;
+  --code-selection: rgba(240, 140, 42, .25); --code-active: rgba(255, 255, 255, .035);
+  --tok-command: #f08c2a; --tok-arg: #ffd166; --tok-math: #7ec8e3; --tok-bracket: #b3b3b3; --tok-comment: #707070; --tok-error: #ff5f56;
+}
+
+/* ---------------- Papel (claro, sépia) */
+[data-theme="papel"] {
+  color-scheme: light;
+  --bg: #f2ead9; --panel: #fbf6ec; --panel-2: #f0e6d2; --border: #dccdb0; --text: #3a3025; --muted: #7a6a55;
+  --accent: #9a5a12; --accent-hover: #7e490e; --accent-soft: #f2e1c4;
+  --toolbar: #3a3025; --toolbar-text: #f2ead9; --toolbar-hover: #524537;
+  --error: #b3261e; --error-soft: #f6dcd2; --warning: #94600a; --warning-soft: #f5e6c4; --info: #3d5a80; --info-soft: #e3e6e6;
+  --pdf-bg: #8a7c68; --shadow: 0 2px 10px rgba(58, 48, 37, .15);
+  --code-bg: #fbf6ec; --code-text: #3a3025; --code-gutter: #b1a386; --code-cursor: #9a5a12;
+  --code-selection: rgba(154, 90, 18, .18); --code-active: rgba(154, 90, 18, .06);
+  --tok-command: #8a3a15; --tok-arg: #1d5f86; --tok-math: #2e6e5c; --tok-bracket: #7a6a55; --tok-comment: #a69576; --tok-error: #c62828;
+}
+
+/* ---------------- Céu (claro, azul) */
+[data-theme="ceu"] {
+  color-scheme: light;
+  --bg: #edf2f8; --panel: #ffffff; --panel-2: #e8eff7; --border: #cfdae7; --text: #172638; --muted: #586b83;
+  --accent: #1d6dd0; --accent-hover: #1658ab; --accent-soft: #e1edfc;
+  --toolbar: #183354; --toolbar-text: #e8f0fa; --toolbar-hover: #25476f;
+  --error: #c62828; --error-soft: #fdecea; --warning: #b26a00; --warning-soft: #fff4e0; --info: #1d6dd0; --info-soft: #e1edfc;
+  --pdf-bg: #5c6e85;
+  --code-bg: #ffffff; --code-text: #172638; --code-gutter: #9aa9bc; --code-cursor: #1d6dd0;
+  --code-selection: rgba(29, 109, 208, .16); --code-active: rgba(29, 109, 208, .05);
+  --tok-command: #1d6dd0; --tok-arg: #0f7b6c; --tok-math: #b4530f; --tok-bracket: #586b83; --tok-comment: #8b9bb0; --tok-error: #c62828;
+}
+
+/* ---------------- editor de código dos temas (CodeMirror "texdesk") */
+.cm-s-texdesk.CodeMirror { background: var(--code-bg); color: var(--code-text); }
+.cm-s-texdesk .CodeMirror-gutters { background: var(--code-bg); border-right: 1px solid var(--border); }
+.cm-s-texdesk .CodeMirror-linenumber, .cm-s-texdesk .CodeMirror-foldgutter { color: var(--code-gutter); }
+.cm-s-texdesk .CodeMirror-cursor { border-left: 2px solid var(--code-cursor); }
+.cm-s-texdesk div.CodeMirror-selected, .cm-s-texdesk.CodeMirror-focused div.CodeMirror-selected { background: var(--code-selection); }
+.cm-s-texdesk .CodeMirror-line::selection, .cm-s-texdesk .CodeMirror-line > span::selection,
+.cm-s-texdesk .CodeMirror-line > span > span::selection { background: var(--code-selection); }
+.cm-s-texdesk .CodeMirror-activeline-background { background: var(--code-active); }
+.cm-s-texdesk .cm-tag { color: var(--tok-command); }
+.cm-s-texdesk .cm-atom, .cm-s-texdesk .cm-number, .cm-s-texdesk .cm-builtin { color: var(--tok-arg); }
+.cm-s-texdesk .cm-keyword, .cm-s-texdesk .cm-variable-2, .cm-s-texdesk .cm-string { color: var(--tok-math); }
+.cm-s-texdesk .cm-bracket { color: var(--tok-bracket); }
+.cm-s-texdesk .cm-comment { color: var(--tok-comment); font-style: italic; }
+.cm-s-texdesk .cm-error { color: var(--tok-error); }
+.cm-s-texdesk .CodeMirror-matchingbracket { color: var(--accent) !important; text-decoration: underline; }
+.cm-s-texdesk .CodeMirror-nonmatchingbracket { color: var(--tok-error) !important; }
+
+/* ---------------- seletor de tema */
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.theme-card { position: relative; display: flex; flex-direction: column; gap: 6px; cursor: pointer; font-size: 13px; }
+.theme-card input { position: absolute; opacity: 0; pointer-events: none; }
+.theme-swatch {
+  display: flex; flex-direction: column; height: 88px; border-radius: 8px; overflow: hidden;
+  border: 2px solid var(--border); background: var(--bg); transition: border-color .15s, transform .15s;
+}
+.theme-card:hover .theme-swatch { transform: translateY(-1px); }
+.theme-card input:checked + .theme-swatch { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.theme-card input:focus-visible + .theme-swatch { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* as cores de dentro vêm do data-theme de cada miniatura */
+.theme-swatch .sw-bar { height: 12px; background: var(--toolbar); display: flex; align-items: center; padding: 0 6px; }
+.theme-swatch .sw-bar i { width: 18px; height: 5px; border-radius: 3px; background: var(--accent); }
+.theme-swatch .sw-code {
+  flex: 1; margin: 6px; padding: 5px 7px; border-radius: 4px; background: var(--code-bg); color: var(--code-text);
+  font: 11px/1.45 "Cascadia Code", Consolas, monospace; white-space: nowrap; overflow: hidden;
+}
+.theme-swatch .c { color: var(--tok-command); } .theme-swatch .a { color: var(--tok-arg); }
+.theme-swatch .m { color: var(--tok-math); } .theme-swatch .b { color: var(--tok-bracket); }
+.theme-swatch .k { color: var(--tok-comment); font-style: italic; }
+/* "Igual ao sistema": metade clara, metade escura */
+.theme-swatch.split { flex-direction: row; }
+.theme-swatch.split > div { flex: 1; display: flex; flex-direction: column; background: var(--bg); min-width: 0; }
+.theme-card .nm { font-weight: 600; }
+.theme-card .ds { color: var(--muted); font-size: 12px; margin-top: -4px; }

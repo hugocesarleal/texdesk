@@ -127,7 +127,7 @@ input[type=text]:focus, select:focus { outline: 2px solid var(--accent); outline
 
 /* ---------------- tema escuro */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme]) {  /* só sem tema escolhido: "Padrão", igual ao sistema */
     --bg: #12161c; --panel: #1b2129; --panel-2: #222a34; --border: #323c49; --text: #e3e7ec; --muted: #94a0b0;
     --accent: #2fb45a; --accent-hover: #27a04f; --accent-soft: #1e3427; --toolbar: #0d1117; --toolbar-hover: #232c38;
     --error-soft: #3a1f22; --warning-soft: #3a2d17; --info-soft: #1f2a3a; --pdf-bg: #2a313b;

@@ -4,6 +4,11 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.11.0] - 2026-11-03
+
+### Adicionado
+- Temas de cores. Além do padrão, que continua igual (claro ou escuro, seguindo o sistema), há cinco temas que mudam as cores da interface e do código LaTeX (comandos, ambientes, matemática, comentários): Oceano (azul escuro), Ameixa (roxo escuro), Grafite (laranja sobre cinza escuro), Papel (sépia claro) e Céu (azul claro). Escolha em **Aparência**, no fim do painel de projetos, ou nas Configurações do editor. Cada tema aparece numa miniatura com as próprias cores, e a escolha é mostrada na hora, antes de salvar.
+
 ## [0.10.0] - 2026-11-03
 
 ### Mudado
@@ -164,7 +169,8 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.10.0...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/hugocesarleal/texdesk/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/hugocesarleal/texdesk/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/hugocesarleal/texdesk/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/hugocesarleal/texdesk/compare/v0.7.3...v0.8.1

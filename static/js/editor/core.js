@@ -77,6 +77,7 @@ setCompileButton();
 // ------------------------------------------------------------ CodeMirror
 const editorTheme = () => {
   const t = document.documentElement.dataset.theme;
+  if (t && t !== "light" && t !== "dark") return "texdesk";  // temas de themes.css
   const dark = t === "dark" || (!t && matchMedia("(prefers-color-scheme: dark)").matches);
   return dark ? "material-darker" : "default";
 };

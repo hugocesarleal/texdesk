@@ -105,6 +105,7 @@ Depois, rode `iniciar.bat` (Windows) ou `./iniciar.sh` (Linux e macOS). Na prime
 - Lixeira: um projeto excluído fica 30 dias nela, com o histórico de versões, e pode ser restaurado.
 - Árvore de arquivos com pastas, envio por arrastar e soltar, renomear e mover.
 - Contagem de palavras do documento, com texto, títulos, legendas e fórmulas separados.
+- Temas de cores para a interface e o código LaTeX, em **Aparência** (no painel) ou nas Configurações do editor: o padrão (claro ou escuro, igual ao sistema), Oceano, Ameixa, Grafite, Papel e Céu.
 
 <p align="center"><img src="docs/screenshots/projetos.jpg" alt="Painel de projetos do TexDesk com miniaturas da primeira página" width="760"></p>
 
@@ -248,7 +249,7 @@ texdesk/               servidor (python -m texdesk)
   services.py          conexão com o Drive e processo de sincronização
   routes/              rotas HTTP: pages, projects, files, compile, tools, drive
 static/                interface
-  css/                 base.css (cores e componentes), dashboard.css, editor.css
+  css/                 base.css (cores e componentes), themes.css (temas de cores), dashboard.css, editor.css
   js/common.js         API, ícones, modais e miniaturas
   js/dashboard/        painel de projetos e do Google Drive
   js/editor/           editor, abas, compilação, PDF, busca no PDF e ferramentas

@@ -298,6 +298,15 @@ async function refreshTrash() {
 const daysLeft = (ts) => Math.max(0, Math.ceil((ts - Date.now() / 1000) / 86400));
 const fmtSize = (b) => (b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1024 / 1024).toFixed(1).replace(".", ",")} MB`);
 
+// ------------------------------------------------------------ aparência (tema de cores)
+$("#appearance").innerHTML = icon("moon") + "Aparência";
+$("#appearance").onclick = async () => {
+  const dlg = modal({ title: "Aparência", cls: "wide", fields: [{ name: "theme", type: "html", html: themePickerHtml() }], ok: "Salvar" });
+  const undo = previewThemes(document.querySelector(".modal.wide"));
+  const r = await dlg;
+  if (r) saveTheme(r.theme); else undo();
+};
+
 $("#trash").onclick = async () => {
   const p = panel({ title: "Lixeira", cls: "trash", body: '<p class="note">Carregando…</p>' });
   async function show() {

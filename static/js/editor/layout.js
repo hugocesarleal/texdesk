@@ -126,8 +126,9 @@ $("#btn-settings").onclick = async () => {
       { name: "autoCompile", label: "Compilar sozinho enquanto edito", type: "check", value: state.settings.autoCompile },
       { name: "shellEscape", label: "Permitir shell-escape (necessário para o pacote minted)", type: "check", value: state.settings.shellEscape },
       { name: "driveSync", label: "Sincronizar com o Google Drive", type: "check", value: state.settings.driveSync },
+      { type: "heading", label: "Aparência (todos os projetos)" },
+      { name: "theme", type: "html", html: themePickerHtml() },
       { type: "heading", label: "Editor (todos os projetos)" },
-      { name: "theme", label: "Tema", type: "select", value: document.documentElement.dataset.theme || "", options: [{ value: "", label: "Igual ao sistema" }, { value: "light", label: "Claro" }, { value: "dark", label: "Escuro" }] },
       { name: "fontSize", label: "Tamanho da fonte do editor", type: "select", value: String(store.get("fontSize", 14)), options: ["12", "13", "14", "15", "16", "18", "20"] },
       { name: "pdfDark", label: "PDF com fundo escuro (inverte as cores das páginas na tela)", type: "check", value: store.get("pdfDark", false) },
       { type: "html", html: '<div class="set-row"><span>Dicionário pessoal do corretor</span><button type="button" class="btn small" id="set-dict">Ver palavras</button></div>' },
@@ -135,8 +136,9 @@ $("#btn-settings").onclick = async () => {
     ok: "Salvar",
   });
   $("#set-dict").onclick = openPersonalDict;
+  const undoTheme = previewThemes(document.querySelector(".modal.settings"));
   const r = await dlg;
-  if (!r) return;
+  if (!r) { undoTheme(); return; }
   store.set("pdfDark", r.pdfDark);
   applyPdfDark();
   state.settings = await api(`${P}/settings`, { json: { autoCompile: r.autoCompile, shellEscape: r.shellEscape, driveSync: r.driveSync } });
@@ -145,9 +147,7 @@ $("#btn-settings").onclick = async () => {
     if (!ds.connected) toast("Conecte o Google Drive no painel de projetos para a sincronização começar.", 6000);
   }
   pollDrive();
-  if (r.theme) document.documentElement.dataset.theme = r.theme; else delete document.documentElement.dataset.theme;
-  try { r.theme ? localStorage.setItem("theme", r.theme) : localStorage.removeItem("theme"); } catch (e) { /* sem storage */ }
-  cm.setOption("theme", editorTheme());
+  saveTheme(r.theme);
   store.set("fontSize", +r.fontSize);
   applyFontSize();
   if (r.spell !== spellLang()) store.set(`spell:${PROJECT}`, r.spell);  // só grava se mudou o automático
