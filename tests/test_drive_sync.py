@@ -302,7 +302,9 @@ def test_pasta_existente_com_mesmo_nome_nao_duplica(drive, tmp_path):
     """Projeto local com o nome de uma pasta que já está no Drive (ex.: outro computador)."""
     root = drive.root_folder()
     pf = drive.create_folder("Artigo", root)
-    drive.upload(b"versao antiga", "main.tex", pf)
+    antigo, _ = drive.upload(b"versao antiga", "main.tex", pf)
+    # enviado bem antes da edição local (no mesmo instante, o relógio do Windows pode dar empate)
+    drive.files[antigo]["modified"] -= 60
     drive.upload(b"PNG-igual", "fig.png", drive.create_folder("img", pf))
     drive.upload(b"so no drive", "notas.txt", pf)
     local = tmp_path / "Artigo"
