@@ -7,8 +7,10 @@
 - OAuth 2.0 (app instalado, loopback + PKCE) com escopo drive.file: o app só
   enxerga os arquivos que ele mesmo criou.
 - Cada projeto vira uma pasta dentro de "TexDesk" no Drive.
-- Um processo em segundo plano envia as alterações de projetos "sujos",
-  no máximo a cada SYNC_INTERVAL segundos por projeto, só com o que mudou.
+- Um processo em segundo plano sincroniza os projetos "sujos", no máximo a cada
+  SYNC_INTERVAL segundos por projeto, nos dois sentidos: antes de enviar o que mudou aqui,
+  confere o arquivo de versão no Drive e, se outro computador mexeu no projeto, traz as
+  mudanças dele (juntando as dos dois quando o mesmo arquivo mudou dos dois lados).
 """
 
 import base64
@@ -16,6 +18,7 @@ import hashlib
 import json
 import logging
 import os
+import platform
 import secrets
 import shutil
 import threading
@@ -25,8 +28,11 @@ import urllib.parse
 import urllib.request
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from pathlib import Path
 
+from .config import TEXT_EXT
+from .merge import merge3
 from .token_store import TokenStore
 
 SCOPE = "https://www.googleapis.com/auth/drive.file"
@@ -37,11 +43,16 @@ UPLOAD = "https://www.googleapis.com/upload/drive/v3"
 FOLDER_MIME = "application/vnd.google-apps.folder"
 ROOT_FOLDER_NAME = "TexDesk"
 MANIFEST = ".drive.json"
+# versão do projeto no Drive: muda a cada envio. Comparar só ela (um arquivo pequeno) basta para
+# saber se outro computador mexeu no projeto desde a última sincronização
+VERSION_FILE = ".version.json"
 SYNC_INTERVAL = 5.0
 RETRY_INTERVAL = 15.0
 UPLOAD_WORKERS = 4  # envios simultâneos por projeto
 # arquivos locais que não vão para o Drive
-EXCLUDE = {MANIFEST, ".thumbnail.png"}
+# (o arquivo de versão vai, mas separado: sempre depois dos outros)
+EXCLUDE = {MANIFEST, ".thumbnail.png", VERSION_FILE}
+BASE_MAX = 2 * 1024 * 1024  # arquivos de texto maiores que isso não guardam a versão comum
 
 log = logging.getLogger(__name__)
 
@@ -420,8 +431,24 @@ def local_files(d: Path):
     return out
 
 
-def sync_project(client: DriveClient, d: Path, name: str):
-    """Envia o estado local do projeto para o Drive. Retorna nº de operações."""
+def sync_project(client: DriveClient, d: Path, name: str, report=None, before_change=None):
+    """Sincroniza o projeto com o Drive nos dois sentidos. Retorna nº de operações.
+
+    1. Confere o arquivo de versão (VERSION_FILE) no Drive. Se for o mesmo da última
+       sincronização, ninguém mexeu no projeto por lá: só uma leitura pequena.
+    2. Se mudou (ou se o projeto ainda não tem versão), compara arquivo por arquivo e traz o
+       que mudou no Drive (_pull), juntando as alterações quando os dois lados mexeram.
+    3. Envia o que mudou aqui (_push) e, por último, uma versão nova: quem a vir já encontra
+       todos os arquivos no Drive.
+
+    report recebe "received" (arquivos alterados aqui pelo que veio do Drive), "conflicts"
+    (trechos alterados dos dois lados) e "computer" (de onde veio a última versão).
+    before_change(d, important) é chamado antes de alterar arquivos locais (para guardar uma
+    versão no histórico); important indica que algo daqui vai ser juntado ou substituído.
+    """
+    report = {} if report is None else report
+    report.setdefault("received", [])
+    report.setdefault("conflicts", [])
     m = load_manifest(d)
     ops = 0
     root = client.root_folder()  # sem custo depois da 1ª vez em cada execução
@@ -432,20 +459,15 @@ def sync_project(client: DriveClient, d: Path, name: str):
             client.verified.add(folder)
         else:  # apagada no Drive: recria do zero
             folder, m = None, {}
+    created = False
     if not folder:
         m = {"folderName": name, "files": {}, "folders": {}}
+        # já existe uma pasta com esse nome no Drive (ex.: outro computador)? Então ela é
+        # comparada arquivo por arquivo com a local (_pull), em vez de tudo ir como cópia
         folder = client.find_child(root, name, folder=True)
-        if folder:
-            # já existe uma pasta com esse nome no Drive (ex.: outro computador): em vez de
-            # reenviar tudo como cópia, registra os arquivos que já estão lá pelo caminho.
-            # Os de mesmo conteúdo não são reenviados; os diferentes são atualizados no lugar
-            # (a versão anterior fica no histórico do Drive); os que só existem no Drive
-            # ficam intactos, porque não entram no manifesto.
-            remote, _ = remote_tree(client, folder)
-            local = local_files(d)
-            m["files"] = {rel: info for rel, info in remote.items() if rel in local}
-        else:
+        if not folder:
             folder = client.create_folder(name, root)
+            created = True
         client.verified.add(folder)
         m["folderId"] = folder
         ops += 1
@@ -455,6 +477,72 @@ def sync_project(client: DriveClient, d: Path, name: str):
         ops += 1
     m.setdefault("files", {})
     m.setdefault("folders", {})
+
+    try:
+        for attempt in range(3):
+            ver = None
+            skip = set()
+            if not created:
+                ver, vid = _remote_version(client, folder, m)
+                if vid:
+                    m["versionId"] = vid
+                if ver is None or ver["rev"] != m.get("rev"):
+                    skip, n = _pull(client, d, m, folder, report, before_change)
+                    ops += n
+                    if ver:
+                        report["computer"] = ver.get("computer")
+                    # um arquivo alterado aqui durante a conferência fica para a próxima, que
+                    # então compara tudo de novo
+                    m["rev"] = ver["rev"] if ver and not skip else None
+                    save_manifest(d, m)
+            sent = _push(client, d, m, folder, skip)
+            ops += sent
+            if not sent and m.get("rev") is not None:
+                local = read_version(d)
+                if ver and (local is None or local.get("rev") != ver["rev"]):
+                    _write_atomic(d / VERSION_FILE, _version_bytes(ver))
+                break
+            # antes de publicar a versão nova, confere se outro computador não publicou uma
+            # enquanto isso; se publicou, traz as mudanças dele primeiro
+            if not created and attempt < 2:
+                again, _ = _remote_version(client, folder, m)
+                if (again or {}).get("rev") != (ver or {}).get("rev"):
+                    m["rev"] = (ver or {}).get("rev")
+                    continue
+            new = {
+                "version": max(_num(ver), _num(read_version(d))) + 1,
+                "rev": uuid.uuid4().hex,
+                "updated": time.time(),
+                "computer": platform.node(),
+            }
+            data = _version_bytes(new)
+            _write_atomic(d / VERSION_FILE, data)
+            try:
+                fid, _ = client.upload(data, VERSION_FILE, folder, m.get("versionId"))
+            except DriveError as e:
+                if not (m.get("versionId") and "404" in str(e)):
+                    raise
+                fid, _ = client.upload(data, VERSION_FILE, folder, None)
+            m["versionId"] = fid
+            m["rev"] = None if skip else new["rev"]
+            ops += 1
+            break
+        m["lastSync"] = time.time()
+        _prune_base(client, folder, m)
+    except DriveError as e:
+        if "404" in str(e):
+            # alguma pasta sumiu do Drive: na próxima tentativa, confere tudo de novo
+            client.verified.discard(folder)
+            m["folders"] = {}
+        raise
+    finally:
+        save_manifest(d, m)
+    return ops
+
+
+def _push(client: DriveClient, d: Path, m: dict, folder: str, skip=()):
+    """Envia o estado local para o Drive (só o que mudou). skip: arquivos que ficam para depois."""
+    ops = 0
 
     def ensure_dir(rel_dir):
         if not rel_dir:
@@ -467,67 +555,195 @@ def sync_project(client: DriveClient, d: Path, name: str):
         m["folders"][rel_dir] = fid
         return fid
 
-    files = local_files(d)
-    try:
-        # 1) descobre o que mudou (barato: mtime/tamanho, e md5 só se precisar)
-        todo = []
-        for rel, p in sorted(files.items()):
-            st = p.stat()
-            entry = m["files"].get(rel)
-            if entry and entry.get("mtime") == st.st_mtime and entry.get("size") == st.st_size:
-                continue  # inalterado desde a última sincronização
-            digest = md5_file(p)
-            if entry and entry.get("md5") == digest:
-                entry.update(mtime=st.st_mtime, size=st.st_size)
-                continue
-            todo.append((rel, p, st, digest, entry))
+    all_files = local_files(d)
+    files = {rel: p for rel, p in all_files.items() if rel not in skip}
 
-        # 2) pastas em sequência (criá-las em paralelo geraria duplicatas no Drive)
-        parents = {rel: ensure_dir(rel.rsplit("/", 1)[0] if "/" in rel else "") for rel, *_ in todo}
+    # 1) descobre o que mudou (barato: mtime/tamanho, e md5 só se precisar)
+    todo = []
+    for rel, p in sorted(files.items()):
+        st = p.stat()
+        entry = m["files"].get(rel)
+        if entry and entry.get("mtime") == st.st_mtime and entry.get("size") == st.st_size:
+            continue  # inalterado desde a última sincronização
+        digest = md5_file(p)
+        if entry and entry.get("md5") == digest:
+            entry.update(mtime=st.st_mtime, size=st.st_size)
+            continue
+        todo.append((rel, p, st, digest, entry))
 
-        # 3) envios em paralelo; o manifesto é salvo a cada arquivo concluído,
-        #    então uma falha no meio não reenvia o que já foi
-        lock = threading.Lock()
+    # 2) pastas em sequência (criá-las em paralelo geraria duplicatas no Drive)
+    parents = {rel: ensure_dir(rel.rsplit("/", 1)[0] if "/" in rel else "") for rel, *_ in todo}
 
-        def send(item):
-            rel, p, st, digest, entry = item
-            data = p.read_bytes()
-            try:
-                fid, remote_md5 = client.upload(data, p.name, parents[rel], entry["id"] if entry else None)
-            except DriveError as e:
-                if not (entry and "404" in str(e)):
-                    raise
-                # o arquivo foi apagado direto no Drive: envia de novo como arquivo novo
-                fid, remote_md5 = client.upload(data, p.name, parents[rel], None)
-            with lock:
-                m["files"][rel] = {"id": fid, "md5": remote_md5 or digest, "mtime": st.st_mtime, "size": st.st_size}
-                save_manifest(d, m)
+    # 3) envios em paralelo; o manifesto é salvo a cada arquivo concluído,
+    #    então uma falha no meio não reenvia o que já foi
+    lock = threading.Lock()
 
-        if todo:
-            with ThreadPoolExecutor(max_workers=min(UPLOAD_WORKERS, len(todo))) as pool:
-                for fut in [pool.submit(send, it) for it in todo]:
-                    fut.result()  # propaga o primeiro erro, depois de os outros terminarem
-            ops += len(todo)
+    def send(item):
+        rel, p, st, digest, entry = item
+        data = p.read_bytes()
+        try:
+            fid, remote_md5 = client.upload(data, p.name, parents[rel], entry["id"] if entry else None)
+        except DriveError as e:
+            if not (entry and "404" in str(e)):
+                raise
+            # o arquivo foi apagado direto no Drive: envia de novo como arquivo novo
+            fid, remote_md5 = client.upload(data, p.name, parents[rel], None)
+        md5 = remote_md5 or digest
+        _save_base(client, folder, md5, data, rel)
+        with lock:
+            m["files"][rel] = {"id": fid, "md5": md5, "mtime": st.st_mtime, "size": st.st_size}
+            save_manifest(d, m)
 
-        # removidos localmente -> lixeira do Drive (recuperável por 30 dias)
-        for rel in [r for r in m["files"] if r not in files]:
-            client.trash(m["files"].pop(rel)["id"])
-            ops += 1
-        local_dirs = {str(Path(r).parent.as_posix()) for r in files}
-        local_dirs = {x for r in local_dirs for x in _parents(r)}
-        for rel in sorted([r for r in m["folders"] if r not in local_dirs], key=len, reverse=True):
-            client.trash(m["folders"].pop(rel))
-            ops += 1
-        m["lastSync"] = time.time()
-    except DriveError as e:
-        if "404" in str(e):
-            # alguma pasta sumiu do Drive: na próxima tentativa, confere tudo de novo
-            client.verified.discard(folder)
-            m["folders"] = {}
-        raise
-    finally:
-        save_manifest(d, m)
+    if todo:
+        with ThreadPoolExecutor(max_workers=min(UPLOAD_WORKERS, len(todo))) as pool:
+            for fut in [pool.submit(send, it) for it in todo]:
+                fut.result()  # propaga o primeiro erro, depois de os outros terminarem
+        ops += len(todo)
+
+    # removidos localmente -> lixeira do Drive (recuperável por 30 dias)
+    for rel in [r for r in m["files"] if r not in all_files and r not in skip]:
+        client.trash(m["files"].pop(rel)["id"])
+        ops += 1
+    local_dirs = {str(Path(r).parent.as_posix()) for r in all_files}
+    local_dirs = {x for r in local_dirs for x in _parents(r)}
+    for rel in sorted([r for r in m["folders"] if r not in local_dirs], key=len, reverse=True):
+        client.trash(m["folders"].pop(rel))
+        ops += 1
     return ops
+
+
+def _pull(client: DriveClient, d: Path, m: dict, folder: str, report: dict, before_change=None):
+    """Traz para cá o que mudou no Drive desde a última sincronização.
+
+    Compara cada arquivo do Drive com o manifesto (como estava na última sincronização) e com
+    o arquivo local:
+    - só o Drive mudou: baixa (inclusive arquivos novos e apagados lá);
+    - só aqui mudou: nada a fazer agora, o envio cuida;
+    - os dois mudaram: arquivos de texto são juntados (merge3); os outros, ou quando não há a
+      versão comum guardada (projetos de versões anteriores), fica o modificado por último.
+      Um arquivo editado aqui e apagado no Drive (ou o contrário) não é apagado: a edição vence.
+
+    Devolve (arquivos que mudaram aqui durante a conferência e ficam para a próxima, nº de
+    arquivos alterados).
+    """
+    remote, rfolders = remote_tree(client, folder)
+    ver = remote.pop(VERSION_FILE, None)
+    if ver:
+        m["versionId"] = ver["id"]
+    files = local_files(d)
+    plan = []  # (ação, caminho, arquivo no Drive, (mtime, tamanho) local observado)
+    important = False
+    for rel in sorted(set(remote) | set(m["files"]) | set(files)):
+        r, e, lp = remote.get(rel), m["files"].get(rel), files.get(rel)
+        if r is None and e is None:
+            continue  # só existe aqui: o envio cuida
+        base = e.get("md5") if e else None
+        rmd5 = r.get("md5") if r else None
+        if r is not None and (rmd5 is None or rmd5 == base):
+            continue  # não mudou no Drive
+        st = lp.stat() if lp else None
+        seen = (st.st_mtime, st.st_size) if st else None
+        if st is None:
+            lmd5 = None
+        elif e and e.get("mtime") == st.st_mtime and e.get("size") == st.st_size:
+            lmd5 = base
+        else:
+            lmd5 = md5_file(lp)
+        if r is None:  # apagado no Drive
+            if lmd5 is None:
+                plan.append(("forget", rel, None, seen))
+            elif lmd5 == base:
+                plan.append(("delete", rel, None, seen))
+            else:  # editado aqui: fica, e vai de novo para o Drive como arquivo novo
+                plan.append(("forget", rel, None, seen))
+            continue
+        if lmd5 == rmd5:
+            plan.append(("adopt", rel, r, seen))
+        elif lmd5 is None or lmd5 == base:
+            plan.append(("download", rel, r, seen))
+        else:  # os dois lados mudaram
+            important = True
+            base_data = _load_base(client, folder, base) if base else None
+            if base_data is not None and _is_text_name(rel):
+                plan.append(("merge", rel, dict(r, base=base_data), seen))
+            elif (r.get("modified") or 0) > st.st_mtime:
+                plan.append(("download", rel, r, seen))
+            else:
+                plan.append(("keep", rel, r, seen))
+
+    # baixa tudo antes de mexer em qualquer arquivo local
+    need = [r["id"] for act, _, r, _ in plan if act in ("download", "merge")]
+    data = {}
+    if need:
+        with ThreadPoolExecutor(max_workers=min(UPLOAD_WORKERS, len(need))) as pool:
+            for fid, content in zip(need, pool.map(client.download, need), strict=True):
+                data[fid] = content
+
+    if before_change and any(act in ("download", "merge", "delete") for act, *_ in plan):
+        before_change(d, important)
+
+    skip, changed = set(), 0
+    for act, rel, r, seen in plan:
+        p = d / rel
+        try:
+            st = p.stat()
+            now = (st.st_mtime, st.st_size)
+        except OSError:
+            now = None
+        if now != seen:  # o arquivo mudou aqui enquanto o Drive era consultado
+            skip.add(rel)
+            continue
+        if act == "forget":
+            m["files"].pop(rel, None)
+        elif act == "delete":
+            p.unlink(missing_ok=True)
+            _remove_empty_dirs(d, p.parent)
+            m["files"].pop(rel, None)
+            report["received"].append(rel)
+            changed += 1
+        elif act == "adopt":
+            m["files"][rel] = {"id": r["id"], "md5": r["md5"], "mtime": now[0], "size": now[1]}
+            _save_base(client, folder, r["md5"], p.read_bytes(), rel)
+        elif act == "keep":  # fica o daqui: o envio o grava por cima do que está no Drive
+            m["files"][rel] = {"id": r["id"], "md5": r["md5"]}
+        elif act == "download":
+            _write_atomic(p, data[r["id"]])
+            st = p.stat()
+            m["files"][rel] = {"id": r["id"], "md5": r["md5"], "mtime": st.st_mtime, "size": st.st_size}
+            _save_base(client, folder, r["md5"], data[r["id"]], rel)
+            report["received"].append(rel)
+            changed += 1
+        elif act == "merge":
+            theirs_b, mine_b = data[r["id"]], p.read_bytes()
+            _save_base(client, folder, r["md5"], theirs_b, rel)
+            try:
+                base_t, mine, theirs = (x.decode("utf-8") for x in (r["base"], mine_b, theirs_b))
+            except UnicodeDecodeError:  # não é texto: fica o modificado por último
+                if (r.get("modified") or 0) > seen[0]:
+                    _write_atomic(p, theirs_b)
+                    report["received"].append(rel)
+                    changed += 1
+                    st = p.stat()
+                    m["files"][rel] = {"id": r["id"], "md5": r["md5"], "mtime": st.st_mtime, "size": st.st_size}
+                else:
+                    m["files"][rel] = {"id": r["id"], "md5": r["md5"]}
+                continue
+            merged, conflicts = merge3(base_t, mine, theirs)
+            if merged != mine:
+                _write_atomic(p, merged.encode("utf-8"))
+                report["received"].append(rel)
+                changed += 1
+            if merged == theirs:
+                st = p.stat()
+                m["files"][rel] = {"id": r["id"], "md5": r["md5"], "mtime": st.st_mtime, "size": st.st_size}
+            else:  # o resultado da junção vai para o Drive no envio
+                m["files"][rel] = {"id": r["id"], "md5": r["md5"]}
+            report["conflicts"] += [dict(c, path=rel) for c in conflicts]
+
+    # subpastas do Drive que agora têm arquivos aqui (para o envio não criá-las de novo)
+    dirs = {x for rel in m["files"] for x in _parents(Path(rel).parent.as_posix())}
+    m["folders"].update({k: v for k, v in rfolders.items() if k in dirs})
+    return skip, changed
 
 
 def _parents(rel_dir):
@@ -537,6 +753,113 @@ def _parents(rel_dir):
     return ["/".join(parts[:i]) for i in range(1, len(parts) + 1)]
 
 
+def _remove_empty_dirs(d: Path, p: Path):
+    while p != d and d in p.parents:
+        try:
+            p.rmdir()  # só apaga pasta vazia
+        except OSError:
+            return
+        p = p.parent
+
+
+def _write_atomic(p: Path, data: bytes):
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_name(p.name + ".tmp")
+    tmp.write_bytes(data)
+    os.replace(tmp, p)
+
+
+# ---------------------------------------------------------------- arquivo de versão
+
+
+def _version_bytes(v: dict):
+    return json.dumps(v, indent=1, ensure_ascii=False).encode("utf-8")
+
+
+def _parse_version(data: bytes):
+    try:
+        v = json.loads(data.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        return None
+    return v if isinstance(v, dict) and isinstance(v.get("rev"), str) and v["rev"] else None
+
+
+def _num(v):
+    try:
+        return max(0, int((v or {}).get("version", 0)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def read_version(d: Path):
+    """Arquivo de versão local do projeto ({version, rev, updated, computer}) ou None."""
+    try:
+        return _parse_version((d / VERSION_FILE).read_bytes())
+    except OSError:
+        return None
+
+
+def _remote_version(client: DriveClient, folder: str, m: dict):
+    """Arquivo de versão do projeto no Drive: (conteúdo ou None, id ou None). Uma leitura só."""
+    vid = m.get("versionId")
+    if vid:
+        try:
+            return _parse_version(client.download(vid)), vid
+        except DriveError as e:
+            if "404" not in str(e):
+                raise
+    vid = client.find_child(folder, VERSION_FILE, folder=False)
+    if not vid:
+        return None, None
+    return _parse_version(client.download(vid)), vid
+
+
+# ---------------------------------------------------------------- versão comum (base da junção)
+# Cópia de cada arquivo de texto como estava na última sincronização, guardada fora do
+# projeto (no estado do Drive, por pasta do Drive e md5). É a partir dela que merge3 sabe o
+# que cada lado mudou.
+
+
+def _base_dir(client, folder):
+    root = getattr(client, "dir", None)
+    return Path(root) / "base" / folder if root and folder else None
+
+
+def _is_text_name(rel):
+    suffix = Path(rel).suffix.lower()
+    return suffix in TEXT_EXT or suffix == ""
+
+
+def _save_base(client, folder, md5, data: bytes, rel):
+    bd = _base_dir(client, folder)
+    if not bd or not md5 or len(data) > BASE_MAX or not _is_text_name(rel):
+        return
+    p = bd / md5
+    if p.exists():
+        return
+    bd.mkdir(parents=True, exist_ok=True)
+    _write_atomic(p, data)
+
+
+def _load_base(client, folder, md5):
+    bd = _base_dir(client, folder)
+    try:
+        return (bd / md5).read_bytes() if bd else None
+    except OSError:
+        return None
+
+
+def _prune_base(client, folder, m):
+    """Apaga as cópias que nenhum arquivo do manifesto usa mais."""
+    bd = _base_dir(client, folder)
+    if not bd or not bd.is_dir():
+        return
+    keep = {e.get("md5") for e in m["files"].values()}
+    for p in bd.iterdir():
+        if p.name not in keep:
+            p.unlink(missing_ok=True)
+
+
 def _safe_name(name):
     """Nome de arquivo/pasta do Drive que pode ser gravado com segurança dentro do projeto."""
     return (
@@ -544,8 +867,18 @@ def _safe_name(name):
     )
 
 
+def _parse_time(s):
+    """Data do Drive (RFC 3339, ex.: 2026-11-04T13:37:00.000Z) em segundos desde 1970."""
+    if not s:
+        return None
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
 def remote_tree(client: DriveClient, folder_id: str):
-    """Arquivos e subpastas de uma pasta do Drive: ({caminho: {id, md5}}, {caminho: id})."""
+    """Arquivos e subpastas de uma pasta do Drive: ({caminho: {id, md5, modified}}, {caminho: id})."""
     files, folders = {}, {}
 
     def walk(fid, rel):
@@ -560,7 +893,11 @@ def remote_tree(client: DriveClient, folder_id: str):
                 walk(f["id"], child)
             elif not f["mimeType"].startswith("application/vnd.google-apps"):
                 # (documentos nativos do Google não são arquivos binários)
-                files[child] = {"id": f["id"], "md5": f.get("md5Checksum")}
+                files[child] = {
+                    "id": f["id"],
+                    "md5": f.get("md5Checksum"),
+                    "modified": _parse_time(f.get("modifiedTime")),
+                }
 
     walk(folder_id, "")
     return files, folders
@@ -573,6 +910,7 @@ def restore_project(client: DriveClient, folder_id: str, dest: Path, remote_name
     progress(baixados, total) é chamado a cada arquivo, para mostrar o andamento.
     """
     files, folders = remote_tree(client, folder_id)
+    ver = files.pop(VERSION_FILE, None)  # baixado à parte, por último: não conta como arquivo
     if progress:
         progress(0, len(files))
     dest.mkdir(parents=True)
@@ -589,6 +927,7 @@ def restore_project(client: DriveClient, folder_id: str, dest: Path, remote_name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
         st = target.stat()
+        _save_base(client, folder_id, info["md5"], data, rel)
         with lock:
             m["files"][rel] = {"id": info["id"], "md5": info["md5"], "mtime": st.st_mtime, "size": st.st_size}
             if progress:
@@ -599,6 +938,11 @@ def restore_project(client: DriveClient, folder_id: str, dest: Path, remote_name
             with ThreadPoolExecutor(max_workers=min(UPLOAD_WORKERS, len(files))) as pool:
                 for fut in [pool.submit(fetch, it) for it in files.items()]:
                     fut.result()
+        if ver:
+            data = client.download(ver["id"])
+            (dest / VERSION_FILE).write_bytes(data)
+            m["versionId"] = ver["id"]
+            m["rev"] = (_parse_version(data) or {}).get("rev")
     except Exception:
         shutil.rmtree(dest, ignore_errors=True)  # importação pela metade não vira projeto
         raise
@@ -718,10 +1062,14 @@ class ImportQueue:
 class SyncManager:
     """Fila de projetos alterados + worker que sincroniza a cada SYNC_INTERVAL."""
 
-    def __init__(self, client: DriveClient, projects_dir: Path, is_enabled):
+    def __init__(self, client: DriveClient, projects_dir: Path, is_enabled, before_change=None, after_change=None):
         self.client = client
         self.projects = projects_dir
         self.is_enabled = is_enabled  # função(nome) -> bool
+        # before_change(pasta, nome, important): antes de alterar arquivos com o que veio do Drive
+        # after_change(nome): depois de alterar
+        self.before_change = before_change
+        self.after_change = after_change
         self.dirty = {}  # nome -> instante da última alteração pendente
         self.status = {}  # nome -> dict
         self.next_allowed = {}  # nome -> instante mínimo do próximo envio
@@ -761,6 +1109,16 @@ class SyncManager:
             self.dirty.pop(name, None)
             self.status.pop(name, None)
 
+    def pop_conflict(self, name, cid):
+        """Tira um conflito da lista (o usuário já escolheu) e o devolve, ou None."""
+        with self.lock:
+            items = self.status.get(name, {}).get("conflicts", [])
+            for c in items:
+                if c["id"] == cid:
+                    items.remove(c)
+                    return c
+        return None
+
     def overview(self, names):
         """Resumo para o painel: contagens e estado de cada projeto sincronizado."""
         items = []
@@ -781,6 +1139,7 @@ class SyncManager:
     def get_status(self, name):
         with self.lock:
             st = dict(self.status.get(name, {}))
+            st["conflicts"] = list(st.get("conflicts", []))
         st["enabled"] = self.is_enabled(name)
         st["connected"] = self.client.connected
         st.setdefault("state", "idle")
@@ -807,10 +1166,16 @@ class SyncManager:
                 self.dirty.pop(name)
                 self.status.setdefault(name, {}).update(state="syncing", pending=False)
             d = self.projects / name
+            report = {}
             try:
                 if not d.is_dir() or not self.is_enabled(name):
                     raise _Skip()
-                ops = sync_project(self.client, d, name)
+
+                def before(pasta, important, name=name):
+                    if self.before_change:
+                        self.before_change(pasta, name, important)
+
+                ops = sync_project(self.client, d, name, report=report, before_change=before)
                 if ops:
                     log.info("Drive: %s sincronizado (%d operações)", name, ops)
                 upd = {"state": "synced", "lastSync": time.time(), "error": None, "lastOps": ops}
@@ -828,9 +1193,20 @@ class SyncManager:
                 upd, delay = {"state": "error", "error": str(e)}, RETRY_INTERVAL
                 with self.cv:
                     self.dirty.setdefault(name, time.time())
+            received, conflicts = report.get("received"), report.get("conflicts")
+            if received:
+                log.info("Drive: %s recebeu do Drive: %s", name, ", ".join(received))
+                upd["received"] = {"at": time.time(), "files": received, "computer": report.get("computer")}
+            if (received or conflicts) and self.after_change:
+                self.after_change(name)
+            upd["checkedAt"] = time.time()  # fim da tentativa, com ou sem erro
             with self.cv:
-                self.status.setdefault(name, {}).update(upd)
-                self.status[name]["pending"] = name in self.dirty
+                st = self.status.setdefault(name, {})
+                st.update(upd)
+                if conflicts:
+                    now = time.time()
+                    st.setdefault("conflicts", []).extend(dict(c, id=uuid.uuid4().hex[:12], at=now) for c in conflicts)
+                st["pending"] = name in self.dirty
                 self.next_allowed[name] = time.time() + delay
 
 

@@ -117,7 +117,7 @@ O TexDesk guarda versões dos arquivos de texto enquanto você trabalha: uma qua
 O histórico fica em `history/`, fora da pasta do projeto: ele não vai para o Google Drive nem para o `.zip`.
 
 ### Google Drive (opcional)
-Sincronização dos projetos com o seu Google Drive a cada 5 segundos durante a edição, enviando só os arquivos que mudaram. Veja [como configurar](#google-drive).
+Sincronização dos projetos com o seu Google Drive nos dois sentidos: o que você muda vai para o Drive em até 5 segundos, enviando só os arquivos que mudaram, e o que mudou em outro computador chega sozinho, inclusive com o projeto aberto. Se os dois computadores mexerem no mesmo arquivo, as alterações são juntadas. Veja [como configurar](#google-drive).
 
 ## Atalhos de teclado
 
@@ -152,7 +152,11 @@ Como funciona:
 - Arquivos apagados no TexDesk vão para a lixeira do Drive. Excluir um projeto no TexDesk (mesmo esvaziando a lixeira do TexDesk) não o apaga do Drive.
 - Em outro computador, use as mesmas credenciais. O TexDesk oferece importar os projetos que já estão no Drive. A importação acontece em segundo plano: os projetos aparecem na lista na hora, com o andamento, e você pode continuar usando o TexDesk enquanto eles chegam.
 - O acesso à conta fica no cofre de senhas do sistema (Gerenciador de Credenciais no Windows, Chaves no macOS, Secret Service no Linux).
-- A sincronização vai do computador para o Drive. Se o mesmo projeto for editado em dois computadores ao mesmo tempo, as alterações não são mescladas: vale a última versão enviada.
+- Cada projeto tem um arquivo de versão (`.version.json`), que muda a cada envio para o Drive. Ao abrir um projeto, e a cada 10 segundos enquanto ele estiver aberto, o TexDesk compara a versão do computador com a do Drive. Se forem diferentes, outro computador mexeu no projeto: o TexDesk baixa o que mudou, e os arquivos abertos mostram a mudança sendo digitada. Nunca envia uma versão antiga por cima de uma mais nova.
+- Se o mesmo arquivo foi alterado nos dois computadores, as alterações são juntadas, palavra por palavra, como no git. Só quando os dois mudaram as mesmas palavras o TexDesk mostra as duas versões daquele trecho para você escolher. Antes de juntar, ele guarda uma versão no Histórico. Imagens e outros arquivos que não são texto não se juntam: fica o modificado por último.
+- Um arquivo apagado em um computador é apagado no outro, a não ser que tenha sido editado lá depois: aí a edição vence.
+- Projetos sincronizados por versões anteriores ainda não têm o arquivo de versão. Na primeira sincronização, o TexDesk compara o projeto inteiro com o Drive, arquivo por arquivo; quando um arquivo está diferente nos dois lados, fica o modificado por último. Depois disso, ele cria o arquivo de versão e o envia ao Drive. Atualize o TexDesk em todos os computadores: uma versão anterior não atualiza o arquivo de versão, e as mudanças feitas nela podem não ser percebidas pelos outros.
+- Não é edição simultânea letra a letra, como no Overleaf: a mudança feita num computador aparece no outro uns 15 segundos depois.
 
 ## Solução de problemas
 
@@ -245,7 +249,8 @@ texdesk/               servidor (python -m texdesk)
   online.py            referências pelo DOI e aviso de versão nova
   updater.py           atualização pelo painel (baixa, confere, instala e reinicia)
   shortcut.py          atalho na área de trabalho (Windows, Linux e macOS)
-  drive_sync.py        sincronização com o Google Drive (OAuth, envio incremental, restauração)
+  drive_sync.py        sincronização com o Google Drive (OAuth, envio e recebimento incrementais, restauração)
+  merge.py             junção de alterações feitas em dois computadores no mesmo arquivo
   services.py          conexão com o Drive e processo de sincronização
   routes/              rotas HTTP: pages, projects, files, compile, tools, drive
 static/                interface

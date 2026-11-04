@@ -5,12 +5,28 @@
 // Indicador do Google Drive, dados do autocompletar e inicialização (carregado por último).
 
 // ------------------------------------------------------------ Google Drive
+// Enquanto o projeto está aberto, o servidor confere a cada ~10 s se outro computador mexeu
+// nele (lendo só o arquivo de versão no Drive). O que chegar é gravado no disco, e os arquivos
+// abertos mostram a mudança sendo digitada (live.js). Trechos alterados nos dois computadores
+// ao mesmo tempo vêm em st.conflicts, para o usuário escolher.
+const DRIVE_CHECK_MS = 10000;
 let driveTimer = null;
+let lastDriveCheck = 0;
+let seenReceived = Date.now() / 1000;  // avisos do que chegou antes de abrir a página não aparecem
+const shownConflicts = new Set();
+let conflictOpen = false;
+
 async function pollDrive() {
   clearTimeout(driveTimer);
   const el = $("#drive-state");
   let st;
-  try { st = await api(`${P}/drive`); } catch (e) { st = null; }
+  const every = document.hidden ? DRIVE_CHECK_MS * 6 : DRIVE_CHECK_MS;
+  const check = state.settings.driveSync && Date.now() - lastDriveCheck >= every;
+  try {
+    st = await api(`${P}/drive${check ? "/check" : ""}`, check ? { method: "POST" } : {});
+    if (check) lastDriveCheck = Date.now();
+  } catch (e) { st = null; }
+  if (st) driveNews(st);
   const b = driveBadge(st);
   el.hidden = !b;
   if (b) {
@@ -28,6 +44,75 @@ $("#drive-state").onclick = async () => {
   try { await api(`${P}/drive/sync`, { method: "POST" }); } catch (e) { toast(e.message); }
   pollDrive();
 };
+document.addEventListener("visibilitychange", () => { if (!document.hidden && state.settings.driveSync) pollDrive(); });
+
+// O que chegou do Drive desde a última olhada: aviso dos arquivos e, se houver, os conflitos.
+function driveNews(st) {
+  const r = st.received;
+  if (r && r.at > seenReceived) {
+    seenReceived = r.at;
+    const from = r.computer ? ` (de ${r.computer})` : "";
+    const names = r.files.slice(0, 3).join(", ") + (r.files.length > 3 ? ` e mais ${r.files.length - 3}` : "");
+    toast(`Alterações recebidas do Google Drive${from}: ${names}`, 5000);
+    checkExternalChanges();  // mostra já a mudança nos arquivos abertos
+    loadMeta();
+  }
+  const next = (st.conflicts || []).find((c) => !shownConflicts.has(c.id));
+  if (next && !conflictOpen) showDriveConflict(next);
+}
+
+// Um trecho foi alterado aqui e em outro computador ao mesmo tempo. O arquivo já está com o
+// trecho daqui (o resto foi juntado); o usuário escolhe se fica assim ou se usa o do outro.
+async function showDriveConflict(c) {
+  conflictOpen = true;
+  shownConflicts.add(c.id);
+  const show = (t) => `<pre class="conflict-text">${esc(t) || '<span class="muted">(trecho apagado)</span>'}</pre>`;
+  const keepMine = await modal({
+    title: "Trecho alterado nos dois computadores",
+    cls: "wide",
+    body: `<p><b>${esc(c.path)}</b>, linha ${c.line + 1}, foi alterado aqui e em outro computador antes de os dois sincronizarem. O resto do arquivo foi juntado; só este trecho precisa da sua escolha.</p>
+      <h3 class="modal-sec">Neste computador (está no arquivo agora)</h3>${show(c.mine)}
+      <h3 class="modal-sec">No outro computador</h3>${show(c.theirs)}
+      <p class="muted small">A versão de antes da junção fica no Histórico.</p>`,
+    ok: "Manter a deste computador",
+    cancel: "Usar a do outro computador",
+    dismissable: false,
+  });
+  try {
+    await saveAll();  // a troca é feita no disco; nada daqui pode ficar por salvar
+    await api(`${P}/drive/conflict`, { json: { id: c.id, use: keepMine ? "mine" : "theirs" } });
+    if (!keepMine) checkExternalChanges();
+  } catch (e) {
+    toast(e.message, 6000);
+  } finally {
+    conflictOpen = false;
+  }
+  pollDrive();
+}
+
+// Ao abrir o projeto: antes de mostrar os arquivos, traz o que outro computador mudou.
+async function firstDriveCheck() {
+  const t0 = Date.now() / 1000;
+  let st;
+  try { st = await api(`${P}/drive/check`, { method: "POST" }); } catch (e) { return; }
+  lastDriveCheck = Date.now();
+  if (!st.enabled || !st.connected) return;
+  setSaveState("Buscando atualizações do Google Drive…");
+  const end = Date.now() + 15000;
+  while (!(st.checkedAt >= t0)) {
+    if (Date.now() > end) {
+      toast("O Google Drive está demorando para responder. As atualizações aparecem aqui quando chegarem.", 6000);
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 300));
+    try { st = await api(`${P}/drive`); } catch (e) { return; }
+  }
+  if (st.state === "error") toast("Não foi possível conferir o Google Drive agora: " + (st.error || ""), 6000);
+  else if (st.received && st.received.at >= t0) {
+    seenReceived = st.received.at;
+    toast(`${st.received.files.length} arquivo(s) atualizado(s) com o que estava no Google Drive.`, 5000);
+  }
+}
 
 async function loadMeta() {
   try { projectMeta = await api(`${P}/meta`); } catch (e) { /* ignore */ }
@@ -38,6 +123,10 @@ setInterval(loadMeta, 15000);
 (async function init() {
   try {
     state.settings = await api(`${P}/settings`);
+    if (state.settings.driveSync) {
+      await firstDriveCheck();
+      state.settings = await api(`${P}/settings`);  // podem ter vindo do outro computador
+    }
     await loadFiles();
   } catch (e) {
     document.body.innerHTML = `<div class="empty">Projeto não encontrado. <a href="/">Voltar</a></div>`;

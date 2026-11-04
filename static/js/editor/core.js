@@ -214,7 +214,7 @@ async function resolveConflict(path, disk) {
   setSaveState("Alterado fora do editor");
   const keepMine = await modal({
     title: "Arquivo alterado fora do editor",
-    body: `<p><b>${esc(path)}</b> foi alterado por outro programa (ou em outra aba) enquanto você o editava aqui.</p>
+    body: `<p><b>${esc(path)}</b> foi alterado por outro programa, em outra aba ou em outro computador (pelo Google Drive) enquanto você o editava aqui.</p>
       <p class="muted small">Manter a sua grava por cima da versão do disco, que fica guardada no Histórico. Usar a do disco descarta o que você mudou aqui desde o último salvamento.</p>`,
     ok: "Manter a minha",
     cancel: "Usar a do disco",

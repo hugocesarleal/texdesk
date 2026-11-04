@@ -256,6 +256,7 @@ def clone_project(name):
     shutil.copytree(d, PROJECTS / new)
     # a cópia é um projeto novo: não pode apontar para a mesma pasta do Drive
     (PROJECTS / new / drive_sync.MANIFEST).unlink(missing_ok=True)
+    (PROJECTS / new / drive_sync.VERSION_FILE).unlink(missing_ok=True)
     services.changed(new)
     return jsonify({"name": new})
 

@@ -4,8 +4,12 @@
 
 """Google Drive falso, em memória, com a mesma interface usada por drive_sync."""
 
+import copy
 import hashlib
+import itertools
 import threading
+import time
+from datetime import datetime, timezone
 
 from texdesk import drive_sync as ds
 
@@ -13,18 +17,18 @@ from texdesk import drive_sync as ds
 class FakeDrive:
     connected = True
 
-    def __init__(self):
-        self.files = {}  # id -> {name, parent, folder, data, trashed}
+    def __init__(self, state_dir=None):
+        self.dir = state_dir  # como DriveClient.dir: onde fica a versão comum dos arquivos (base/)
+        self.files = {}  # id -> {name, parent, folder, data, trashed, modified}
         self.calls = []  # registro das operações, para os testes conferirem
         self.verified = set()
-        self._n = 0
+        self._ids = itertools.count(1)  # compartilhado com outro_computador()
         self._lock = threading.Lock()
 
     def _new(self, **kw):
         with self._lock:
-            self._n += 1
-            fid = f"id{self._n}"
-            self.files[fid] = dict(trashed=False, **kw)
+            fid = f"id{next(self._ids)}"
+            self.files[fid] = dict(trashed=False, modified=time.time(), **kw)
         return fid
 
     # ---- mesma interface de DriveClient
@@ -62,7 +66,7 @@ class FakeDrive:
         if not file_id and self.files.get(parent, {}).get("trashed"):
             raise ds.DriveError("Drive 404: File not found (parent)")
         if file_id:
-            self.files[file_id]["data"] = data
+            self.files[file_id].update(data=data, modified=time.time())
         else:
             file_id = self._new(name=name, parent=parent, folder=False, data=data)
         return file_id, hashlib.md5(data).hexdigest()
@@ -78,15 +82,27 @@ class FakeDrive:
                 "name": f["name"],
                 "mimeType": ds.FOLDER_MIME if f["folder"] else "text/plain",
                 "md5Checksum": hashlib.md5(f["data"]).hexdigest() if f["data"] is not None else None,
+                "modifiedTime": datetime.fromtimestamp(f["modified"], timezone.utc).isoformat().replace("+00:00", "Z"),
             }
             for fid, f in list(self.files.items())
             if f["parent"] == parent and not f["trashed"]
         ]
 
     def download(self, fid):
-        return self.files[fid]["data"]
+        f = self.files.get(fid)
+        self.calls.append(("download", f["name"] if f else None))
+        if not f:
+            raise ds.DriveError("Drive 404: File not found")
+        return f["data"]
 
     # ---- ajudas para os testes
+    def outro_computador(self, state_dir):
+        """O mesmo Drive visto de outro computador: mesmos arquivos, estado local próprio."""
+        other = copy.copy(self)  # files, calls e ids continuam compartilhados
+        other.dir = state_dir
+        other.verified = set()
+        return other
+
     def trash_tree(self, fid):
         """Lixeira em cascata, como no Drive: a pasta leva o conteúdo junto."""
         self.files[fid]["trashed"] = True
@@ -106,3 +122,12 @@ class FakeDrive:
 
     def uploads(self):
         return [c for c in self.calls if c[0] == "upload"]
+
+    def put(self, folder_id, path, data):
+        """Grava um arquivo no Drive como outro computador faria (cria as subpastas)."""
+        parent = folder_id
+        *dirs, name = path.split("/")
+        for x in dirs:
+            parent = self.find_child(parent, x, True) or self.create_folder(x, parent)
+        fid = self.find_child(parent, name, False)
+        self.upload(data, name, parent, fid)

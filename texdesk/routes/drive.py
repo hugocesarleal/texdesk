@@ -8,12 +8,13 @@ from urllib.parse import quote
 
 from flask import Blueprint, abort, jsonify, redirect, request
 
-from .. import drive_sync, services
+from .. import drive_sync, history, merge, services
 from ..config import PROJECTS
 from ..security import json_body
-from ..storage import load_settings, project_dir, save_settings, valid_name
+from ..storage import load_settings, project_dir, safe_path, save_settings, valid_name
 
 bp = Blueprint("drive", __name__)
+IN_DRIVE_HISTORY = "A versão do outro computador está no histórico do arquivo no Google Drive."
 
 
 def _redirect_uri():
@@ -130,6 +131,46 @@ def project_sync(name):
     project_dir(name)
     services.changed(name)
     return jsonify(services.syncer.get_status(name))
+
+
+@bp.post("/api/projects/<name>/drive/check")
+def project_check(name):
+    """Confere se outro computador mexeu no projeto (o editor chama ao abrir e a cada ~10 s).
+
+    A conferência roda em segundo plano; o editor acompanha pelo status (checkedAt).
+    """
+    project_dir(name)
+    services.syncer.mark_dirty(name, check_only=True)
+    return jsonify(services.syncer.get_status(name))
+
+
+@bp.post("/api/projects/<name>/drive/conflict")
+def resolve_conflict(name):
+    """Escolha do usuário para um trecho alterado nos dois computadores.
+
+    "mine" mantém o trecho deste computador (que já está no arquivo); "theirs" troca pelo do
+    outro computador, guardando antes o estado atual no histórico.
+    """
+    d = project_dir(name)
+    data = json_body()
+    c = services.syncer.pop_conflict(name, data.get("id"))
+    if not c:
+        abort(404, "Esse conflito já foi resolvido")
+    if data.get("use") != "theirs":
+        return jsonify({"ok": True})
+    p = safe_path(d, c["path"])
+    try:
+        text = p.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        abort(409, "O arquivo não existe mais. " + IN_DRIVE_HISTORY)
+    new = merge.apply_choice(text, c)
+    if new is None:
+        abort(409, "Esse trecho foi alterado depois. " + IN_DRIVE_HISTORY)
+    history.snapshot(d, name)
+    with open(p, "w", encoding="utf-8", newline="") as fh:
+        fh.write(new)
+    services.changed(name)
+    return jsonify({"ok": True})
 
 
 # ---------------------------------------------------------------- projetos no Drive

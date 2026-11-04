@@ -297,6 +297,32 @@ def test_importacao_do_drive_aparece_na_lista_enquanto_baixa(api, tmp_path, monk
     api.delete("/api/projects/Do Drive")
 
 
+def test_escolha_no_conflito_com_outro_computador(api, proj):
+    from texdesk import history, services
+
+    f = config.PROJECTS / proj / "texto.tex"
+    f.write_bytes(b"inicio\nO gato correu.\nfim\n")
+    conflito = {"id": "c1", "path": "texto.tex", "line": 1, "mine": "O gato correu.\n", "theirs": "O gato pulou.\n"}
+    services.syncer.status.setdefault(proj, {})["conflicts"] = [conflito, dict(conflito, id="c2")]
+    assert [c["id"] for c in api.get(f"/api/projects/{proj}/drive").get_json()["conflicts"]] == ["c1", "c2"]
+
+    # manter a deste computador: o arquivo fica como está
+    assert api.post(f"/api/projects/{proj}/drive/conflict", json={"id": "c2", "use": "mine"}).status_code == 200
+    assert f.read_bytes() == b"inicio\nO gato correu.\nfim\n"
+    # usar a do outro computador: troca só o trecho, guardando antes no histórico
+    antes = len(history.list_versions(proj))
+    assert api.post(f"/api/projects/{proj}/drive/conflict", json={"id": "c1", "use": "theirs"}).status_code == 200
+    assert f.read_bytes() == b"inicio\nO gato pulou.\nfim\n"
+    assert len(history.list_versions(proj)) == antes + 1
+    assert api.get(f"/api/projects/{proj}/drive").get_json()["conflicts"] == []
+    assert api.post(f"/api/projects/{proj}/drive/conflict", json={"id": "c1", "use": "theirs"}).status_code == 404
+
+
+def test_conferencia_do_drive_sem_conexao(api, proj):
+    st = api.post(f"/api/projects/{proj}/drive/check").get_json()
+    assert st["connected"] is False and st["conflicts"] == []
+
+
 # ---------------------------------------------------------------- PDF guardado da última compilação
 
 

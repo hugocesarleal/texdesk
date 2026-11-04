@@ -12,7 +12,7 @@ import json
 import re
 from pathlib import Path
 
-from . import drive_sync
+from . import drive_sync, history
 from .config import DRIVE_STATE, PROJECTS, SETTINGS_FILE
 from .storage import load_settings, save_settings, touch
 
@@ -26,7 +26,9 @@ def init():
     if syncer is not None:
         return
     drive = drive_sync.DriveClient(DRIVE_STATE)
-    syncer = drive_sync.SyncManager(drive, PROJECTS, drive_enabled)
+    syncer = drive_sync.SyncManager(
+        drive, PROJECTS, drive_enabled, before_change=before_drive_change, after_change=touch
+    )
     syncer.mark_all()  # envia o que mudou enquanto o servidor estava desligado
     importer = drive_sync.ImportQueue(drive, PROJECTS, imported)
 
@@ -37,6 +39,18 @@ def drive_enabled(name):
         return bool(json.loads(f.read_text(encoding="utf-8")).get("driveSync"))
     except (OSError, ValueError):
         return False
+
+
+def before_drive_change(d: Path, name, important):
+    """Antes de alterar arquivos com o que veio do Drive, guarda o estado atual no histórico.
+
+    Se algo daqui vai ser juntado com a versão do Drive ou substituído por ela, a versão ganha
+    nome (fica para sempre); senão, é a automática de sempre (no máximo uma a cada 10 minutos).
+    """
+    if important:
+        history.snapshot(d, name, label="Antes de receber alterações do Google Drive")
+    else:
+        history.maybe_snapshot(d, name)
 
 
 def changed(name):

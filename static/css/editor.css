@@ -356,3 +356,7 @@ kbd {
 .pdict-list { overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); max-height: 50vh; }
 .pdict-row { display: flex; align-items: center; justify-content: space-between; padding: 3px 4px 3px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
 .pdict-row:last-child { border-bottom: 0; }
+
+/* trecho alterado nos dois computadores (Google Drive) */
+.conflict-text { margin: 0; padding: 8px 10px; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius); font-size: 12.5px; max-height: 30vh; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+.modal p.small { font-size: 12.5px; }

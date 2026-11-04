@@ -4,6 +4,16 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.12.0] - 2026-11-04
+
+### Adicionado
+- O Google Drive sincroniza nos dois sentidos. Cada projeto ganhou um arquivo de versão (`.version.json`), que muda a cada envio. Ao abrir um projeto, e a cada 10 segundos enquanto ele estiver aberto, o TexDesk compara a versão do computador com a do Drive e, se outro computador mexeu no projeto, baixa o que mudou. Os arquivos abertos mostram a mudança sendo digitada, e um aviso diz quais arquivos chegaram.
+- Edições feitas em dois computadores no mesmo arquivo são juntadas sozinhas, palavra por palavra, como no git. Só quando os dois mudaram as mesmas palavras o TexDesk mostra as duas versões daquele trecho para você escolher. Antes de juntar, ele guarda uma versão no Histórico.
+
+### Corrigido
+- Ao abrir no segundo computador um projeto editado no primeiro, o TexDesk mostrava a versão antiga, porque não percebia a atualização no Google Drive. Pior: editar essa versão antiga enviava os arquivos dela por cima dos mais novos no Drive. Agora o TexDesk sempre traz o que mudou no Drive antes de enviar qualquer coisa.
+- Projetos criados em versões anteriores ganham o arquivo de versão na primeira sincronização. Antes disso, o TexDesk compara o projeto inteiro com o Drive, arquivo por arquivo, e, quando um arquivo está diferente nos dois lados, fica o modificado por último.
+
 ## [0.11.0] - 2026-11-03
 
 ### Adicionado
@@ -169,7 +179,8 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.11.0...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/hugocesarleal/texdesk/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/hugocesarleal/texdesk/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/hugocesarleal/texdesk/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/hugocesarleal/texdesk/compare/v0.8.1...v0.9.0
