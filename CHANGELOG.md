@@ -4,6 +4,11 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.12.1] - 2026-11-04
+
+### Corrigido
+- Logo depois de atualizar para a 0.12.0, abrir um projeto podia ficar parado em "Buscando atualizações do Google Drive…" por até 15 segundos. Ao iniciar, o TexDesk confere todos os projetos sincronizados, um de cada vez, e o projeto aberto esperava a vez dele no fim da fila. Agora o projeto aberto passa na frente, e o editor espera no máximo 4 segundos: se o Drive demorar mais, o projeto abre assim mesmo, e as atualizações aparecem na tela quando chegarem.
+
 ## [0.12.0] - 2026-11-04
 
 ### Adicionado
@@ -179,7 +184,8 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.12.0...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.12.1...HEAD
+[0.12.1]: https://github.com/hugocesarleal/texdesk/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/hugocesarleal/texdesk/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/hugocesarleal/texdesk/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/hugocesarleal/texdesk/compare/v0.9.0...v0.10.0

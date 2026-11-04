@@ -609,3 +609,31 @@ def test_gerenciador_informa_o_que_chegou_e_os_conflitos(drive, project, tmp_pat
     assert antes == [("Relatorio", True)]
     assert m.pop_conflict("Relatorio", c["id"]) == c
     assert m.get_status("Relatorio")["conflicts"] == []
+
+
+def test_projeto_aberto_no_editor_passa_na_frente_da_fila(drive, tmp_path, monkeypatch):
+    """Ao iniciar, todos os projetos entram na fila de conferência; o aberto não espera por eles."""
+    projects = tmp_path / "projects"
+    for i in range(8):
+        (projects / f"P{i}").mkdir(parents=True)
+        (projects / f"P{i}" / "main.tex").write_text("x")
+    order = []
+    gate = threading.Event()
+
+    def fake_sync(client, d, name, **kw):
+        gate.wait(5)  # segura o primeiro até a fila estar montada
+        order.append(name)
+        return 0
+
+    monkeypatch.setattr(ds, "sync_project", fake_sync)
+    m = ds.SyncManager(drive, projects, lambda name: True)
+    m.mark_all()
+    time.sleep(0.1)  # o worker já pegou um projeto qualquer e está esperando no gate
+    m.mark_dirty("P5", check_only=True, urgent=True)
+    gate.set()
+    end = time.time() + 5
+    while time.time() < end and len(order) < 8:
+        time.sleep(0.02)
+    m.stop()
+    assert len(order) == 8
+    assert order.index("P5") <= 1  # no máximo depois do que já estava em andamento

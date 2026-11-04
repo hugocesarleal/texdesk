@@ -90,7 +90,10 @@ async function showDriveConflict(c) {
   pollDrive();
 }
 
-// Ao abrir o projeto: antes de mostrar os arquivos, traz o que outro computador mudou.
+// Ao abrir o projeto: antes de mostrar os arquivos, traz o que outro computador mudou. Espera
+// pouco: se o Drive demorar (internet lenta, muitos projetos sendo conferidos ao iniciar), o
+// projeto abre assim mesmo, e o que chegar depois aparece sendo digitado nos arquivos abertos.
+const FIRST_CHECK_MAX_MS = 4000;
 async function firstDriveCheck() {
   const t0 = Date.now() / 1000;
   let st;
@@ -98,12 +101,9 @@ async function firstDriveCheck() {
   lastDriveCheck = Date.now();
   if (!st.enabled || !st.connected) return;
   setSaveState("Buscando atualizações do Google Drive…");
-  const end = Date.now() + 15000;
+  const end = Date.now() + FIRST_CHECK_MAX_MS;
   while (!(st.checkedAt >= t0)) {
-    if (Date.now() > end) {
-      toast("O Google Drive está demorando para responder. As atualizações aparecem aqui quando chegarem.", 6000);
-      return;
-    }
+    if (Date.now() > end) return;
     await new Promise((r) => setTimeout(r, 300));
     try { st = await api(`${P}/drive`); } catch (e) { return; }
   }

@@ -140,7 +140,7 @@ def project_check(name):
     A conferência roda em segundo plano; o editor acompanha pelo status (checkedAt).
     """
     project_dir(name)
-    services.syncer.mark_dirty(name, check_only=True)
+    services.syncer.mark_dirty(name, check_only=True, urgent=True)
     return jsonify(services.syncer.get_status(name))
 
 

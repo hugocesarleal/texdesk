@@ -1086,13 +1086,20 @@ class SyncManager:
             self.cv.notify()
         self.thread.join(timeout)
 
-    def mark_dirty(self, name, check_only=False):
+    def mark_dirty(self, name, check_only=False, urgent=False):
         """check_only: só conferir (ex.: ao iniciar o servidor). Não aparece como
-        pendente no painel e fica atrás das alterações reais na fila."""
+        pendente no painel e fica atrás das alterações reais na fila.
+
+        urgent: conferir agora, na frente da fila e sem esperar o intervalo mínimo (o projeto
+        aberto no editor). Sem isso, ao iniciar o servidor o projeto aberto esperaria todos os
+        outros serem conferidos."""
         if not self.client.connected or not self.is_enabled(name):
             return
         with self.cv:
-            if check_only:
+            if urgent:
+                self.dirty[name] = time.time()
+                self.next_allowed.pop(name, None)
+            elif check_only:
                 self.dirty.setdefault(name, 0)
             else:
                 self.dirty[name] = time.time()
