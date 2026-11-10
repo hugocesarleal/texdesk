@@ -262,6 +262,24 @@ def test_depois_de_um_erro_compila_do_zero(api, proj):
     assert (config.OUTPUT / proj / "main.texdesk-ok").exists()
 
 
+@needs_tectonic
+def test_pacote_novo_no_preambulo_nao_quebra_a_reaproveitada(api, proj):
+    def compilar(preambulo):
+        tex = (
+            "\\documentclass{article}\n" + preambulo + "\\begin{document}\n"
+            "\\section{A}\\label{a}\nA Seção \\ref{a} resume tudo. Texto depois.\n\\end{document}\n"
+        )
+        api.put(f"/api/projects/{proj}/file", json={"path": "main.tex", "content": tex})
+        return api.post(f"/api/projects/{proj}/compile", json={}).get_json()
+
+    assert compilar("")["status"] == "success"
+    # o .aux anterior tem rótulos de 2 campos; o hyperref espera 5 e, na passada
+    # reaproveitada, engoliria o texto depois do \ref
+    r = compilar("\\usepackage{hyperref}\n")
+    assert r["status"] == "success" and not any(e["level"] == "error" for e in r["entries"])
+    assert "undefined" not in r["log"]
+
+
 # ---------------------------------------------------------------- importação do Drive
 
 

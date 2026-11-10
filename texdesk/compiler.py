@@ -136,6 +136,13 @@ def compile_project(d: Path, name: str, main: str, main_path: Path, shell_escape
     has_pdf = pdf.exists()  # o PDF anterior foi apagado antes de compilar
     has_errors = proc.returncode != 0 or any(e["level"] == "error" for e in entries)
     status = "failure" if not has_pdf else ("error" if has_errors else "success")
+    if incremental and status != "success":
+        # A saída anterior pode não servir mais: um pacote novo no preâmbulo (o hyperref, por
+        # exemplo) lê os rótulos do .aux antigo em outro formato e engole o texto depois de
+        # cada \ref. Antes de mostrar um PDF com erro, refaz do zero; o marcador já foi apagado,
+        # então a nova chamada não reaproveita nada.
+        logger.info("Compilação reaproveitada de %s falhou: compilando de novo do zero", name)
+        return compile_project(d, name, main, main_path, shell_escape)
     n_errors = sum(e["level"] == "error" for e in entries)
     # depois de um erro a próxima compilação começa do zero: um .aux estragado não fica preso
     rerun = False

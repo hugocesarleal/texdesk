@@ -4,6 +4,11 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.12.2] - 2026-11-10
+
+### Corrigido
+- Depois de acrescentar um pacote ao preâmbulo, como o `hyperref`, o PDF podia sair com o texto faltando logo depois de cada `\ref` (por exemplo, "A Tabela" sem o resto da frase). Para compilar mais rápido, o TexDesk aproveita a compilação anterior, e os rótulos que ela guardou estavam num formato que o pacote novo não entende. Agora, quando uma compilação que aproveitou a anterior termina com erro, o TexDesk compila de novo do zero antes de mostrar o PDF.
+
 ## [0.12.1] - 2026-11-04
 
 ### Corrigido
@@ -184,7 +189,8 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.12.1...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.12.2...HEAD
+[0.12.2]: https://github.com/hugocesarleal/texdesk/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/hugocesarleal/texdesk/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/hugocesarleal/texdesk/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/hugocesarleal/texdesk/compare/v0.10.0...v0.11.0
