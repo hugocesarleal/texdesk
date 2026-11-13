@@ -52,10 +52,35 @@ class FakeGitHub:
         self.login_as = LOGIN  # quem está digitando o código do login
         self.authorized = False  # a pessoa já digitou o código?
         self.calls = []  # (método, caminho)
+        self.tokens, self.refresh_tokens = {}, {}
         self.offline = False
         self.rate_limited = 0  # quantas respostas de limite ainda dar
         self.before_ref_update = None  # gancho: simula outro computador enviando no meio
         self.scope = "repo,delete_repo"  # o que o GitHub devolve no login (antes: só "repo")
+
+    # ---- acessos (com "Expire user access tokens", vencem e são renovados pelo refresh_token)
+    expiring = False
+    issued = 0
+
+    def _issue(self, login):
+        if not self.expiring:
+            return {"access_token": f"gho_{login}", "scope": self.scope}
+        self.issued += 1
+        at, rt = f"gho_{login}_{self.issued}", f"ghr_{login}_{self.issued}"
+        self.tokens = getattr(self, "tokens", {})
+        self.refresh_tokens = getattr(self, "refresh_tokens", {})
+        self.tokens[at], self.refresh_tokens[rt] = login, login
+        return {
+            "access_token": at,
+            "scope": self.scope,
+            "refresh_token": rt,
+            "expires_in": 28800,
+            "refresh_token_expires_in": 15897600,
+        }
+
+    def expire_all(self):
+        """Passaram 8 horas: os acessos vencem (os refresh_token continuam valendo)."""
+        self.tokens = {}
 
     # ---- repositório principal (os testes antigos usam head/files direto)
     @property
@@ -166,11 +191,21 @@ class FakeGitHub:
                         "interval": 0,
                     }
                 )
+            if form.get("grant_type") == "refresh_token":  # renovar um acesso que vence
+                assert "client_secret" not in form  # (o fluxo de dispositivo não usa o segredo)
+                login = self.refresh_tokens.pop(form["refresh_token"], None)
+                return _Resp(self._issue(login) if login else {"error": "bad_refresh_token"})
             assert form["device_code"] == "dev123"
             if not self.authorized:
                 return _Resp({"error": "authorization_pending"})
-            return _Resp({"access_token": f"gho_{self.login_as}", "scope": self.scope})
-        user = (req.get_header("Authorization") or "").removeprefix("Bearer gho_")
+            return _Resp(self._issue(self.login_as))
+        token = (req.get_header("Authorization") or "").removeprefix("Bearer ")
+        if self.expiring:
+            user = self.tokens.get(token)
+            if user is None:  # vencido (ou nunca existiu)
+                raise _error(url, 401, {"message": "Bad credentials"})
+        else:
+            user = token.removeprefix("gho_")
         parsed = urllib.parse.urlparse(url)
         path, query = parsed.path, parsed.query
         self.calls.append((method, path))

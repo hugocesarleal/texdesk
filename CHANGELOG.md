@@ -4,6 +4,13 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.14.3] - 2026-11-13
+
+### Corrigido
+- Projetos com um repositório git dentro (uma pasta `.git`, por exemplo em `codigo/`) não iam para o GitHub: o GitHub recusava o commit inteiro ("tree.path contains a malformed path component"). Agora o controle interno do git (`.git/`) fica de fora; os arquivos desse código continuam indo.
+- O acesso ao GitHub parava de funcionar 8 horas depois de conectar ("O acesso ao GitHub foi revogado ou expirou"). O TexDesk agora renova o acesso sozinho, antes de vencer ou quando o GitHub o recusa. Quem conectou numa versão anterior precisa entrar com GitHub de novo uma vez; um aviso no topo da página de projetos e no painel do GitHub mostra quando isso é preciso.
+- Uma falha que se repete no GitHub (sem internet, arquivo recusado) não enche mais a janela do TexDesk com a mesma mensagem a cada 30 segundos: ela aparece uma vez, e as tentativas ficam cada vez mais espaçadas, até 30 minutos.
+
 ## [0.14.2] - 2026-11-12
 
 ### Mudado
@@ -213,7 +220,8 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.14.2...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.14.3...HEAD
+[0.14.3]: https://github.com/hugocesarleal/texdesk/compare/v0.14.2...v0.14.3
 [0.14.2]: https://github.com/hugocesarleal/texdesk/compare/v0.14.0...v0.14.2
 [0.14.0]: https://github.com/hugocesarleal/texdesk/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/hugocesarleal/texdesk/compare/v0.12.2...v0.13.0

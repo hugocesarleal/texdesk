@@ -390,3 +390,70 @@ def test_envio_ao_fechar_nao_busca_datas(gh, pc):
     gh.calls.clear()
     gs.sync_project(c, d, "TCC")
     assert not any("/commits?" in path or path.endswith("/commits") and m == "GET" for m, path in gh.calls)
+
+
+# ---------------------------------------------------------------- problemas vistos com o GitHub de verdade
+
+
+def test_pasta_git_dentro_do_projeto_fica_de_fora(gh, pc):
+    # o GitHub recusa o commit inteiro ("tree.path contains a malformed path component")
+    projects, c = pc
+    d = new_project(projects)
+    (d / "codigo" / ".git" / "objects").mkdir(parents=True)
+    (d / "codigo" / ".git" / "config").write_bytes(b"[core]\n")
+    (d / "codigo" / ".git" / "objects" / "ab").write_bytes(b"x")
+    (d / "codigo" / "analise.py").write_bytes(b"print(1)\n")
+    gs.sync_project(c, d, "TCC")
+    files = gh.files()
+    assert "TCC/codigo/analise.py" in files
+    assert not any("/.git/" in p for p in files)
+
+
+def test_acesso_de_8_horas_e_renovado_sozinho(gh, tmp_path):
+    gh.expiring = True
+    projects = tmp_path / "projects"
+    projects.mkdir()
+    c = connect(gh, tmp_path / "state")
+    assert c.tokens.load()["refresh_token"]
+    d = new_project(projects)
+    gs.sync_project(c, d, "TCC")
+    gh.expire_all()  # 8 horas depois: o GitHub responde 401
+    touch_later(d / "main.tex", "depois de 8 horas\n")
+    gs.sync_project(c, d, "TCC")  # renova (sem o client secret) e envia
+    assert gh.files()["TCC/main.tex"] == b"depois de 8 horas\n"
+    assert not c.auth_failed
+    # e antes de vencer: renova sem nem tentar com o acesso velho
+    tok = c.tokens.load()
+    c.tokens.save(dict(tok, expires_at=time.time() + 60))
+    gh.calls.clear()
+    gs.sync_project(c, d, "TCC", push=False)
+    assert c.tokens.load()["access_token"] != tok["access_token"]
+
+
+def test_acesso_sem_renovacao_pede_para_entrar_de_novo(gh, tmp_path):
+    gh.expiring = True
+    projects = tmp_path / "projects"
+    projects.mkdir()
+    c = connect(gh, tmp_path / "state")
+    tok = c.tokens.load()
+    c.tokens.save({"access_token": tok["access_token"], "scope": tok["scope"]})  # guardado pela 0.14.2
+    gh.expire_all()
+    with pytest.raises(gs.AuthRequired, match="Entre com GitHub de novo"):
+        gs.sync_project(c, new_project(projects), "TCC")
+    assert c.auth_failed
+    connect(gh, tmp_path / "state")  # entrou de novo
+    assert not gs.GitHubClient(tmp_path / "state", "x", token_backend=None, open_url=gh).auth_failed
+
+
+def test_mesma_falha_espaca_as_tentativas_e_avisa_uma_vez(gh, manager, caplog):
+    projects, c, m = manager
+    new_project(projects)
+    gh.offline = True
+    with caplog.at_level("WARNING", logger="texdesk.github_sync"):
+        m.commit_now("TCC")
+        assert wait(lambda: m.fails.get("TCC", (None, 0))[1] >= 3, timeout=8)
+    avisos = [r for r in caplog.records if "falha ao sincronizar" in r.getMessage()]
+    assert len(avisos) == 1  # e não uma linha a cada tentativa
+    gh.offline = False
+    m.commit_now("TCC")
+    assert wait(lambda: "TCC/main.tex" in gh.files() and "TCC" not in m.fails, timeout=8)

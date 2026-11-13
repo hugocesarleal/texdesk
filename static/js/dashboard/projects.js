@@ -182,14 +182,19 @@ function githubIcon(st) {
 
 // ------------------------------------------------------------ convites recebidos (GitHub)
 async function checkInvites() {
-  let items;
-  try { items = await api("/api/github/invitations"); } catch (e) { return; }
+  let items, gh;
+  try { [items, gh] = await Promise.all([api("/api/github/invitations"), api("/api/github/status")]); } catch (e) { return; }
   const el = $("#invites");
-  el.innerHTML = items.map((i) => `<div class="update-banner invite" data-id="${i.id}">${icon("users")}
+  // acesso ao GitHub vencido: os commits param até a pessoa entrar de novo
+  const expired = gh.authExpired ? `<div class="update-banner invite">${icon("lock")}
+      <span><b>O acesso ao GitHub expirou</b> e os commits estão parados. Entre com GitHub de novo: daqui em diante o TexDesk renova o acesso sozinho.</span>
+      <button class="btn small primary" data-gh-panel>Entrar de novo</button></div>` : "";
+  el.innerHTML = expired + items.map((i) => `<div class="update-banner invite" data-id="${i.id}">${icon("users")}
       <span><b>@${esc(i.from || "alguém")}</b> compartilhou <b>${esc(i.name)}</b> com você (${i.write ? "pode editar" : "só para leitura"}).</span>
       <button class="btn small" data-decline>Recusar</button>
       <button class="btn small primary" data-accept>Aceitar</button></div>`).join("");
-  el.querySelectorAll(".invite").forEach((row) => {
+  el.querySelector("[data-gh-panel]")?.addEventListener("click", () => openGithubPanel());
+  el.querySelectorAll(".invite[data-id]").forEach((row) => {
     const id = row.dataset.id;
     row.querySelector("[data-accept]").onclick = async () => {
       try {

@@ -62,6 +62,7 @@ SHARED_DELAY = 30.0  # num projeto compartilhado: a outra pessoa vê a mudança 
 SHARED_REPO_PREFIX = "texdesk-"  # repositório de um projeto compartilhado: texdesk-<projeto>
 SHARE_META = ".texdesk-projeto.json"  # na raiz dele: o nome do projeto (fica fora da pasta local)
 RETRY_INTERVAL = 30.0
+MAX_RETRY_INTERVAL = 1800.0  # a mesma falha repetida espera cada vez mais, até 30 min
 DOWNLOAD_WORKERS = 4
 MAX_FILE = 90 * 1024 * 1024  # o GitHub recusa arquivos de mais de 100 MB
 BASE_MAX = 2 * 1024 * 1024
@@ -120,6 +121,7 @@ class GitHubClient:
         self._device = None  # login em andamento: {device_code, interval, expires, next}
         self._lock = threading.Lock()
         self.hurry = False  # enviando às pressas (TexDesk fechando): nenhuma chamada dispensável
+        self.auth_failed = False  # o GitHub recusou o acesso (vencido ou revogado): entrar de novo
         self._repos = {}  # dono/nome -> Repo (com o que já se sabe dele nesta execução)
 
     # ---- estado
@@ -230,7 +232,8 @@ class GitHubClient:
         if err or not r.get("access_token"):
             raise GitHubError(r.get("error_description") or err or "O GitHub não devolveu o acesso")
         self._device = None
-        self.tokens.save({"access_token": r["access_token"], "scope": r.get("scope", "")})
+        self.tokens.save(self._token_data(r))
+        self.auth_failed = False
         try:
             user = self.request("GET", "/user")
             repo, branch = self.ensure_repo(user["login"])
@@ -245,10 +248,49 @@ class GitHubClient:
         return {"state": "done", "user": user["login"], "repo": repo}
 
     # ---- chamadas à API
-    def request(self, method, path, body=None, ok404=False):
+    @staticmethod
+    def _token_data(r, old=None):
+        """O que guardar do token devolvido pelo GitHub. Se o app tiver "Expire user access
+        tokens" ligado, o acesso vale 8 horas e vem com um refresh_token (6 meses)."""
+        now = time.time()
+        tok = {"access_token": r["access_token"], "scope": r.get("scope") or (old or {}).get("scope", "")}
+        if r.get("refresh_token"):
+            tok["refresh_token"] = r["refresh_token"]
+            tok["expires_at"] = now + int(r.get("expires_in") or 28800)
+            tok["refresh_expires_at"] = now + int(r.get("refresh_token_expires_in") or 15897600)
+        return tok
+
+    def _refresh(self, used_token):
+        """Troca o refresh_token por um acesso novo. Cada refresh_token só vale uma vez: com duas
+        threads ao mesmo tempo, a segunda usa o acesso que a primeira acabou de pegar."""
+        with self._lock:
+            tok = self.tokens.load() or {}
+            if tok.get("access_token") != used_token:
+                return tok  # outra thread já renovou
+            if not tok.get("refresh_token"):
+                self.auth_failed = True
+                raise AuthRequired("O acesso ao GitHub expirou. Entre com GitHub de novo (painel → GitHub)", 401)
+            r = self._post_form(
+                TOKEN_URL,
+                {"client_id": self.client_id, "grant_type": "refresh_token", "refresh_token": tok["refresh_token"]},
+            )
+            if not r.get("access_token"):
+                self.auth_failed = True
+                raise AuthRequired(
+                    "O acesso ao GitHub expirou e não pôde ser renovado. Entre com GitHub de novo (painel → GitHub)",
+                    401,
+                )
+            new = self._token_data(r, tok)
+            self.tokens.save(new)
+            log.info("GitHub: acesso renovado")
+            return new
+
+    def request(self, method, path, body=None, ok404=False, _retry=True):
         tok = self.tokens.load()
         if not tok or not tok.get("access_token"):
             raise AuthRequired("Conecte o GitHub de novo (painel → GitHub)", 401)
+        if tok.get("expires_at") and time.time() > tok["expires_at"] - 300:  # vence em 5 min: renova antes
+            tok = self._refresh(tok["access_token"])
         url = path if path.startswith("http") else self.api + path
         data = json.dumps(body).encode() if body is not None else None
         req = urllib.request.Request(
@@ -272,7 +314,11 @@ class GitHubClient:
             if e.code == 404 and ok404:
                 return None
             if e.code == 401:
-                raise AuthRequired("O acesso ao GitHub foi revogado ou expirou. Conecte de novo", 401) from e
+                if _retry and tok.get("refresh_token"):  # venceu antes da hora marcada: renova e tenta de novo
+                    self._refresh(tok["access_token"])
+                    return self.request(method, path, body, ok404, _retry=False)
+                self.auth_failed = True
+                raise AuthRequired("O acesso ao GitHub foi revogado ou expirou. Entre com GitHub de novo", 401) from e
             remaining = e.headers.get("X-RateLimit-Remaining") if e.headers else None
             if e.code == 429 or (e.code == 403 and (remaining == "0" or "rate limit" in text.lower())):
                 wait = e.headers.get("Retry-After") if e.headers else None
@@ -580,12 +626,20 @@ def save_manifest(d: Path, m):
     os.replace(tmp, d / MANIFEST)
 
 
+def _git_ok(rel):
+    """O git recusa um caminho com uma pasta .git (ex.: um repositório git dentro do projeto).
+    Os arquivos desse subprojeto vão; o controle interno dele (.git/) não."""
+    return all(part.lower() != ".git" for part in rel.split("/"))
+
+
 def local_files(d: Path):
     """Arquivos do projeto que vão para o GitHub (inclui o .project.json)."""
     out = {}
     for p in d.rglob("*"):
         if p.is_file() and p.name not in EXCLUDE and not p.name.endswith(".tmp"):
-            out[p.relative_to(d).as_posix()] = p
+            rel = p.relative_to(d).as_posix()
+            if _git_ok(rel):
+                out[rel] = p
     return out
 
 
@@ -948,7 +1002,7 @@ def _remote_files(client, tree):
     """Arquivos de uma pasta do repositório que podem virar arquivos aqui ({caminho: sha})."""
     out = {}
     for rel, sha in client.tree_files(tree).items():
-        if all(_safe_name(x) for x in rel.split("/")) and rel not in EXCLUDE:
+        if all(_safe_name(x) for x in rel.split("/")) and rel not in EXCLUDE and _git_ok(rel):
             out[rel] = sha  # (nomes como "..", "a\b" ou "C:x" ficam de fora)
     return out
 
@@ -1138,6 +1192,7 @@ class GitSyncManager:
         self.cv = threading.Condition(self.lock)
         self.stopped = False
         self.paused = 0  # exclusive() em andamento: a fila espera
+        self.fails = {}  # nome -> (última mensagem de erro, quantas vezes seguidas)
         self.thread = threading.Thread(target=self._run, daemon=True, name="github-sync")
         self.thread.start()
 
@@ -1366,6 +1421,7 @@ class GitSyncManager:
                     if sent:
                         log.info("GitHub: %s enviado (%d arquivo(s))", name, sent)
                     upd = {"state": "synced", "lastSync": time.time(), "error": None}
+                    self.fails.pop(name, None)
                     if report.get("commit"):
                         upd["lastCommit"] = dict(report["commit"], at=time.time())
             except RateLimited as e:
@@ -1383,11 +1439,18 @@ class GitSyncManager:
                         "acesso ou apagou o repositório. A cópia neste computador continua aqui.",
                         404,
                     )
-                if isinstance(e, GitHubError):
+                fails = self.fails.get(name, (None, 0))
+                same = fails[0] == str(e)
+                self.fails[name] = (str(e), fails[1] + 1 if same else 1)
+                # 30 s, 1 min, 2 min... até 30 min; no terminal, a mensagem só na primeira vez
+                delay = min(RETRY_INTERVAL * 2 ** (self.fails[name][1] - 1), MAX_RETRY_INTERVAL)
+                if same:
+                    log.debug("GitHub: %s ainda com a mesma falha (nova tentativa em %ds)", name, delay)
+                elif isinstance(e, GitHubError):
                     log.warning("GitHub: falha ao sincronizar %s: %s", name, e)
                 else:
                     log.exception("GitHub: erro inesperado ao sincronizar %s", name)
-                upd, delay_on_error = {"state": "error", "error": str(e)}, RETRY_INTERVAL
+                upd, delay_on_error = {"state": "error", "error": str(e)}, delay
             received, conflicts = report.get("received"), report.get("conflicts")
             if received:
                 log.info("GitHub: %s recebeu: %s", name, ", ".join(received))

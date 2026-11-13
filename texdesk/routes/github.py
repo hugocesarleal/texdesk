@@ -43,6 +43,8 @@ def status():
             "needsReconnect": gh.connected
             and "delete_repo" not in (gh.tokens.load() or {}).get("scope", "")
             and any(i["kind"] == "github-repo" for i in services.pending_remote_deletes()),
+            # o GitHub recusou o acesso (venceu sem como renovar, ou foi revogado)
+            "authExpired": gh.connected and gh.auth_failed,
         }
     )
 

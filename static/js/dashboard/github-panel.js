@@ -94,9 +94,11 @@ async function openGithubPanel() {
           <button class="btn small danger" id="gh-disconnect">Desconectar</button>
         </div>
       </div>
-      ${st.needsReconnect ? `<div class="dp-status err"><span class="ic">${icon("lock")}</span><div class="grow">
-        <b>Entre com GitHub de novo para terminar de apagar</b>
-        <small>Um projeto compartilhado foi apagado de vez, e o repositório dele só pode ser apagado com uma permissão que o TexDesk passou a pedir depois que você conectou.</small></div>
+      ${st.authExpired || st.needsReconnect ? `<div class="dp-status err"><span class="ic">${icon("lock")}</span><div class="grow">
+        ${st.authExpired ? `<b>O acesso ao GitHub expirou</b>
+        <small>Os commits estão parados. Entre com GitHub de novo: daqui em diante o TexDesk renova o acesso sozinho.</small>`
+        : `<b>Entre com GitHub de novo para terminar de apagar</b>
+        <small>Um projeto compartilhado foi apagado de vez, e o repositório dele só pode ser apagado com uma permissão que o TexDesk passou a pedir depois que você conectou.</small>`}</div>
         <button class="btn small primary" id="gh-reconnect">Entrar de novo</button></div>` : ""}
       <div class="dp-status" id="gh-progress"></div>
       <label class="dp-toggle">
