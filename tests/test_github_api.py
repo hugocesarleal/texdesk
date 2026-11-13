@@ -146,3 +146,70 @@ def test_fechar_a_janela_chama_o_envio():
         assert calls == [1, 1]
     finally:
         ctypes.windll.kernel32.SetConsoleCtrlHandler(ref, False)
+
+
+# ---------------------------------------------------------------- compartilhamento
+
+
+def test_compartilhar_pelo_editor_e_receber_convite(c, gh, tmp_path):
+    c.delete("/api/projects/Artigo Junto")
+    c.post("/api/projects", json={"name": "Artigo Junto"})
+    login(c, gh)
+    assert wait(lambda: "Artigo Junto/main.tex" in gh.files())
+    st = c.get("/api/projects/Artigo Junto/share").get_json()
+    assert st["connected"] and st["shared"] is None
+    r = c.post("/api/projects/Artigo Junto/share", json={"login": "@beltrana", "write": True}).get_json()
+    full = "fulano/texdesk-artigo-junto"
+    assert r["shared"]["repo"] == full and r["shared"]["mine"]
+    assert r["people"] == [{"login": "beltrana", "avatar": None, "write": True, "pending": True, "invitation": 1000}]
+    assert "main.tex" in gh.files(full) and "Artigo Junto/main.tex" not in gh.files()
+    # usuário que não existe: erro claro
+    bad = c.post("/api/projects/Artigo Junto/share", json={"login": "nao-existe-ninguem", "write": True})
+    assert bad.status_code == 400 and "não encontrado" in bad.get_json()["error"]
+    # projeto aparece como compartilhado na lista, com commit em 30 s
+    c.put("/api/projects/Artigo Junto/file", json={"path": "main.tex", "content": "junto\n"})
+    st = c.get("/api/projects/Artigo Junto/github").get_json()
+    assert st["shared"]["mine"] and st["commitAt"] - time.time() <= github_sync.SHARED_DELAY
+    # permissão e remoção
+    r = c.post(
+        "/api/projects/Artigo Junto/share/permission", json={"login": "beltrana", "write": False, "invitation": 1000}
+    )
+    assert r.get_json()["people"][0]["write"] is False
+    r = c.post("/api/projects/Artigo Junto/share/remove", json={"login": "beltrana", "invitation": 1000})
+    assert r.get_json()["people"] == []
+    c.delete("/api/projects/Artigo Junto")
+
+
+def test_aceitar_convite_baixa_o_projeto_so_leitura(c, gh, tmp_path):
+    # fulano (outro computador) compartilha só para leitura com beltrana, que usa este TexDesk
+    dono = github_sync.GitHubClient(tmp_path / "dono", "x", token_backend=None, open_url=gh)
+    gh.login_as = "fulano"
+    login_direto = dono.start_login()  # noqa: F841
+    gh.authorized = True
+    dono.poll_login()
+    d = tmp_path / "dono-projetos" / "Relatorio"
+    d.mkdir(parents=True)
+    (d / "main.tex").write_bytes(b"do fulano\n")
+    github_sync.share_project(dono, d, "Relatorio")
+    dono.view("fulano/texdesk-relatorio").invite("beltrana", write=False)
+    gh.authorized, gh.login_as = False, "beltrana"
+    login(c, gh)
+    (inv,) = c.get("/api/github/invitations").get_json()
+    assert inv["name"] == "Relatorio" and inv["from"] == "fulano" and inv["write"] is False
+    c.delete("/api/projects/Relatorio")
+    r = c.post(f"/api/github/invitations/{inv['id']}/accept").get_json()
+    assert r == {"name": "Relatorio", "queued": True}
+    assert wait(lambda: (config.PROJECTS / "Relatorio" / "main.tex").exists() and not services.gh_importer.items())
+    st = c.get("/api/projects/Relatorio/share").get_json()
+    assert st["readOnly"] and st["shared"]["owner"] == "fulano" and not st["shared"]["mine"]
+    # só leitura: o servidor recusa gravar
+    put = c.put("/api/projects/Relatorio/file", json={"path": "main.tex", "content": "mexi\n"})
+    assert put.status_code == 403 and "só para leitura" in put.get_json()["error"]
+    assert c.post("/api/projects/Relatorio/upload", data={}).status_code == 403
+    # sair do projeto: a cópia fica, sem sincronizar
+    assert c.post("/api/projects/Relatorio/share/leave").get_json() == {"ok": True}
+    assert not (config.PROJECTS / "Relatorio" / github_sync.MANIFEST).exists()
+    assert (
+        c.put("/api/projects/Relatorio/file", json={"path": "main.tex", "content": "agora é meu\n"}).status_code == 200
+    )
+    c.delete("/api/projects/Relatorio")

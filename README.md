@@ -176,6 +176,17 @@ Como funciona:
 - O acesso fica no cofre de senhas do sistema. O GitHub não tem permissão só para um repositório em apps desse tipo: a autorização vale para os seus repositórios, mas o TexDesk só mexe no `texdesk-projetos`. Para tirar o acesso, use [github.com/settings/applications](https://github.com/settings/applications).
 - Dá para usar junto com o Google Drive: o que chega por um vai para o outro.
 
+### Compartilhar um projeto
+
+No editor, clique em **Compartilhar**, digite o usuário do GitHub da pessoa e escolha **Pode editar** ou **Só pode ler**.
+- Na primeira vez, o projeto vai para um repositório privado só dele, `texdesk-<projeto>`, e sai do `texdesk-projetos`. No GitHub, o acesso de um convidado vale para o repositório inteiro: assim a pessoa vê só este projeto.
+- A pessoa recebe o convite por e-mail e no painel do TexDesk dela, com **Aceitar** e **Recusar**. Ao aceitar, o projeto é baixado em segundo plano.
+- Nos projetos compartilhados, o commit sai 30 segundos depois da última alteração, e o editor confere o GitHub a cada 15 segundos: a outra pessoa vê a mudança em menos de 1 minuto. Edições no mesmo arquivo são juntadas palavra por palavra, e cada commit fica no nome de quem editou.
+- Quem só pode ler recebe as atualizações, mas o editor não deixa mudar nada; para editar, dá para duplicar o projeto. Se o dono mudar a permissão, o TexDesk da pessoa percebe sozinho.
+- O dono vê quem tem acesso, muda a permissão, cancela convites e tira o acesso de alguém. Quem recebeu pode **Sair do projeto**: a cópia fica no computador, sem sincronizar.
+- Não é edição letra a letra ao mesmo tempo, como no Overleaf. Funciona bem para orientador e aluno ou para poucos coautores.
+- Todos precisam de uma conta no GitHub. Repositórios privados com colaboradores são gratuitos.
+
 ## Solução de problemas
 
 <details>

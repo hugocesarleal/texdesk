@@ -265,6 +265,18 @@
   .pdf-find input, .code-find input { width: 120px; }
 }
 
+/* ---------------- compartilhar (GitHub) */
+.modal.share { gap: 12px; }
+.share-invite { display: flex; gap: 8px; flex-wrap: wrap; }
+.share-invite input { flex: 1 1 220px; min-width: 0; }
+.share-invite select { width: auto; }
+.share-people { display: flex; flex-direction: column; gap: 6px; }
+.share-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); }
+.share-row select { width: auto; padding: 3px 6px; font-size: 13px; }
+.share-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; flex: none; }
+.share-leave { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+body.read-only .title::after { content: " · só leitura"; color: var(--warning); font-weight: 400; font-size: 12px; }
+
 /* ---------------- corretor ortográfico */
 .cm-spell { text-decoration: underline wavy var(--error); text-decoration-skip-ink: none; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .spell-menu {

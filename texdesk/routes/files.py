@@ -17,6 +17,13 @@ from ..storage import is_hidden, is_text, load_settings, project_dir, safe_path,
 bp = Blueprint("files", __name__)
 
 
+@bp.before_request
+def _writable():
+    """Gravar, criar, enviar, mover ou apagar: não num projeto só de leitura."""
+    if request.method != "GET" and (request.view_args or {}).get("name"):
+        services.ensure_writable(request.view_args["name"])
+
+
 @bp.get("/api/projects/<name>/files")
 def list_files(name):
     return jsonify(tree(project_dir(name)))

@@ -174,7 +174,36 @@ function driveIcon(st) {
 
 function githubIcon(st) {
   const b = githubBadge(st);
-  return b ? `<span class="drive-ind gh-ind ${b.cls}" title="${esc(b.text)}">${icon(b.icon)}</span>` : "";
+  if (!b) return "";
+  const sh = st.shared;
+  const people = sh ? `<span class="drive-ind gh-ind drive-ok" title="${esc(sh.mine ? "Compartilhado pelo GitHub" : `Projeto de @${sh.owner}${st.readOnly ? ", só para leitura" : ""}`)}">${icon("users")}</span>` : "";
+  return `<span class="drive-ind gh-ind ${b.cls}" title="${esc(b.text)}">${icon(b.icon)}</span>${people}`;
+}
+
+// ------------------------------------------------------------ convites recebidos (GitHub)
+async function checkInvites() {
+  let items;
+  try { items = await api("/api/github/invitations"); } catch (e) { return; }
+  const el = $("#invites");
+  el.innerHTML = items.map((i) => `<div class="update-banner invite" data-id="${i.id}">${icon("users")}
+      <span><b>@${esc(i.from || "alguém")}</b> compartilhou <b>${esc(i.name)}</b> com você (${i.write ? "pode editar" : "só para leitura"}).</span>
+      <button class="btn small" data-decline>Recusar</button>
+      <button class="btn small primary" data-accept>Aceitar</button></div>`).join("");
+  el.querySelectorAll(".invite").forEach((row) => {
+    const id = row.dataset.id;
+    row.querySelector("[data-accept]").onclick = async () => {
+      try {
+        const r = await api(`/api/github/invitations/${id}/accept`, { method: "POST" });
+        toast(`Baixando ${r.name} em segundo plano. Ele aparece na lista e continua sincronizado com quem compartilhou.`, 6000);
+        row.remove();
+        load();
+      } catch (e) { toast(e.message, 6000); }
+    };
+    row.querySelector("[data-decline]").onclick = async () => {
+      if (!(await modal({ title: "Recusar o convite?", body: "<p>O projeto não vem para este computador. Quem compartilhou pode convidar de novo.</p>", ok: "Recusar", danger: true }))) return;
+      try { await api(`/api/github/invitations/${id}/decline`, { method: "POST" }); row.remove(); } catch (e) { toast(e.message, 6000); }
+    };
+  });
 }
 
 // atualiza os ícones de sincronização enquanto há envio pendente

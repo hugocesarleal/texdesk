@@ -32,6 +32,7 @@ def search(name):
 @bp.post("/api/projects/<name>/replace")
 def replace(name):
     d = project_dir(name)
+    services.ensure_writable(name)
     data = json_body()
     q = data.get("q") or ""
     if not q:
@@ -104,6 +105,7 @@ def diff_version(name, sid):
 @bp.post("/api/projects/<name>/history/<sid>/restore")
 def restore_version(name, sid):
     d = project_dir(name)
+    services.ensure_writable(name)
     path = json_body().get("path") or None
     if path:
         safe_path(d, path)

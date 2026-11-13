@@ -2,14 +2,15 @@
 # Copyright (c) 2026 Hugo César Leal (https://github.com/hugocesarleal)
 # SPDX-License-Identifier: MIT
 
-"""GitHub: conexão ("Entrar com GitHub"), sincronização, projetos no repositório e importação."""
+"""GitHub: conexão ("Entrar com GitHub"), sincronização, projetos no repositório, importação
+e compartilhamento de projetos (um repositório privado por projeto compartilhado)."""
 
 from flask import Blueprint, abort, jsonify
 
 from .. import github_sync, history, merge, services
 from ..config import PROJECTS
 from ..security import json_body
-from ..storage import project_dir, safe_path
+from ..storage import load_settings, project_dir, safe_path, save_settings
 
 bp = Blueprint("github", __name__)
 IN_GITHUB_HISTORY = "A versão do outro computador está no histórico de commits do GitHub."
@@ -176,7 +177,18 @@ def import_candidates():
         | services.gh_importer.importing_ids()
         | {d.name for d in PROJECTS.iterdir() if d.is_dir()}  # mesmo nome aqui: é o mesmo projeto
     )
-    return jsonify(sorted(({"id": p, "name": p} for p in folders if p not in skip), key=lambda x: x["name"].lower()))
+    items = [{"id": p, "name": p} for p in folders if p not in skip]
+    # projetos compartilhados (dela ou com ela) que este computador ainda não tem
+    try:
+        shared = gh.shared_repos()
+    except github_sync.GitHubError:
+        shared = []
+    for r in shared:
+        rid = github_sync.SHARED_PREFIX + r["repo"]
+        if rid not in skip:
+            mine = r["owner"].lower() == (gh.state().get("user") or "").lower()
+            items.append({"id": rid, "name": r["name"], "sharedBy": None if mine else r["owner"]})
+    return jsonify(sorted(items, key=lambda x: x["name"].lower()))
 
 
 @bp.post("/api/github/offered")
@@ -194,8 +206,8 @@ def import_project():
         abort(400, "Falta o projeto do GitHub")
     if path in services.local_github_paths() or path in services.gh_importer.importing_ids():
         abort(409, "Esse projeto já está neste computador")
-    name = services.free_project_name(path)
-    services.gh_importer.add(name, path, path)
+    name = services.free_project_name(data.get("name") or path)
+    services.gh_importer.add(name, path, data.get("name") or path)
     return jsonify({"name": name, "queued": True})
 
 
@@ -210,4 +222,152 @@ def import_retry():
 def import_dismiss():
     if not services.gh_importer.dismiss(json_body().get("name")):
         abort(404, "Essa importação não está com erro")
+    return jsonify({"ok": True})
+
+
+# ---------------------------------------------------------------- compartilhamento
+
+
+def _share_state(name):
+    d = project_dir(name)
+    gh = services.github
+    m = github_sync.load_manifest(d)
+    st = {
+        "connected": gh.connected,
+        "user": gh.state().get("user"),
+        "shared": None,
+        "readOnly": bool(m.get("readOnly")),
+    }
+    if m.get("repo"):
+        owner = m["repo"].split("/")[0]
+        st["shared"] = {
+            "repo": m["repo"],
+            "url": f"https://github.com/{m['repo']}",
+            "owner": owner,
+            "mine": owner.lower() == (st["user"] or "").lower(),
+        }
+    return d, m, st
+
+
+@bp.get("/api/projects/<name>/share")
+def share_status(name):
+    """Com quem o projeto está compartilhado (para o dono) ou de quem é (para quem recebeu)."""
+    d, m, st = _share_state(name)
+    if st["shared"] and st["shared"]["mine"] and st["connected"]:
+        try:
+            st["people"] = services.github.view(m["repo"]).people()
+        except github_sync.GitHubError as e:
+            st["error"] = str(e)
+    return jsonify(st)
+
+
+@bp.post("/api/projects/<name>/share")
+def share(name):
+    """Convida alguém. Na primeira vez, leva o projeto para um repositório próprio (texdesk-<projeto>)."""
+    d, m, st = _share_state(name)
+    data = json_body()
+    login, write = (data.get("login") or "").strip().lstrip("@"), bool(data.get("write", True))
+    if not st["connected"]:
+        abort(409, "Conecte o GitHub no painel de projetos primeiro")
+    if st["shared"] and not st["shared"]["mine"]:
+        abort(403, "Só quem compartilhou o projeto pode convidar pessoas")
+    gh = services.github
+    try:
+        if not st["shared"]:
+            s = load_settings(d)
+            if not s.get("githubSync"):
+                s["githubSync"] = True
+                save_settings(d, s)
+            # com a fila parada: nenhum commit deste projeto sai pelo caminho antigo no meio
+            services.gitsync.forget(name)
+            full = services.gitsync.exclusive(lambda: github_sync.share_project(gh, d, name))
+        else:
+            full = st["shared"]["repo"]
+        if login:
+            gh.view(full).invite(login, write)
+    except github_sync.GitHubError as e:
+        abort(400 if e.status in (None, 404, 422) else 502, str(e))
+    return share_status(name)
+
+
+@bp.post("/api/projects/<name>/share/permission")
+def share_permission(name):
+    d, m, st = _share_state(name)
+    if not (st["shared"] and st["shared"]["mine"]):
+        abort(403, "Só quem compartilhou o projeto pode mudar as permissões")
+    data = json_body()
+    try:
+        services.github.view(m["repo"]).set_permission(
+            data.get("login"), bool(data.get("write")), data.get("invitation")
+        )
+    except github_sync.GitHubError as e:
+        abort(502, str(e))
+    return share_status(name)
+
+
+@bp.post("/api/projects/<name>/share/remove")
+def share_remove(name):
+    d, m, st = _share_state(name)
+    if not (st["shared"] and st["shared"]["mine"]):
+        abort(403, "Só quem compartilhou o projeto pode tirar o acesso de alguém")
+    data = json_body()
+    try:
+        services.github.view(m["repo"]).remove(data.get("login"), data.get("invitation"))
+    except github_sync.GitHubError as e:
+        abort(502, str(e))
+    return share_status(name)
+
+
+@bp.post("/api/projects/<name>/share/leave")
+def share_leave(name):
+    """Sai de um projeto compartilhado por outra pessoa. A cópia daqui fica, sem sincronizar."""
+    d, m, st = _share_state(name)
+    if not st["shared"] or st["shared"]["mine"]:
+        abort(400, "Este projeto não foi compartilhado com você por outra pessoa")
+    try:
+        services.github.leave(m["repo"])
+    except github_sync.GitHubError as e:
+        if e.status != 404:  # (já sem acesso: só desliga aqui)
+            abort(502, str(e))
+    services.gitsync.forget(name)
+    (d / github_sync.MANIFEST).unlink(missing_ok=True)
+    s = load_settings(d)
+    s["githubSync"] = False
+    save_settings(d, s)
+    return jsonify({"ok": True})
+
+
+@bp.get("/api/github/invitations")
+def invitations():
+    """Convites recebidos para projetos do TexDesk."""
+    if not services.github.connected:
+        return jsonify([])
+    try:
+        return jsonify(services.github.invitations())
+    except github_sync.GitHubError:
+        return jsonify([])
+
+
+@bp.post("/api/github/invitations/<int:iid>/accept")
+def accept(iid):
+    """Aceita o convite e baixa o projeto em segundo plano (aparece na lista como "importando")."""
+    gh = services.github
+    inv = next((i for i in gh.invitations() if i["id"] == iid), None)
+    if not inv:
+        abort(404, "Convite não encontrado (já foi aceito ou cancelado)")
+    try:
+        gh.accept(iid)
+    except github_sync.GitHubError as e:
+        abort(502, str(e))
+    name = services.free_project_name(inv["name"])
+    services.gh_importer.add(name, github_sync.SHARED_PREFIX + inv["repo"], inv["name"])
+    return jsonify({"name": name, "queued": True})
+
+
+@bp.post("/api/github/invitations/<int:iid>/decline")
+def decline(iid):
+    try:
+        services.github.decline(iid)
+    except github_sync.GitHubError as e:
+        abort(502, str(e))
     return jsonify({"ok": True})

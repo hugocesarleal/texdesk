@@ -18,3 +18,5 @@ offerDriveImport().then(offerGithubImport);  // uma pergunta de cada vez
 load();
 checkUpdate();
 checkShortcut();
+checkInvites();
+setInterval(checkInvites, 120000);  // convite que chega com o painel aberto

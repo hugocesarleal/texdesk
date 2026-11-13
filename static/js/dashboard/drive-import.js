@@ -36,7 +36,7 @@ async function offerImport(source) {
           <input type="checkbox" value="${esc(c.id)}" data-name="${esc(c.name)}" checked>
           <span class="drive-ind drive-ok">${icon("folder")}</span>
           <span class="nm">${esc(c.name)}</span>
-          <span class="st drive-off">${c.modified ? "alterado " + timeAgo(Date.parse(c.modified) / 1000) : ""}</span>
+          <span class="st drive-off">${c.sharedBy ? "compartilhado por @" + esc(c.sharedBy) : c.modified ? "alterado " + timeAgo(Date.parse(c.modified) / 1000) : ""}</span>
         </label>`).join("")}</div>
       <div class="actions"><button class="btn" data-later>Agora não</button>
         <button class="btn primary" data-import>Importar</button></div>

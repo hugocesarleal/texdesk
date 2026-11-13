@@ -4,6 +4,11 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.14.0] - 2026-11-12
+
+### Adicionado
+- Compartilhar projetos pelo GitHub. No editor, **Compartilhar** convida pessoas pelo usuário do GitHub, com **Pode editar** ou **Só pode ler**. Na primeira vez, o projeto vai para um repositório privado só dele (`texdesk-<projeto>`) e sai do `texdesk-projetos`, para o convidado ver só aquele projeto. Quem recebe vê o convite no painel, com **Aceitar** e **Recusar**, e o projeto é baixado em segundo plano. Nos projetos compartilhados, o commit sai 30 segundos depois da última alteração e o editor confere o GitHub a cada 15 segundos; as edições se juntam palavra por palavra, e cada commit fica no nome de quem editou. Quem só lê recebe as atualizações, mas não pode editar. O dono muda permissões, cancela convites e tira acessos, e quem recebeu pode sair do projeto. Projetos compartilhados também aparecem para importar nos outros computadores das duas pessoas.
+
 ## [0.13.0] - 2026-11-12
 
 ### Adicionado
@@ -198,7 +203,8 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.13.0...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/hugocesarleal/texdesk/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/hugocesarleal/texdesk/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/hugocesarleal/texdesk/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/hugocesarleal/texdesk/compare/v0.12.0...v0.12.1

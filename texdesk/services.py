@@ -183,7 +183,11 @@ def local_github_paths():
     out = {}
     for d in PROJECTS.iterdir():
         if d.is_dir() and not d.name.startswith("."):
-            path = github_sync.load_manifest(d).get("path")
+            m = github_sync.load_manifest(d)
+            if m.get("repo"):  # compartilhado: o id é o repositório próprio dele
+                out[github_sync.SHARED_PREFIX + m["repo"]] = d.name
+                continue
+            path = m.get("path")
             out[path or d.name] = d.name if path or github_enabled(d.name) else None
     return {k: v for k, v in out.items() if v}
 
@@ -197,6 +201,19 @@ def local_folder_ids():
             if fid:
                 out[fid] = d.name
     return out
+
+
+def read_only(name):
+    """Projeto compartilhado com este usuário só para leitura (no GitHub)?"""
+    return bool(github_sync.load_manifest(PROJECTS / name).get("readOnly"))
+
+
+def ensure_writable(name):
+    """Recusa alterar os arquivos de um projeto só de leitura (o GitHub também recusaria o envio)."""
+    if read_only(name):
+        from flask import abort
+
+        abort(403, "Este projeto foi compartilhado com você só para leitura. Para editar, faça uma cópia.")
 
 
 def free_project_name(remote_name):

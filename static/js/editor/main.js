@@ -74,13 +74,17 @@ async function pollGithub() {
   clearTimeout(githubTimer);
   const el = $("#github-state");
   let st;
-  const every = document.hidden ? GITHUB_CHECK_MS * 4 : GITHUB_CHECK_MS;
+  // compartilhado: confere a cada 15 s (outra pessoa pode estar editando)
+  const base = state.share && state.share.shared ? GITHUB_CHECK_MS / 2 : GITHUB_CHECK_MS;
+  const every = document.hidden ? base * 4 : base;
   const check = state.settings.githubSync && Date.now() - lastGithubCheck >= every;
   try {
     st = await api(`${P}/github${check ? "/check" : ""}`, check ? { method: "POST" } : {});
     if (check) lastGithubCheck = Date.now();
   } catch (e) { st = null; }
   if (st) githubNews(st);
+  // o dono mudou a permissão (editar <-> só ler): o editor troca de modo na hora
+  if (st && st.shared && !!st.readOnly !== !!state.readOnly) applyReadOnly();
   const b = githubBadge(st);
   el.hidden = !b;
   if (b) {
@@ -202,6 +206,7 @@ setInterval(loadMeta, 15000);
     for (let i = 1; i < parts.length; i++) state.openFolders.add(parts.slice(0, i).join("/"));
   }
   await openFile(first);
+  if (state.settings.githubSync) await applyReadOnly();
   loadMeta();
   pollDrive();
   pollGithub();

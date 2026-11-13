@@ -29,9 +29,11 @@ import json
 import logging
 import os
 import platform
+import re
 import shutil
 import threading
 import time
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -55,12 +57,15 @@ SCOPE = "repo"  # repositórios privados (o GitHub não tem escopo só para um r
 REPO_NAME = "texdesk-projetos"
 MANIFEST = ".github.json"
 COMMIT_DELAY = 120.0  # segundos sem editar até o commit
+SHARED_DELAY = 30.0  # num projeto compartilhado: a outra pessoa vê a mudança em menos de 1 minuto
+SHARED_REPO_PREFIX = "texdesk-"  # repositório de um projeto compartilhado: texdesk-<projeto>
+SHARE_META = ".texdesk-projeto.json"  # na raiz dele: o nome do projeto (fica fora da pasta local)
 RETRY_INTERVAL = 30.0
 DOWNLOAD_WORKERS = 4
 MAX_FILE = 90 * 1024 * 1024  # o GitHub recusa arquivos de mais de 100 MB
 BASE_MAX = 2 * 1024 * 1024
 # não vão para o GitHub: manifestos das sincronizações, miniatura do painel e a versão do Drive
-EXCLUDE = {MANIFEST, DRIVE_MANIFEST, DRIVE_VERSION_FILE, ".thumbnail.png"}
+EXCLUDE = {MANIFEST, DRIVE_MANIFEST, DRIVE_VERSION_FILE, ".thumbnail.png", SHARE_META}
 FILE_MODE = "100644"
 
 
@@ -113,13 +118,8 @@ class GitHubClient:
         self._open = open_url or urllib.request.urlopen  # os testes trocam por um GitHub falso
         self._device = None  # login em andamento: {device_code, interval, expires, next}
         self._lock = threading.Lock()
-        self._tops = {}  # árvore -> {nome na raiz: (tipo, sha)}, da última consulta desta execução
-        self.readme = None  # (sha, lista de projetos) do README.md do último commit conhecido
         self.hurry = False  # enviando às pressas (TexDesk fechando): nenhuma chamada dispensável
-        # último commit do branch conhecido por este computador e a árvore dele: o próximo commit
-        # se apoia nele sem perguntar ao GitHub (se outro computador enviou no meio, o GitHub
-        # recusa a atualização do branch, e o commit é refeito pelo caminho completo)
-        self.known = None
+        self._repos = {}  # dono/nome -> Repo (com o que já se sabe dele nesta execução)
 
     # ---- estado
     def state(self):
@@ -300,8 +300,127 @@ class GitHubClient:
             )
         return r["full_name"], r.get("default_branch") or "main"
 
+    def view(self, full_name=None, branch=None):
+        """O repositório full_name ("dono/nome"); sem nome, o principal (texdesk-projetos)."""
+        full_name = full_name or self.repo
+        with self._lock:
+            r = self._repos.get(full_name)
+            if r is None:
+                r = self._repos[full_name] = Repo(self, full_name, branch)
+            return r
+
+    # atalhos para o repositório principal
+    def head(self):
+        return self.view().head()
+
+    def commit_tree(self, commit_sha):
+        return self.view().commit_tree(commit_sha)
+
+    def top_folders(self, tree_sha):
+        return self.view().top_folders(tree_sha)
+
+    def commit_url(self, sha):
+        return self.view().commit_url(sha)
+
+    # ---- compartilhamento
+    def create_shared_repo(self, name):
+        """Repositório privado de um projeto compartilhado (texdesk-<projeto>). Devolve dono/nome."""
+        slug = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
+        slug = re.sub(r"[^a-z0-9]+", "-", slug).strip("-")[:80] or "projeto"
+        user = self.state()["user"]
+        for i in range(1, 50):
+            repo_name = SHARED_REPO_PREFIX + slug + (f"-{i}" if i > 1 else "")
+            if self.request("GET", f"/repos/{user}/{repo_name}", ok404=True) is not None:
+                continue  # nome já usado na conta
+            r = self.request(
+                "POST",
+                "/user/repos",
+                {
+                    "name": repo_name,
+                    "private": True,
+                    # vazio: o GitHub criaria um README.md, que viraria um arquivo do projeto (aqui
+                    # o projeto é a raiz). O primeiro commit é o SHARE_META, pela API de conteúdo
+                    "auto_init": False,
+                    "description": f"{name} · projeto LaTeX compartilhado pelo TexDesk",
+                },
+            )
+            return r["full_name"]
+        raise GitHubError("Não foi possível escolher um nome para o repositório")
+
+    def invitations(self):
+        """Convites recebidos para projetos do TexDesk (outros convites do GitHub ficam de fora)."""
+        out = []
+        for inv in self.request("GET", "/user/repository_invitations?per_page=100") or []:
+            repo = inv.get("repository") or {}
+            if not repo.get("name", "").startswith(SHARED_REPO_PREFIX) or repo.get("name") == REPO_NAME:
+                continue
+            desc = repo.get("description") or ""
+            out.append(
+                {
+                    "id": inv["id"],
+                    "repo": repo["full_name"],
+                    "name": desc.split(" · ")[0] if " · " in desc else repo["name"][len(SHARED_REPO_PREFIX) :],
+                    "from": (inv.get("inviter") or {}).get("login"),
+                    "write": inv.get("permissions") in ("write", "admin", "maintain"),
+                }
+            )
+        return out
+
+    def accept(self, invitation_id):
+        self.request("PATCH", f"/user/repository_invitations/{int(invitation_id)}")
+
+    def decline(self, invitation_id):
+        self.request("DELETE", f"/user/repository_invitations/{int(invitation_id)}")
+
+    def shared_repos(self):
+        """Projetos compartilhados a que esta conta tem acesso (dela ou de outras pessoas)."""
+        out = []
+        for r in self.request("GET", "/user/repos?affiliation=owner,collaborator&per_page=100") or []:
+            if not r["name"].startswith(SHARED_REPO_PREFIX) or r["name"] == REPO_NAME:
+                continue
+            desc = r.get("description") or ""
+            name = desc.split(" · ")[0] if " · " in desc else r["name"][len(SHARED_REPO_PREFIX) :]
+            out.append({"repo": r["full_name"], "name": name, "owner": r["full_name"].split("/")[0]})
+        return out
+
+    def leave(self, full_name):
+        """Sai de um projeto compartilhado por outra pessoa (o repositório continua com ela)."""
+        self.request("DELETE", f"/repos/{full_name}/collaborators/{self.state()['user']}")
+
+
+class Repo:
+    """Um repositório: o principal (uma pasta por projeto) ou o de um projeto compartilhado.
+
+    Guarda o que este computador já sabe dele nesta execução: a raiz das últimas árvores, o
+    último commit conhecido (known) e o README do principal.
+    """
+
+    def __init__(self, client: GitHubClient, full_name: str, branch=None):
+        self.client = client
+        self.full_name = full_name
+        self._branch = branch
+        self.dir = client.dir  # (cópias de base da junção, compartilhadas por todos os repositórios)
+        self._tops = {}  # árvore -> {nome na raiz: (tipo, sha)}, da última consulta desta execução
+        self.readme = None  # (sha, lista de projetos) do README.md do último commit conhecido
+        # último commit do branch conhecido por este computador e a árvore dele: o próximo commit
+        # se apoia nele sem perguntar ao GitHub (se outro computador enviou no meio, o GitHub
+        # recusa a atualização do branch, e o commit é refeito pelo caminho completo)
+        self.known = None
+
+    @property
+    def branch(self):
+        if self._branch is None:
+            if self.full_name == self.client.repo:
+                self._branch = self.client.branch
+            else:
+                self._branch = self.client.request("GET", f"/repos/{self.full_name}").get("default_branch") or "main"
+        return self._branch
+
+    def request(self, method, path, body=None, ok404=False):
+        return self.client.request(method, path, body, ok404)
+
     def _repo_path(self, rest):
-        return f"/repos/{self.repo}{rest}"
+        return f"/repos/{self.full_name}{rest}"
 
     def head(self):
         r = self.request("GET", self._repo_path(f"/git/ref/heads/{self.branch}"))
@@ -365,11 +484,83 @@ class GitHubClient:
         when = r[0]["commit"]["committer"]["date"]  # ex.: 2026-11-12T23:40:05Z
         return calendar.timegm(time.strptime(when, "%Y-%m-%dT%H:%M:%SZ"))
 
+    # ---- pessoas com acesso (projeto compartilhado)
+    @property
+    def owner(self):
+        return self.full_name.split("/")[0]
+
+    def can_push(self):
+        perms = (self.request("GET", f"/repos/{self.full_name}") or {}).get("permissions") or {}
+        return bool(perms.get("push"))
+
+    def people(self):
+        """Quem tem acesso (sem o dono) e os convites pendentes: [{login, write, pending, invitation}]."""
+        out = []
+        for c in self.request("GET", self._repo_path("/collaborators?affiliation=direct&per_page=100")) or []:
+            if c["login"].lower() != self.owner.lower():
+                perms = c.get("permissions") or {}
+                out.append(
+                    {
+                        "login": c["login"],
+                        "avatar": c.get("avatar_url"),
+                        "write": bool(perms.get("push")),
+                        "pending": False,
+                    }
+                )
+        for i in self.request("GET", self._repo_path("/invitations?per_page=100")) or []:
+            who = i.get("invitee") or {}
+            out.append(
+                {
+                    "login": who.get("login"),
+                    "avatar": who.get("avatar_url"),
+                    "write": i.get("permissions") in ("write", "admin", "maintain"),
+                    "pending": True,
+                    "invitation": i["id"],
+                }
+            )
+        return sorted(out, key=lambda x: (x["login"] or "").lower())
+
+    def invite(self, login, write):
+        """Convida (ou muda a permissão de quem já aceitou)."""
+        if not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})", login or ""):
+            raise GitHubError("Usuário do GitHub inválido")
+        if login.lower() == self.owner.lower():
+            raise GitHubError("Esse é o dono do projeto")
+        r = self.request(
+            "PUT", self._repo_path(f"/collaborators/{login}"), {"permission": "push" if write else "pull"}, ok404=True
+        )
+        if r is None:
+            raise GitHubError(f"Usuário do GitHub não encontrado: {login}", 404)
+
+    def set_permission(self, login, write, invitation=None):
+        if invitation:
+            self.request(
+                "PATCH",
+                self._repo_path(f"/invitations/{int(invitation)}"),
+                {"permissions": "write" if write else "read"},
+            )
+        else:
+            self.invite(login, write)
+
+    def remove(self, login, invitation=None):
+        if invitation:
+            self.request("DELETE", self._repo_path(f"/invitations/{int(invitation)}"))
+        else:
+            self.request("DELETE", self._repo_path(f"/collaborators/{login}"))
+
+    def put_file(self, path, data: bytes, message):
+        """Grava um arquivo direto no branch (uma chamada; usado só para SHARE_META)."""
+        body = {"message": message, "content": base64.b64encode(data).decode(), "branch": self.branch}
+        self.request("PUT", self._repo_path(f"/contents/{urllib.parse.quote(path)}"), body)
+        self.known = None  # o branch andou
+
     def commit_url(self, sha):
-        return f"https://github.com/{self.repo}/commit/{sha}"
+        return f"https://github.com/{self.full_name}/commit/{sha}"
 
     def folder_url(self, path):
-        return f"https://github.com/{self.repo}/tree/{self.branch}/{urllib.parse.quote(path)}"
+        if not path:
+            return f"https://github.com/{self.full_name}"
+        return f"https://github.com/{self.full_name}/tree/{self.branch}/{urllib.parse.quote(path)}"
 
 
 # ---------------------------------------------------------------- manifesto e arquivos locais
@@ -438,6 +629,10 @@ def _load_base(client, sha):
 def sync_project(client: GitHubClient, d: Path, name: str, push=True, report=None, before_change=None):
     """Traz do GitHub o que outro computador mudou e, se push, envia um commit com o daqui.
 
+    O projeto vive numa pasta do repositório principal (texdesk-projetos/<nome>) ou, se for
+    compartilhado, na raiz do repositório próprio dele (manifesto "repo"). Num projeto só de
+    leitura (manifesto "readOnly"), nada é enviado.
+
     report recebe "received" (arquivos alterados aqui), "conflicts" (trechos alterados dos dois
     lados) e "commit" ({sha, url, files}) quando houve envio. Devolve o nº de arquivos enviados.
     """
@@ -446,25 +641,32 @@ def sync_project(client: GitHubClient, d: Path, name: str, push=True, report=Non
     report.setdefault("conflicts", [])
     m = load_manifest(d)
     m.setdefault("files", {})
+    shared = m.get("repo")
+    repo = client.view(shared)
+    prefix = "" if shared else name
     old_path = m.get("path")
-    renamed_from = old_path if old_path and old_path != name else None
+    renamed_from = old_path if not shared and old_path and old_path != name else None
+    push = push and not m.get("readOnly")
     for attempt in range(4):
         # Commit rápido (3 chamadas em vez de 7, o que importa ao fechar a janela, quando o Windows
         # dá uns 5 s): apoiado no último commit conhecido, sem conferir antes o GitHub. Se outro
         # computador enviou algo no meio, update_head falha e a volta seguinte faz o completo.
-        fast = attempt == 0 and push and client.known and not renamed_from and m.get("head")
+        fast = attempt == 0 and push and repo.known and not renamed_from and m.get("head")
         if fast:
-            head, root = client.known
+            head, root = repo.known
             remote_tree = m.get("tree")
         else:
-            head = client.head()
-            root = client.commit_tree(head)
-            client.known = (head, root)
-            remote_tree = client.top_folders(root).get(name)
-            if renamed_from and remote_tree is None:  # projeto renomeado aqui: a pasta antiga vale
-                remote_tree = client.top_folders(root).get(renamed_from)
+            head = repo.head()
+            root = repo.commit_tree(head)
+            repo.known = (head, root)
+            if shared:
+                remote_tree = root
+            else:
+                remote_tree = repo.top_folders(root).get(name)
+                if renamed_from and remote_tree is None:  # projeto renomeado aqui: a pasta antiga vale
+                    remote_tree = repo.top_folders(root).get(renamed_from)
         if not fast and remote_tree != m.get("tree"):
-            skip = _pull(client, d, m, remote_tree, report, before_change)
+            skip = _pull(repo, d, m, remote_tree, report, before_change)
             m["tree"] = remote_tree if not skip else None
             m["head"] = head
             save_manifest(d, m)
@@ -472,35 +674,43 @@ def sync_project(client: GitHubClient, d: Path, name: str, push=True, report=Non
             skip = set()
         if not push:
             return 0
-        entries, sent = _changes(client, d, m, skip, name, renamed_from, remote_tree)
+        entries, sent = _changes(repo, d, m, skip, prefix, renamed_from)
         if not entries:
             if fast:  # nada a enviar: confere o GitHub pelo caminho completo (traz o que mudou lá)
                 continue
-            m["path"], m["head"], m["lastSync"] = name, head, time.time()
+            m["path"], m["head"], m["lastSync"] = prefix, head, time.time()
             save_manifest(d, m)
             return 0
-        readme_sha, readme_data, readme_entry = _readme(client, root, name, renamed_from, fill=not client.hurry)
-        tree = client.create_tree(root, entries + [readme_entry])
-        commit = client.create_commit(_message(name, sent, renamed_from), tree, head)
+        readme = None
+        if not shared:  # a lista de projetos fica no README do repositório principal
+            readme = _readme(repo, root, name, renamed_from, fill=not client.hurry)
+            entries = entries + [readme[2]]
+        tree = repo.create_tree(root, entries)
+        commit = repo.create_commit(_message(name, sent, renamed_from), tree, head)
         try:
-            client.update_head(commit)
+            repo.update_head(commit)
         except NotFastForward:
             continue  # outro computador enviou no meio: traz o dele e monta de novo
-        client.known = (commit, tree)
-        client.readme = (readme_sha, readme_data)
-        new_tree = client.top_folders(tree).get(name)
+        repo.known = (commit, tree)
+        if readme:
+            repo.readme = readme[:2]
+        new_tree = tree if shared else repo.top_folders(tree).get(name)
         for rel, info in sent.items():
             if info is None:
                 m["files"].pop(rel, None)
             else:
                 m["files"][rel] = info
-        m.update(path=name, head=commit, tree=new_tree, lastSync=time.time())
+        m.update(path=prefix, head=commit, tree=new_tree, lastSync=time.time())
         m["lastCommit"] = {"sha": commit, "at": time.time(), "files": sorted(sent)}
         save_manifest(d, m)
-        report["commit"] = {"sha": commit, "url": client.commit_url(commit), "files": sorted(sent)}
-        _prune_base(client, d)
+        report["commit"] = {"sha": commit, "url": repo.commit_url(commit), "files": sorted(sent)}
+        _prune_base(repo, d)
         return len(sent)
     raise GitHubError("O repositório mudou várias vezes seguidas; nova tentativa em seguida")
+
+
+def _join(prefix, rel):
+    return f"{prefix}/{rel}" if prefix else rel
 
 
 # ---------------------------------------------------------------- README do repositório
@@ -522,7 +732,7 @@ def _readme(client, root, name, renamed_from, fill=True):
         data = dict(client.readme[1])  # o do último commit deste computador: sem baixar
     else:
         data = _parse_readme(client.blob(sha)) if sha else {}
-    folders = set(client.top_folders(root)) | {name}
+    folders = set(client.top_folders(root)) | ({name} if name else set())
     folders.discard(renamed_from)
     data = {p: v for p, v in data.items() if p in folders}
     for p in sorted(folders - set(data) - {name}) if fill else ():
@@ -532,7 +742,8 @@ def _readme(client, root, name, renamed_from, fill=True):
             at = None
         if at:
             data[p] = {"at": at, "computer": ""}
-    data[name] = {"at": time.time(), "computer": platform.node() or ""}
+    if name:
+        data[name] = {"at": time.time(), "computer": platform.node() or ""}
     text = _render_readme(data, folders)
     raw = text.encode("utf-8")
     return blob_sha(raw), data, {"path": README, "mode": FILE_MODE, "type": "blob", "content": text}
@@ -590,7 +801,7 @@ def _message(name, sent, renamed_from=None):
     return f"{title}\n\nEnviado pelo TexDesk de {platform.node() or 'um computador'}."
 
 
-def _changes(client, d: Path, m: dict, skip, name, renamed_from, remote_tree):
+def _changes(client, d: Path, m: dict, skip, prefix, renamed_from):
     """Entradas da árvore do commit e, para o manifesto, {caminho: info ou None (apagado)}."""
     files = {rel: p for rel, p in local_files(d).items() if rel not in skip}
     entries, sent = [], {}
@@ -600,7 +811,7 @@ def _changes(client, d: Path, m: dict, skip, name, renamed_from, remote_tree):
         for rel, e in m["files"].items():
             entries.append({"path": f"{renamed_from}/{rel}", "mode": FILE_MODE, "type": "blob", "sha": None})
             if rel in files and e.get("sha"):
-                entries.append({"path": f"{name}/{rel}", "mode": FILE_MODE, "type": "blob", "sha": e["sha"]})
+                entries.append({"path": _join(prefix, rel), "mode": FILE_MODE, "type": "blob", "sha": e["sha"]})
                 sent[rel] = dict(e)
     for rel, p in sorted(files.items()):
         st = p.stat()
@@ -608,7 +819,7 @@ def _changes(client, d: Path, m: dict, skip, name, renamed_from, remote_tree):
         if e and e.get("mtime") == st.st_mtime and e.get("size") == st.st_size:
             continue
         if st.st_size > MAX_FILE:
-            log.warning("GitHub: %s/%s tem mais de 90 MB e não foi enviado", name, rel)
+            log.warning("GitHub: %s tem mais de 90 MB e não foi enviado", _join(prefix or d.name, rel))
             continue
         data = p.read_bytes()
         sha = blob_sha(data)
@@ -618,7 +829,7 @@ def _changes(client, d: Path, m: dict, skip, name, renamed_from, remote_tree):
             if rel in sent:
                 sent[rel] = info
             continue
-        path = f"{name}/{rel}"
+        path = _join(prefix, rel)
         if rel in sent:  # renomeado e também alterado: vale o conteúdo novo
             entries = [x for x in entries if x["path"] != path]
         try:
@@ -630,7 +841,7 @@ def _changes(client, d: Path, m: dict, skip, name, renamed_from, remote_tree):
         _save_base(client, sha, data, rel)
     for rel in [r for r in m["files"] if r not in files and r not in skip]:
         if not renamed_from:  # (renomeado: o caminho antigo já foi apagado acima)
-            entries.append({"path": f"{name}/{rel}", "mode": FILE_MODE, "type": "blob", "sha": None})
+            entries.append({"path": _join(prefix, rel), "mode": FILE_MODE, "type": "blob", "sha": None})
         sent[rel] = None
     return entries, sent
 
@@ -754,22 +965,88 @@ def _prune_base(client, d: Path):
             p.unlink(missing_ok=True)
 
 
+def share_project(client: GitHubClient, d: Path, name: str):
+    """Leva o projeto para um repositório privado só dele, onde dá para convidar pessoas.
+
+    No repositório principal, o acesso de um convidado valeria para todos os projetos. A ordem
+    protege os arquivos: o projeto inteiro vai para o repositório novo e só depois sai do
+    principal (moveFrom no manifesto: se algo falhar no meio, a próxima sincronização termina).
+    """
+    m = load_manifest(d)
+    if m.get("repo"):
+        return m["repo"]
+    full = client.create_shared_repo(name)
+    repo = client.view(full)
+    meta = {"name": name, "owner": client.state().get("user")}
+    repo.put_file(
+        SHARE_META, json.dumps(meta, ensure_ascii=False).encode(), f"{name}: projeto compartilhado pelo TexDesk"
+    )
+    new = {"repo": full, "path": "", "files": {}, "moveFrom": m.get("path") or (name if m.get("files") else None)}
+    save_manifest(d, new)
+    sync_project(client, d, name)  # todos os arquivos, num commit
+    finish_move(client, d)
+    return full
+
+
+def finish_move(client: GitHubClient, d: Path):
+    """Tira do repositório principal a pasta de um projeto que já está no repositório próprio."""
+    m = load_manifest(d)
+    path = m.get("moveFrom")
+    if not path or not m.get("lastCommit"):
+        return
+    main = client.view()
+    for _ in range(3):
+        head = main.head()
+        root = main.commit_tree(head)
+        tree = main.top_folders(root).get(path)
+        if tree is None:
+            break
+        entries = [
+            {"path": f"{path}/{rel}", "mode": FILE_MODE, "type": "blob", "sha": None} for rel in main.tree_files(tree)
+        ]
+        readme = _readme(main, root, None, path, fill=not client.hurry)
+        new_tree = main.create_tree(root, entries + [readme[2]])
+        commit = main.create_commit(f"{path}: movido para o repositório compartilhado {m['repo']}", new_tree, head)
+        try:
+            main.update_head(commit)
+        except NotFastForward:
+            continue
+        main.known = (commit, new_tree)
+        main.readme = readme[:2]
+        break
+    m.pop("moveFrom", None)
+    save_manifest(d, m)
+
+
+SHARED_PREFIX = "repo:"  # id de importação de um projeto compartilhado: "repo:dono/nome"
+
+
 def restore_project(client: GitHubClient, path: str, dest: Path, remote_name: str, progress=None):
-    """Baixa a pasta de um projeto do repositório para dest (importação em outro computador)."""
-    head = client.head()
-    tree = client.top_folders(client.commit_tree(head)).get(path)
+    """Baixa um projeto para dest (importação em outro computador ou de quem recebeu o convite).
+
+    path é a pasta no repositório principal ou, para um projeto compartilhado, "repo:dono/nome"
+    (o projeto é a raiz desse repositório).
+    """
+    shared = path[len(SHARED_PREFIX) :] if path.startswith(SHARED_PREFIX) else None
+    repo = client.view(shared)
+    head = repo.head()
+    root = repo.commit_tree(head)
+    tree = root if shared else repo.top_folders(root).get(path)
     if tree is None:
         raise GitHubError(f"A pasta {path} não está mais no repositório")
-    remote = _remote_files(client, tree)
+    remote = _remote_files(repo, tree)
     if progress:
         progress(0, len(remote))
     dest.mkdir(parents=True)
-    m = {"path": path, "head": head, "tree": tree, "files": {}}
+    m = {"path": "" if shared else path, "head": head, "tree": tree, "files": {}}
+    if shared:
+        m["repo"] = shared
+        m["readOnly"] = not repo.can_push()
     lock = threading.Lock()
 
     def fetch(item):
         rel, sha = item
-        data = client.blob(sha)
+        data = repo.blob(sha)
         target = dest / rel
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
@@ -816,6 +1093,7 @@ class GitSyncManager:
         self.lock = threading.Lock()
         self.cv = threading.Condition(self.lock)
         self.stopped = False
+        self.paused = 0  # exclusive() em andamento: a fila espera
         self.thread = threading.Thread(target=self._run, daemon=True, name="github-sync")
         self.thread.start()
 
@@ -825,7 +1103,7 @@ class GitSyncManager:
         if not self.client.connected or not self.is_enabled(name):
             return
         with self.cv:
-            at = time.time() + COMMIT_DELAY
+            at = time.time() + (SHARED_DELAY if load_manifest(self.projects / name).get("repo") else COMMIT_DELAY)
             self.due[name] = at
             self.status.setdefault(name, {}).update(pending=True, commitAt=at)
             self.cv.notify()
@@ -916,17 +1194,24 @@ class GitSyncManager:
         st.setdefault("state", "idle")
         if blocked > time.time() and st["pending"]:
             st["waitUntil"] = blocked
+        m = load_manifest(self.projects / name)
+        shared = m.get("repo")
         if "lastSync" not in st:
-            m = load_manifest(self.projects / name)
             st["lastSync"] = m.get("lastSync")
-            if m.get("lastCommit"):
-                st["lastCommit"] = dict(m["lastCommit"], url=self.client.commit_url(m["lastCommit"]["sha"]))
+            if m.get("lastCommit") and st["connected"]:
+                st["lastCommit"] = dict(
+                    m["lastCommit"], url=self.client.view(shared).commit_url(m["lastCommit"]["sha"])
+                )
             with self.lock:
                 self.status.setdefault(name, {}).setdefault("lastSync", st["lastSync"])
                 if "lastCommit" in st:
                     self.status[name].setdefault("lastCommit", st["lastCommit"])
+        if shared:  # compartilhado: repositório próprio, de quem compartilhou
+            me = (self.client.state().get("user") or "").lower()
+            st["shared"] = {"repo": shared, "owner": shared.split("/")[0], "mine": shared.split("/")[0].lower() == me}
+            st["readOnly"] = bool(m.get("readOnly"))
         if st["enabled"] and st["connected"]:
-            st["url"] = self.client.folder_url(name)
+            st["url"] = self.client.view(shared).folder_url("" if shared else name)
         return st
 
     def overview(self, names):
@@ -946,9 +1231,46 @@ class GitSyncManager:
         return {"counts": counts, "projects": items}
 
     # ---- worker
+    PERMISSION_EVERY = 300.0  # segundos entre conferências da permissão num projeto de outra pessoa
+
+    def _refresh_permission(self, d: Path, force=False):
+        """Num projeto compartilhado por outra pessoa: confere se ainda pode editar (o dono pode ter
+        mudado para "só ler", ou o contrário). Devolve True se ainda tem acesso ao repositório."""
+        m = load_manifest(d)
+        shared = m.get("repo")
+        if not shared or shared.split("/")[0].lower() == (self.client.state().get("user") or "").lower():
+            return bool(shared)
+        if not force and time.time() - m.get("permissionAt", 0) < self.PERMISSION_EVERY:
+            return True
+        info = self.client.request("GET", f"/repos/{shared}", ok404=True)
+        if info is None:
+            return False
+        read_only = not (info.get("permissions") or {}).get("push")
+        if read_only != bool(m.get("readOnly")):
+            log.info("GitHub: %s agora é %s", d.name, "só para leitura" if read_only else "editável")
+        m.update(readOnly=read_only, permissionAt=time.time())
+        save_manifest(d, m)
+        return True
+
+    def exclusive(self, fn):
+        """Roda fn() com a fila parada (depois do envio em andamento): ex., ao levar um projeto
+        para o repositório próprio, nenhum commit dele pode sair pelo caminho antigo no meio."""
+        with self.cv:
+            self.paused += 1
+            while self.busy:
+                self.cv.wait(timeout=0.2)
+        try:
+            return fn()
+        finally:
+            with self.cv:
+                self.paused -= 1
+                self.cv.notify_all()
+
     def _next(self):
         """(nome, push) do próximo trabalho, ou o tempo a esperar."""
         now = time.time()
+        if self.paused:
+            return None, None, 0.2
         if now < self.blocked_until:
             return None, None, self.blocked_until - now
         if self.checks:  # conferências pedidas pelo editor vêm primeiro
@@ -986,7 +1308,17 @@ class GitSyncManager:
                         if self.before_change:
                             self.before_change(pasta, name, important)
 
-                    sent = sync_project(self.client, d, name, push=push, report=report, before_change=before)
+                    self._refresh_permission(d)
+                    try:
+                        sent = sync_project(self.client, d, name, push=push, report=report, before_change=before)
+                    except GitHubError as e:
+                        # o dono passou esta pessoa para "só ler": o GitHub recusa o envio. Confere e,
+                        # se ela ainda lê o projeto, segue recebendo, sem enviar
+                        if e.status != 404 or not self._refresh_permission(d, force=True):
+                            raise
+                        sent = sync_project(self.client, d, name, push=False, report=report, before_change=before)
+                    if load_manifest(d).get("moveFrom"):  # compartilhamento interrompido no meio
+                        finish_move(self.client, d)
                     if sent:
                         log.info("GitHub: %s enviado (%d arquivo(s))", name, sent)
                     upd = {"state": "synced", "lastSync": time.time(), "error": None}
@@ -1001,6 +1333,12 @@ class GitSyncManager:
                 log.warning("GitHub: %s não sincronizado: %s", name, e)
                 upd = {"state": "error", "error": str(e)}
             except Exception as e:  # rede, repositório apagado etc.: tenta de novo depois
+                if isinstance(e, GitHubError) and e.status == 404 and load_manifest(d).get("repo"):
+                    e = GitHubError(
+                        "Você não tem mais acesso a este projeto no GitHub: quem compartilhou tirou o "
+                        "acesso ou apagou o repositório. A cópia neste computador continua aqui.",
+                        404,
+                    )
                 if isinstance(e, GitHubError):
                     log.warning("GitHub: falha ao sincronizar %s: %s", name, e)
                 else:
