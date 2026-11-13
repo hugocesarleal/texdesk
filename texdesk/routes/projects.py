@@ -265,11 +265,10 @@ def clone_project(name):
     new = (json_body().get("name") or "").strip()
     if not valid_name(new) or (PROJECTS / new).exists():
         abort(400, "Nome inválido ou já existente")
-    shutil.copytree(d, PROJECTS / new)
-    # a cópia é um projeto novo: não pode apontar para a mesma pasta do Drive
-    (PROJECTS / new / drive_sync.MANIFEST).unlink(missing_ok=True)
-    (PROJECTS / new / drive_sync.VERSION_FILE).unlink(missing_ok=True)
-    (PROJECTS / new / github_sync.MANIFEST).unlink(missing_ok=True)  # nem do GitHub
+    # a cópia é um projeto novo: não pode apontar para a mesma pasta do Drive nem do GitHub. Os
+    # manifestos e os .tmp (gravados pela sincronização enquanto copia) ficam de fora da cópia
+    skip = shutil.ignore_patterns(drive_sync.MANIFEST, drive_sync.VERSION_FILE, github_sync.MANIFEST, "*.tmp")
+    shutil.copytree(d, PROJECTS / new, ignore=skip)
     services.changed(new)
     return jsonify({"name": new})
 

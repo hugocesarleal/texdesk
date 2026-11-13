@@ -213,3 +213,19 @@ def test_aceitar_convite_baixa_o_projeto_so_leitura(c, gh, tmp_path):
         c.put("/api/projects/Relatorio/file", json={"path": "main.tex", "content": "agora é meu\n"}).status_code == 200
     )
     c.delete("/api/projects/Relatorio")
+
+
+def test_duplicar_enquanto_a_sincronizacao_grava_o_manifesto(c, monkeypatch):
+    # regressão: o .github.json.tmp sumia no meio da cópia e a duplicação falhava (Windows)
+    c.delete("/api/projects/Orig Tmp")
+    c.delete("/api/projects/Copia Tmp")
+    c.post("/api/projects", json={"name": "Orig Tmp"})
+    d = config.PROJECTS / "Orig Tmp"
+    (d / ".github.json.tmp").write_text("{}")
+    (d / ".drive.json").write_text("{}")
+    assert c.post("/api/projects/Orig Tmp/clone", json={"name": "Copia Tmp"}).status_code == 200
+    copia = config.PROJECTS / "Copia Tmp"
+    assert (copia / "main.tex").exists()
+    assert not (copia / ".github.json.tmp").exists() and not (copia / ".drive.json").exists()
+    c.delete("/api/projects/Orig Tmp")
+    c.delete("/api/projects/Copia Tmp")
