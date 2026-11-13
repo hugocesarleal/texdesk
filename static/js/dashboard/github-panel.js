@@ -94,6 +94,10 @@ async function openGithubPanel() {
           <button class="btn small danger" id="gh-disconnect">Desconectar</button>
         </div>
       </div>
+      ${st.needsReconnect ? `<div class="dp-status err"><span class="ic">${icon("lock")}</span><div class="grow">
+        <b>Entre com GitHub de novo para terminar de apagar</b>
+        <small>Um projeto compartilhado foi apagado de vez, e o repositório dele só pode ser apagado com uma permissão que o TexDesk passou a pedir depois que você conectou.</small></div>
+        <button class="btn small primary" id="gh-reconnect">Entrar de novo</button></div>` : ""}
       <div class="dp-status" id="gh-progress"></div>
       <label class="dp-toggle">
         <span class="txt"><b>Sincronizar todos os projetos</b>
@@ -123,6 +127,8 @@ async function openGithubPanel() {
           <li>Todas as versões ficam no histórico de commits do GitHub. Para tirar o acesso do TexDesk, use <a href="https://github.com/settings/applications" target="_blank" rel="noopener">github.com/settings/applications</a>.</li>
         </ul>
       </details>`;
+    const again = body.querySelector("#gh-reconnect");
+    if (again) again.onclick = startLogin;  // o mesmo código de login; o acesso novo substitui o antigo
     body.querySelector("#gh-disconnect").onclick = async () => {
       const ok = await modal({ title: "Desconectar o GitHub?", body: "<p>Os commits param e o acesso à sua conta é apagado deste computador. Nada é apagado do GitHub nem dos seus projetos.</p>", ok: "Desconectar", danger: true });
       if (ok) { await api("/api/github/disconnect", { method: "POST" }); refresh(); }

@@ -38,6 +38,11 @@ def status():
             "syncAll": bool(s.get("syncAll")),
             "tokenStorage": gh.tokens.location,
             "commitDelay": github_sync.COMMIT_DELAY,
+            # repositório de projeto compartilhado esperando ser apagado, mas o acesso foi dado
+            # antes de o TexDesk pedir a permissão de apagar repositórios: entrar de novo
+            "needsReconnect": gh.connected
+            and "delete_repo" not in (gh.tokens.load() or {}).get("scope", "")
+            and any(i["kind"] == "github-repo" for i in services.pending_remote_deletes()),
         }
     )
 
@@ -54,14 +59,16 @@ def login_start():
 @bp.post("/api/github/login/poll")
 def login_poll():
     """O painel pergunta a cada poucos segundos se a pessoa já autorizou."""
+    was_connected = services.github.connected  # entrar de novo (ex.: permissão nova): só troca o acesso
     try:
         r = services.github.poll_login()
     except github_sync.GitHubError as e:
         abort(502, str(e))
     if r["state"] == "done":
-        if services.github.state().get("syncAll"):
-            services.set_github_all(True)  # todos os projetos entram no repositório
+        if not was_connected and services.github.state().get("syncAll"):
+            services.set_github_all(True)  # primeira conexão: todos os projetos entram no repositório
         services.gitsync.mark_all()
+        services.remote_deletes.retry_now()  # exclusões que esperavam a permissão nova
     return jsonify(r)
 
 

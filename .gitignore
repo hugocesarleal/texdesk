@@ -3,6 +3,8 @@
 .drive/
 # acesso e estado da sincronização com o GitHub
 .github-sync/
+# exclusões no Drive e no GitHub ainda por fazer
+.remote-deletes.json
 # projetos do usuário, PDFs compilados, histórico de versões e lixeira
 projects/
 output/

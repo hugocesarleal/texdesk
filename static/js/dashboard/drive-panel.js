@@ -123,7 +123,7 @@ async function openDrivePanel() {
           <li>Os projetos ficam na pasta <b>TexDesk</b> do seu Drive, uma subpasta por projeto.</li>
           <li>Enquanto você edita, as alterações são enviadas a cada 5 segundos, só dos arquivos que mudaram.</li>
           <li>Arquivos apagados aqui vão para a lixeira do Drive (dá para recuperar por 30 dias).</li>
-          <li>Excluir um projeto aqui não o apaga do Drive: ele aparece em <b>Só no Drive</b> e pode ser baixado de novo.</li>
+          <li>Um projeto excluído continua no Drive enquanto estiver na lixeira do TexDesk. Quando sai de vez dela, a pasta dele vai para a lixeira do Drive.</li>
           <li>O envio vai do computador para o Drive. Se você editar o mesmo projeto em outro computador, baixe-o de novo para ver as mudanças.</li>
         </ul>
       </details>`;

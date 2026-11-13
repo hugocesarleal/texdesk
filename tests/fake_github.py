@@ -55,6 +55,7 @@ class FakeGitHub:
         self.offline = False
         self.rate_limited = 0  # quantas respostas de limite ainda dar
         self.before_ref_update = None  # gancho: simula outro computador enviando no meio
+        self.scope = "repo,delete_repo"  # o que o GitHub devolve no login (antes: só "repo")
 
     # ---- repositório principal (os testes antigos usam head/files direto)
     @property
@@ -168,7 +169,7 @@ class FakeGitHub:
             assert form["device_code"] == "dev123"
             if not self.authorized:
                 return _Resp({"error": "authorization_pending"})
-            return _Resp({"access_token": f"gho_{self.login_as}", "scope": "repo"})
+            return _Resp({"access_token": f"gho_{self.login_as}", "scope": self.scope})
         user = (req.get_header("Authorization") or "").removeprefix("Bearer gho_")
         parsed = urllib.parse.urlparse(url)
         path, query = parsed.path, parsed.query
@@ -231,6 +232,12 @@ class FakeGitHub:
         if access is None:
             raise _error(url, 404, {"message": "Not Found"})
         repo = self.repos[full]
+        if not rest and method == "DELETE":  # apagar o repositório: só o dono, com delete_repo
+            if full.split("/")[0] != user or "delete_repo" not in self.scope:
+                raise _error(url, 403, {"message": "Must have admin rights to Repository."})
+            del self.repos[full], self.heads[full]
+            self.invites = {i: v for i, v in self.invites.items() if v["repo"] != full}
+            return _Resp(None)
         if not rest:
             return _Resp({"full_name": full, "default_branch": "main", "permissions": {"push": access == "write"}})
         if rest == "/commits":  # último commit que mexeu numa pasta
@@ -274,6 +281,12 @@ class FakeGitHub:
                 inv["write"] = data["permissions"] == "write"
             return _Resp(None)
         m = re.fullmatch(r"/contents/(.+)", rest)
+        if m and method == "GET":
+            path_in = urllib.parse.unquote(m.group(1))
+            files = self.flatten(self.commits[self.heads[full]]["tree"]) if self.heads[full] else {}
+            if path_in not in files:
+                raise _error(url, 404, {"message": "Not Found"})
+            return _Resp({"sha": files[path_in], "path": path_in})
         if m and method == "PUT":
             if access != "write":
                 raise _error(url, 403, {"message": "Forbidden"})

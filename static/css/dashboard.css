@@ -125,6 +125,11 @@
 .dash-top .grow { flex: 1; }
 .dash-top .btn { background: transparent; color: var(--toolbar-text); border-color: rgba(255, 255, 255, .25); }
 .dash-top .btn:hover { background: var(--toolbar-hover); }
+.dash-top .btn .count { background: var(--accent); color: #fff; border-radius: 9px; padding: 0 6px; font-size: 11px; line-height: 16px; }
+@media (max-width: 720px) {  /* só os ícones (o nome fica na dica do mouse) */
+  .dash-top .btn .lbl { display: none; }
+  .dash-top { padding: 10px 14px; gap: 8px; }
+}
 .update-banner {
   display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 16px; border-radius: 10px;
   background: var(--accent-soft); color: var(--text); font-size: 13.5px;
@@ -149,8 +154,6 @@
 .proj-table td.acts .icon-btn.on { color: var(--accent); }
 .proj-table td.acts .icon-btn { opacity: .55; }
 .proj-table tr:hover td.acts .icon-btn, .proj-table td.acts .icon-btn.on, .proj-table td.acts .icon-btn:focus-visible { opacity: 1; }
-.dash-trash { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
-.dash-trash .btn { color: var(--muted); }
 .modal.trash { width: min(560px, 100%); max-height: 85vh; }
 .modal.trash .panel-body { overflow: auto; display: flex; flex-direction: column; gap: 10px; }
 .trash-list { border: 1px solid var(--border); border-radius: var(--radius); }

@@ -152,7 +152,7 @@ No painel de projetos, clique em **Google Drive**:
 Como funciona:
 - Os projetos ficam em `TexDesk/<projeto>` no seu Drive.
 - O app pede só o escopo `drive.file`: ele enxerga apenas os arquivos que ele mesmo criou, nunca o resto do seu Drive.
-- Arquivos apagados no TexDesk vão para a lixeira do Drive. Excluir um projeto no TexDesk (mesmo esvaziando a lixeira do TexDesk) não o apaga do Drive.
+- Arquivos apagados no TexDesk vão para a lixeira do Drive. Um projeto excluído continua no Drive enquanto estiver na lixeira do TexDesk; quando sai de vez dela (ao esvaziar, ou depois de 30 dias), a pasta dele vai para a lixeira do Drive. O mesmo vale para o GitHub.
 - Em outro computador, use as mesmas credenciais. O TexDesk oferece importar os projetos que já estão no Drive. A importação acontece em segundo plano: os projetos aparecem na lista na hora, com o andamento, e você pode continuar usando o TexDesk enquanto eles chegam.
 - O acesso à conta fica no cofre de senhas do sistema (Gerenciador de Credenciais no Windows, Chaves no macOS, Secret Service no Linux).
 - Cada projeto tem um arquivo de versão (`.version.json`), que muda a cada envio para o Drive. Ao abrir um projeto, e a cada 10 segundos enquanto ele estiver aberto, o TexDesk compara a versão do computador com a do Drive. Se forem diferentes, outro computador mexeu no projeto: o TexDesk baixa o que mudou, e os arquivos abertos mostram a mudança sendo digitada. Nunca envia uma versão antiga por cima de uma mais nova.

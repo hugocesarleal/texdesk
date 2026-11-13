@@ -173,8 +173,10 @@ def upload_project():
 def delete_project(name):
     """Manda o projeto para a lixeira (fica trash.TRASH_DAYS dias, com o histórico)."""
     project_dir(name)
-    services.syncer.forget(name)  # a cópia no Drive é mantida; pode ser restaurada pelo painel
-    services.gitsync.forget(name)  # a pasta no GitHub também
+    # enquanto estiver na lixeira, continua no Drive e no GitHub (restaurar volta como estava);
+    # ao sair de vez da lixeira, é apagado de lá também (trash.before_remove)
+    services.syncer.forget(name)
+    services.gitsync.forget(name)
     tid = trash.put(name)
     shutil.rmtree(OUTPUT / name, ignore_errors=True)
     forget(name)
@@ -191,6 +193,12 @@ def _trash_item(fn, tid):
         return fn(tid)
     except KeyError:
         abort(404, "Item não está na lixeira")
+
+
+@bp.get("/api/trash/remote")
+def trash_remote():
+    """Exclusões no Drive e no GitHub ainda por fazer (sem internet, ou esperando permissão)."""
+    return jsonify(services.pending_remote_deletes())
 
 
 @bp.post("/api/trash/<tid>/restore")

@@ -12,8 +12,8 @@ import json
 import re
 from pathlib import Path
 
-from . import drive_sync, github_sync, history
-from .config import DRIVE_STATE, GITHUB_CLIENT_ID, GITHUB_STATE, PROJECTS, SETTINGS_FILE
+from . import drive_sync, github_sync, history, remote_delete, trash
+from .config import DATA, DRIVE_STATE, GITHUB_CLIENT_ID, GITHUB_STATE, PROJECTS, SETTINGS_FILE
 from .storage import load_settings, save_settings, touch
 
 drive: drive_sync.DriveClient = None
@@ -22,10 +22,11 @@ importer: drive_sync.ImportQueue = None
 github: github_sync.GitHubClient = None
 gitsync: github_sync.GitSyncManager = None
 gh_importer: drive_sync.ImportQueue = None
+remote_deletes: remote_delete.RemoteDeletes = None
 
 
 def init():
-    global drive, syncer, importer, github, gitsync, gh_importer
+    global drive, syncer, importer, github, gitsync, gh_importer, remote_deletes
     if syncer is not None:
         return
     drive = drive_sync.DriveClient(DRIVE_STATE)
@@ -49,6 +50,17 @@ def init():
         prefix=".importando-gh-",
         expected=(github_sync.GitHubError,),
     )
+    # projeto apagado de vez da lixeira: também some do Drive e do GitHub
+    remote_deletes = remote_delete.RemoteDeletes(
+        DATA / ".remote-deletes.json",
+        {
+            "drive": _delete_drive_folder,
+            "github-folder": _delete_github_folder,
+            "github-repo": _delete_github_repo,
+            "github-leave": _leave_github_repo,
+        },
+    )
+    trash.before_remove = queue_remote_deletes
 
 
 def _setting(name, key):
@@ -201,6 +213,82 @@ def local_folder_ids():
             if fid:
                 out[fid] = d.name
     return out
+
+
+# ---------------------------------------------------------------- apagar do Drive e do GitHub
+
+
+def queue_remote_deletes(project: Path):
+    """Projeto saindo de vez da lixeira: o que ele tinha no Drive e no GitHub entra na fila."""
+    items = []
+    folder = drive_sync.load_manifest(project).get("folderId")
+    if folder:
+        items.append({"kind": "drive", "folder": folder, "name": project.name})
+    m = github_sync.load_manifest(project)
+    if m.get("repo"):
+        me = (github.state().get("user") or "").lower()
+        kind = "github-repo" if m["repo"].split("/")[0].lower() == me else "github-leave"
+        items.append({"kind": kind, "repo": m["repo"]})
+    elif m.get("path") and m.get("lastCommit"):
+        items.append({"kind": "github-folder", "path": m["path"]})
+    remote_deletes.add(items)
+
+
+# Cada um devolve True quando terminou (ou não há o que fazer) e False para esperar. Nunca apaga o
+# que um projeto deste computador ainda usa: ex., um projeto novo com o mesmo nome, que pegou a
+# mesma pasta no Drive ou no repositório antes de o antigo sair da lixeira.
+def _delete_drive_folder(item):
+    if not drive.connected:
+        return False
+    if item["folder"] in local_folder_ids():
+        return True
+    try:
+        drive.trash(item["folder"])  # lixeira do Drive: dá para recuperar por 30 dias
+    except drive_sync.DriveError as e:
+        if "404" not in str(e):
+            raise
+    return True
+
+
+def _delete_github_folder(item):
+    if not github.connected:
+        return False
+    if item["path"] in local_github_paths():
+        return True
+    github_sync.remove_folder(github, item["path"], f"{item['path']}: projeto apagado no TexDesk")
+    return True
+
+
+def _delete_github_repo(item):
+    if not github.connected:
+        return False
+    if github_sync.SHARED_PREFIX + item["repo"] in local_github_paths():
+        return True
+    try:
+        github_sync.delete_shared_repo(github, item["repo"])
+    except github_sync.NeedsDeleteScope:
+        return False  # espera a pessoa entrar com GitHub de novo
+    return True
+
+
+def _leave_github_repo(item):
+    if not github.connected:
+        return False
+    if github_sync.SHARED_PREFIX + item["repo"] in local_github_paths():
+        return True
+    try:
+        github.leave(item["repo"])
+    except github_sync.GitHubError as e:
+        if e.status != 404:  # (já sem acesso)
+            raise
+    return True
+
+
+def pending_remote_deletes():
+    """Exclusões ainda por fazer, para o painel: [{kind, ..., error}]."""
+    if remote_deletes is None:
+        return []
+    return [dict(i, error=remote_deletes.errors.get(remote_deletes.key(i))) for i in remote_deletes.items()]
 
 
 def read_only(name):

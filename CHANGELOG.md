@@ -4,6 +4,13 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.14.1] - 2026-11-12
+
+### Mudado
+- Um projeto apagado de vez da lixeira do TexDesk (ao esvaziar, ao apagar o item ou depois de 30 dias) agora também some do Google Drive (a pasta vai para a lixeira do Drive) e do GitHub (a pasta sai do `texdesk-projetos` e da lista do README). Se você tinha compartilhado o projeto, o repositório dele é apagado e as pessoas perdem o acesso; se ele foi compartilhado com você, você só sai do projeto. Enquanto o projeto está na lixeira do TexDesk, nada muda no Drive nem no GitHub, e restaurar devolve tudo como estava. Sem internet na hora, a exclusão fica guardada e é feita depois. Um projeto novo com o mesmo nome, que já esteja usando a mesma pasta, nunca é apagado junto.
+- Para apagar repositórios de projetos compartilhados, o "Entrar com GitHub" passou a pedir também a permissão de apagar repositórios. O TexDesk só apaga os repositórios `texdesk-*` que ele mesmo criou. Quem conectou antes vê um aviso para entrar de novo quando houver um repositório para apagar.
+- Os botões **Lixeira**, **Aparência** e **Atalho** saíram do fim da página de projetos e foram para a barra do topo, ao lado de **Instalar app**: não é mais preciso rolar a lista até o fim. Em telas estreitas aparecem só os ícones.
+
 ## [0.14.0] - 2026-11-12
 
 ### Adicionado
@@ -203,7 +210,8 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.14.0...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/hugocesarleal/texdesk/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/hugocesarleal/texdesk/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/hugocesarleal/texdesk/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/hugocesarleal/texdesk/compare/v0.12.1...v0.12.2

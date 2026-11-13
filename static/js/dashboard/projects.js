@@ -310,7 +310,7 @@ $("#list").onclick = async (e) => {
       if (r) { await api(`/api/projects/${enc}/clone`, { json: r }); load(); }
     }
     if (b.dataset.act === "delete") {
-      const r = await modal({ title: "Excluir projeto", body: `<p>Mover <b>${esc(name)}</b> para a lixeira?</p><p class="note">Ele fica 30 dias na lixeira, com o histórico de versões, e pode ser restaurado nesse prazo.</p>`, ok: "Mover para a lixeira", danger: true });
+      const r = await modal({ title: "Excluir projeto", body: `<p>Mover <b>${esc(name)}</b> para a lixeira?</p><p class="note">Ele fica 30 dias na lixeira, com o histórico de versões, e pode ser restaurado nesse prazo. Enquanto estiver na lixeira, continua no Google Drive e no GitHub; ao ser apagado de vez, sai de lá também.</p>`, ok: "Mover para a lixeira", danger: true });
       if (r) { await api(`/api/projects/${enc}`, { method: "DELETE" }); toast(`${name} foi para a lixeira`); load(); }
     }
   } catch (err) { toast(err.message); }
@@ -335,7 +335,7 @@ async function refreshTrash() {
   let items = [];
   try { items = await api("/api/trash"); } catch (e) { /* ignora */ }
   trashCount = items.length;
-  $("#trash").innerHTML = icon("trash") + (trashCount ? `Lixeira (${trashCount})` : "Lixeira");
+  $("#trash").innerHTML = icon("trash") + `<span class="lbl">Lixeira</span>` + (trashCount ? ` <span class="count">${trashCount}</span>` : "");
   return items;
 }
 
@@ -343,7 +343,7 @@ const daysLeft = (ts) => Math.max(0, Math.ceil((ts - Date.now() / 1000) / 86400)
 const fmtSize = (b) => (b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1024 / 1024).toFixed(1).replace(".", ",")} MB`);
 
 // ------------------------------------------------------------ aparência (tema de cores)
-$("#appearance").innerHTML = icon("moon") + "Aparência";
+$("#appearance").innerHTML = icon("moon") + '<span class="lbl">Aparência</span>';
 $("#appearance").onclick = async () => {
   const dlg = modal({ title: "Aparência", cls: "wide", fields: [{ name: "theme", type: "html", html: themePickerHtml() }], ok: "Salvar" });
   const undo = previewThemes(document.querySelector(".modal.wide"));
@@ -353,10 +353,16 @@ $("#appearance").onclick = async () => {
 
 $("#trash").onclick = async () => {
   const p = panel({ title: "Lixeira", cls: "trash", body: '<p class="note">Carregando…</p>' });
+  let remoteNote = "";
   async function show() {
     const items = await refreshTrash();
+    const pending = await api("/api/trash/remote").catch(() => []);
+    remoteNote = pending.length ? `<div class="dp-status busy"><span class="ic">${icon("cloudUp")}</span><div class="grow">
+        <b>Ainda apagando ${plural(pending.length, "item", "itens")} do Google Drive ou do GitHub</b>
+        <small>${pending.some((x) => x.kind === "github-repo" && !x.error) ? "Para apagar o repositório de um projeto compartilhado, entre com GitHub de novo (painel → GitHub). " : ""}O TexDesk tenta de novo sozinho${pending.some((x) => x.error) ? " (sem conexão agora)" : ""}.</small></div></div>` : "";
     p.el.innerHTML = items.length
-      ? `<p class="note">Projetos excluídos ficam aqui por 30 dias, com o histórico de versões. Depois disso são apagados de vez.</p>
+      ? `<p class="note">Projetos excluídos ficam aqui por 30 dias, com o histórico de versões. Depois disso são apagados de vez, também do Google Drive e do GitHub.</p>
+        ${remoteNote}
         <div class="trash-list">${items.map((it) => `<div class="trash-row" data-id="${it.id}">
           <div class="who"><b>${esc(it.name)}</b><small>Excluído ${timeAgo(it.deleted)} · ${fmtSize(it.size || 0)} · apagado de vez em ${plural(daysLeft(it.expires), "dia")}</small></div>
           <button class="btn small" data-restore>${icon("restore")}Restaurar</button>
@@ -374,11 +380,11 @@ $("#trash").onclick = async () => {
         load();
       } else if (row && e.target.closest("[data-remove]")) {
         const name = row.querySelector("b").textContent;
-        if (!await modal({ title: "Apagar de vez", body: `<p>Apagar <b>${esc(name)}</b> de vez? Isso não pode ser desfeito.</p>`, ok: "Apagar", danger: true })) return;
+        if (!await modal({ title: "Apagar de vez", body: `<p>Apagar <b>${esc(name)}</b> de vez? Isso não pode ser desfeito.</p><p class="note">Ele também é apagado do Google Drive (vai para a lixeira do Drive) e do GitHub. Se foi compartilhado por você, o repositório dele é apagado e as pessoas perdem o acesso; se foi compartilhado com você, você só sai do projeto.</p>`, ok: "Apagar", danger: true })) return;
         await api(`/api/trash/${row.dataset.id}`, { method: "DELETE" });
         await show();
       } else if (e.target.closest("[data-empty]")) {
-        if (!await modal({ title: "Esvaziar lixeira", body: `<p>Apagar de vez ${plural(trashCount, "projeto")} da lixeira? Isso não pode ser desfeito.</p>`, ok: "Esvaziar", danger: true })) return;
+        if (!await modal({ title: "Esvaziar lixeira", body: `<p>Apagar de vez ${plural(trashCount, "projeto")} da lixeira? Isso não pode ser desfeito.</p><p class="note">Eles também são apagados do Google Drive e do GitHub (inclusive o repositório dos que você compartilhou).</p>`, ok: "Esvaziar", danger: true })) return;
         await api("/api/trash", { method: "DELETE" });
         await show();
       }
@@ -459,7 +465,7 @@ const START_SCRIPT = { windows: "iniciar.bat", linux: "iniciar.sh", macos: "inic
 async function checkShortcut() {
   let s;
   try { s = await api("/api/shortcut"); } catch (e) { return; }
-  $("#shortcut").innerHTML = icon("install") + "Atalho na área de trabalho";
+  $("#shortcut").innerHTML = icon("external") + '<span class="lbl">Atalho</span>';
   $("#shortcut").hidden = false;
   $("#shortcut").onclick = () => askShortcut(s, true);
   // outra janela já aberta (ex.: importar do Drive): pergunta na próxima vez
@@ -499,7 +505,7 @@ let installPrompt = null;
 addEventListener("beforeinstallprompt", (e) => {
   e.preventDefault();
   installPrompt = e;
-  $("#install").innerHTML = icon("install") + "Instalar app";
+  $("#install").innerHTML = icon("install") + '<span class="lbl">Instalar app</span>';
   $("#install").hidden = false;
 });
 $("#install").onclick = async () => {

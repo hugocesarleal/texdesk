@@ -10,6 +10,7 @@ gerado de novo ao abrir o projeto.
 """
 
 import json
+import logging
 import shutil
 import threading
 import time
@@ -22,6 +23,10 @@ TRASH = DATA / "trash"
 TRASH_DAYS = 30
 
 _lock = threading.Lock()
+log = logging.getLogger(__name__)
+# chamado com a pasta do projeto logo antes de ele ser apagado de vez (services: apagar também
+# do Google Drive e do GitHub). Restaurar da lixeira não chama: lá tudo continua como estava.
+before_remove = None
 
 
 def _size(d: Path):
@@ -116,7 +121,13 @@ def restore(tid: str):
 def remove(tid: str):
     """Apaga o item de vez."""
     with _lock:
-        shutil.rmtree(_item(tid), ignore_errors=True)
+        item = _item(tid)
+        if before_remove and (item / "project").is_dir():
+            try:
+                before_remove(item / "project")
+            except Exception:  # nunca impede de esvaziar a lixeira
+                log.exception("Lixeira: falha ao preparar a exclusão remota de %s", item.name)
+        shutil.rmtree(item, ignore_errors=True)
 
 
 def empty():

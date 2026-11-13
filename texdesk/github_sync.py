@@ -53,7 +53,8 @@ log = logging.getLogger(__name__)
 API = "https://api.github.com"
 DEVICE_CODE_URL = "https://github.com/login/device/code"
 TOKEN_URL = "https://github.com/login/oauth/access_token"
-SCOPE = "repo"  # repositórios privados (o GitHub não tem escopo só para um repositório)
+SCOPE = "repo delete_repo"  # repositórios privados; e apagar o de um projeto compartilhado apagado
+# (o GitHub não tem permissão só para um repositório; o TexDesk só apaga os texdesk-* que criou)
 REPO_NAME = "texdesk-projetos"
 MANIFEST = ".github.json"
 COMMIT_DELAY = 120.0  # segundos sem editar até o commit
@@ -994,28 +995,71 @@ def finish_move(client: GitHubClient, d: Path):
     path = m.get("moveFrom")
     if not path or not m.get("lastCommit"):
         return
+    remove_folder(client, path, f"{path}: movido para o repositório compartilhado {m['repo']}")
+    m.pop("moveFrom", None)
+    save_manifest(d, m)
+
+
+def remove_folder(client: GitHubClient, path: str, message: str):
+    """Apaga a pasta de um projeto do repositório principal (e o tira da lista do README).
+
+    Num commit: o conteúdo continua no histórico do GitHub. Devolve False se a pasta já não existia.
+    """
     main = client.view()
     for _ in range(3):
         head = main.head()
         root = main.commit_tree(head)
         tree = main.top_folders(root).get(path)
         if tree is None:
-            break
+            return False
         entries = [
             {"path": f"{path}/{rel}", "mode": FILE_MODE, "type": "blob", "sha": None} for rel in main.tree_files(tree)
         ]
         readme = _readme(main, root, None, path, fill=not client.hurry)
         new_tree = main.create_tree(root, entries + [readme[2]])
-        commit = main.create_commit(f"{path}: movido para o repositório compartilhado {m['repo']}", new_tree, head)
+        commit = main.create_commit(message, new_tree, head)
         try:
             main.update_head(commit)
         except NotFastForward:
             continue
         main.known = (commit, new_tree)
         main.readme = readme[:2]
-        break
-    m.pop("moveFrom", None)
-    save_manifest(d, m)
+        return True
+    raise GitHubError("O repositório mudou várias vezes seguidas; nova tentativa em seguida")
+
+
+class NeedsDeleteScope(GitHubError):
+    """O acesso foi dado antes de o TexDesk pedir a permissão de apagar repositórios."""
+
+
+def delete_shared_repo(client: GitHubClient, full_name: str):
+    """Apaga o repositório de um projeto compartilhado que foi apagado de vez no TexDesk.
+
+    Só apaga se for da própria conta, se chamar texdesk-* e se tiver o SHARE_META (foi criado
+    pelo TexDesk). Devolve False se ele já não existia.
+    """
+    owner, name = full_name.split("/", 1)
+    if owner.lower() != (client.state().get("user") or "").lower() or not name.startswith(SHARED_REPO_PREFIX):
+        raise GitHubError(f"{full_name} não é um repositório de projeto compartilhado desta conta")
+    if name == REPO_NAME:
+        raise GitHubError("O repositório principal nunca é apagado")
+    if client.request("GET", f"/repos/{full_name}", ok404=True) is None:
+        return False
+    if client.request("GET", f"/repos/{full_name}/contents/{SHARE_META}", ok404=True) is None:
+        raise GitHubError(f"{full_name} não foi criado pelo TexDesk: não é apagado")
+    if "delete_repo" not in (client.tokens.load() or {}).get("scope", ""):
+        raise NeedsDeleteScope("Entre com GitHub de novo (painel → GitHub) para o TexDesk poder apagar o repositório")
+    try:
+        client.request("DELETE", f"/repos/{full_name}")
+    except GitHubError as e:
+        if e.status == 403:
+            raise NeedsDeleteScope(
+                "Entre com GitHub de novo (painel → GitHub) para o TexDesk poder apagar o repositório", 403
+            ) from e
+        raise
+    with client._lock:
+        client._repos.pop(full_name, None)
+    return True
 
 
 SHARED_PREFIX = "repo:"  # id de importação de um projeto compartilhado: "repo:dono/nome"
