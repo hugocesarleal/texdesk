@@ -41,10 +41,10 @@ def _system_keyring():
 
 
 class TokenStore:
-    def __init__(self, state_dir: Path, backend="auto"):
+    def __init__(self, state_dir: Path, backend="auto", kind="google-drive"):
         self.file = state_dir / "token.json"
-        # uma entrada por pasta de dados: duas instalações do TexDesk não se misturam
-        self.account = f"google-drive:{state_dir.resolve()}"
+        # uma entrada por serviço e pasta de dados: duas instalações do TexDesk não se misturam
+        self.account = f"{kind}:{state_dir.resolve()}"
         self.keyring = _system_keyring() if backend == "auto" else backend
         self._lock = threading.Lock()
         self._cache = None

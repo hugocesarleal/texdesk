@@ -78,6 +78,14 @@ foreach ($tpl in $modelos) {
     $dir = Join-Path $work $tpl.Name
     Copy-Item -Recurse $tpl.FullName $dir
     New-Item -ItemType Directory (Join-Path $dir "out") | Out-Null
+    # \include{capitulos/x} grava out\capitulos\x.aux, e o Tectonic não cria a pasta sozinho
+    # (o compilador do TexDesk faz o mesmo antes de cada compilação)
+    foreach ($sub in Get-ChildItem $dir -Directory -Recurse) {
+        $rel = $sub.FullName.Substring($dir.Length + 1)
+        if ($rel -ne "out" -and -not $rel.StartsWith("out\")) {
+            New-Item -ItemType Directory -Force (Join-Path $dir "out\$rel") | Out-Null
+        }
+    }
     Write-Host ("  {0,-14}" -f $tpl.Name) -NoNewline
     $sw = [Diagnostics.Stopwatch]::StartNew()
     $p = Start-Process -FilePath $exe -WorkingDirectory $dir -NoNewWindow -Wait -PassThru `

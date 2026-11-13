@@ -317,6 +317,7 @@
 .textLayer span.markedContent { top: 0; height: 0; }
 .textLayer ::selection { background: rgba(0, 100, 255, .28); }
 .textLayer br::selection { background: transparent; }
+.pdf-view.zooming .textLayer { display: none; }  /* durante o zoom (pdf.js: resizePages) */
 .find-hl, .sync-hl { z-index: 3; }
 .pdf-view.dark .pdf-page { background: #1e1e1e; }
 .pdf-view.dark .pdf-page canvas { filter: invert(1) hue-rotate(180deg); }

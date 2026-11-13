@@ -119,6 +119,9 @@ O histórico fica em `history/`, fora da pasta do projeto: ele não vai para o G
 ### Google Drive (opcional)
 Sincronização dos projetos com o seu Google Drive nos dois sentidos: o que você muda vai para o Drive em até 5 segundos, enviando só os arquivos que mudaram, e o que mudou em outro computador chega sozinho, inclusive com o projeto aberto. Se os dois computadores mexerem no mesmo arquivo, as alterações são juntadas. Veja [como configurar](#google-drive).
 
+### GitHub (opcional)
+Os projetos num repositório privado do seu GitHub, uma pasta por projeto, com o histórico de todas as versões em commits. O commit sai 2 minutos depois da última alteração, e o que outro computador enviou chega sozinho. Veja [como funciona](#github).
+
 ## Atalhos de teclado
 
 | Atalho | Ação |
@@ -157,6 +160,21 @@ Como funciona:
 - Um arquivo apagado em um computador é apagado no outro, a não ser que tenha sido editado lá depois: aí a edição vence.
 - Projetos sincronizados por versões anteriores ainda não têm o arquivo de versão. Na primeira sincronização, o TexDesk compara o projeto inteiro com o Drive, arquivo por arquivo; quando um arquivo está diferente nos dois lados, fica o modificado por último. Depois disso, ele cria o arquivo de versão e o envia ao Drive. Atualize o TexDesk em todos os computadores: uma versão anterior não atualiza o arquivo de versão, e as mudanças feitas nela podem não ser percebidas pelos outros.
 - Não é edição simultânea letra a letra, como no Overleaf: a mudança feita num computador aparece no outro uns 15 segundos depois.
+
+## GitHub
+
+No painel de projetos, clique em **GitHub** e depois em **Entrar com GitHub**. O TexDesk mostra um código: abra o GitHub, cole o código e autorize. Não precisa de git instalado nem de criar token.
+
+Como funciona:
+- O TexDesk cria um repositório **privado** na sua conta, `texdesk-projetos`, e cada projeto vira uma pasta nele. Ao conectar, todos os projetos entram; dá para desligar no painel ou projeto por projeto nas Configurações do editor.
+- O `README.md` do repositório lista os projetos salvos, com a data da última atualização de cada um e o computador que enviou. Ele é atualizado no mesmo commit de cada envio.
+- **Commits:** cada alteração deixa o projeto pendente, e o commit sai **2 minutos depois da última alteração**, juntando as edições desse intervalo num commit só (com o nome dos arquivos na mensagem). Fechar o projeto no editor faz o commit na hora, e o botão **Enviar agora** do painel não espera os 2 minutos. O indicador na barra do editor mostra quanto falta.
+- **Fechou antes do commit?** Os arquivos já estão salvos no computador. Ao fechar a janela do TexDesk (ou com Ctrl+C), ele envia o que falta antes de sair. Se não der tempo (sem internet, computador desligado na tomada), o envio é feito assim que o TexDesk abrir de novo: cada projeto é comparado com o último commit, e nada se perde.
+- **Outro computador:** ao abrir um projeto, e a cada 30 segundos enquanto ele estiver aberto, o TexDesk confere o repositório e traz o que outro computador enviou. Edições no mesmo arquivo são juntadas palavra por palavra, como no Google Drive; quando os dois mudaram as mesmas palavras, você escolhe o trecho. Antes de juntar, ele guarda uma versão no Histórico.
+- Em outro computador, entre com a mesma conta: o TexDesk oferece importar os projetos que já estão no repositório.
+- Tudo passa pela API do GitHub, sem git instalado. Textos vão direto no commit; imagens e PDFs, como arquivos. Arquivos de mais de 90 MB não são enviados (o GitHub recusa acima de 100 MB).
+- O acesso fica no cofre de senhas do sistema. O GitHub não tem permissão só para um repositório em apps desse tipo: a autorização vale para os seus repositórios, mas o TexDesk só mexe no `texdesk-projetos`. Para tirar o acesso, use [github.com/settings/applications](https://github.com/settings/applications).
+- Dá para usar junto com o Google Drive: o que chega por um vai para o outro.
 
 ## Solução de problemas
 
@@ -250,9 +268,10 @@ texdesk/               servidor (python -m texdesk)
   updater.py           atualização pelo painel (baixa, confere, instala e reinicia)
   shortcut.py          atalho na área de trabalho (Windows, Linux e macOS)
   drive_sync.py        sincronização com o Google Drive (OAuth, envio e recebimento incrementais, restauração)
+  github_sync.py       sincronização com o GitHub (Entrar com GitHub, commits com atraso, recebimento e junção)
   merge.py             junção de alterações feitas em dois computadores no mesmo arquivo
   services.py          conexão com o Drive e processo de sincronização
-  routes/              rotas HTTP: pages, projects, files, compile, tools, drive
+  routes/              rotas HTTP: pages, projects, files, compile, tools, drive, github
 static/                interface
   css/                 base.css (cores e componentes), themes.css (temas de cores), dashboard.css, editor.css
   js/common.js         API, ícones, modais e miniaturas

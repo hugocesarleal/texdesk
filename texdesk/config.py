@@ -21,6 +21,11 @@ DATA = Path(os.environ.get("TEXDESK_DATA", ROOT)).resolve()
 PROJECTS = DATA / "projects"
 OUTPUT = DATA / "output"
 DRIVE_STATE = DATA / ".drive"
+GITHUB_STATE = DATA / ".github-sync"  # (não ".github": na pasta do TexDesk essa é a do CI)
+
+# OAuth App "TexDesk" no GitHub, para o "Entrar com GitHub" (fluxo de dispositivo: só o client
+# ID, que é público; não há segredo). TEXDESK_GITHUB_CLIENT_ID troca por outro app.
+GITHUB_CLIENT_ID = os.environ.get("TEXDESK_GITHUB_CLIENT_ID", "Ov23li5FTCPNjZQO7tCq")
 LOG_FILE = DATA / "logs" / "texdesk.log"
 
 PORT = int(os.environ.get("PORT", 5050))

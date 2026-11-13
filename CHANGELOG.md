@@ -4,6 +4,15 @@ As mudanças relevantes de cada versão ficam registradas aqui. O formato segue 
 
 ## [Não lançado]
 
+## [0.13.0] - 2026-11-12
+
+### Adicionado
+- Sincronização com o GitHub, além do Google Drive. Em **GitHub**, no painel de projetos, **Entrar com GitHub** mostra um código para digitar no GitHub, sem git instalado e sem token. O TexDesk cria um repositório privado (`texdesk-projetos`) com uma pasta por projeto e faz os commits sozinho: cada um sai 2 minutos depois da última alteração, juntando as edições desse intervalo, ou na hora, ao fechar o projeto ou clicar em **Enviar agora**. Se o TexDesk for fechado antes do commit, ele envia o que falta ao fechar a janela; se não der tempo, o envio é feito na próxima abertura, sem perder nada. O que outro computador enviar chega sozinho, com as edições no mesmo arquivo juntadas palavra por palavra, e projetos que estão só no repositório podem ser importados. O `README.md` do repositório lista os projetos salvos, com a última atualização de cada um, e é atualizado a cada commit.
+
+### Corrigido
+- O zoom do PDF travava, principalmente em notebooks com gesto de pinça no touchpad. Cada passo de zoom redesenhava as páginas inteiras, e um gesto manda dezenas de passos por segundo (um só gesto desenhava mais de 150 imagens de página). Agora, durante o zoom, as páginas só mudam de tamanho, e quando o gesto para as visíveis são redesenhadas nítidas. O zoom também passou a acompanhar o ponto embaixo do cursor, a pinça ficou proporcional ao movimento e, com zoom alto, cada página usa no máximo 8 milhões de pixels, para não pesar na memória.
+- A instalação não conseguia preparar os pacotes LaTeX do modelo "Trabalho acadêmico ABNT" e mostrava "não foi possível (sem internet?)". O modelo guarda os capítulos na pasta `capitulos/`, e o Tectonic não cria sozinho a subpasta correspondente na saída. Agora a instalação cria essas pastas antes, como o editor já fazia, e o primeiro trabalho ABNT compila em segundos.
+
 ## [0.12.2] - 2026-11-10
 
 ### Corrigido
@@ -189,7 +198,8 @@ Primeira versão pública.
 ### Segurança
 - O servidor local recusa requisições de outros sites (CSRF) e de outros domínios (DNS rebinding).
 
-[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.12.2...HEAD
+[Não lançado]: https://github.com/hugocesarleal/texdesk/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/hugocesarleal/texdesk/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/hugocesarleal/texdesk/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/hugocesarleal/texdesk/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/hugocesarleal/texdesk/compare/v0.11.0...v0.12.0

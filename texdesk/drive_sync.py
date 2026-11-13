@@ -51,7 +51,7 @@ RETRY_INTERVAL = 15.0
 UPLOAD_WORKERS = 4  # envios simultâneos por projeto
 # arquivos locais que não vão para o Drive
 # (o arquivo de versão vai, mas separado: sempre depois dos outros)
-EXCLUDE = {MANIFEST, ".thumbnail.png", VERSION_FILE}
+EXCLUDE = {MANIFEST, ".thumbnail.png", VERSION_FILE, ".github.json"}  # (.github.json: sincronização do GitHub)
 BASE_MAX = 2 * 1024 * 1024  # arquivos de texto maiores que isso não guardam a versão comum
 
 log = logging.getLogger(__name__)
@@ -961,14 +961,21 @@ class ImportQueue:
     falha fica na lista, com o erro, até ser repetida ou descartada.
     """
 
-    def __init__(self, client: DriveClient, projects_dir: Path, on_done):
+    def __init__(
+        self, client, projects_dir: Path, on_done, restore=None, source="drive", prefix=IMPORT_PREFIX, expected=None
+    ):
         self.client = client
         self.projects = projects_dir
         self.on_done = on_done  # função(nome, id da pasta no Drive), depois de importar
+        # a mesma fila serve ao GitHub: restore(cliente, id, destino, nome remoto, andamento)
+        self.restore = restore or restore_project
+        self.source = source  # "drive" ou "github", para o painel
+        self.prefix = prefix
+        self.expected = expected or (DriveError,)  # erros de rede/serviço (sem rastro no log)
         self.jobs = {}  # nome local -> {id, remote, state (queued|importing|error), done, total, error, added}
         self.lock = threading.Lock()
         self.thread = None  # existe enquanto há importação na fila
-        for d in projects_dir.glob(IMPORT_PREFIX + "*"):  # importação interrompida (servidor fechado)
+        for d in projects_dir.glob(prefix + "*"):  # importação interrompida (servidor fechado)
             shutil.rmtree(d, ignore_errors=True)
 
     def reserved(self):
@@ -1013,7 +1020,7 @@ class ImportQueue:
 
     def items(self):
         with self.lock:
-            return [dict(j, name=n) for n, j in self.jobs.items()]
+            return [dict(j, name=n, source=self.source) for n, j in self.jobs.items()]
 
     def _next(self):
         with self.lock:
@@ -1034,10 +1041,10 @@ class ImportQueue:
                 with self.lock:
                     self.jobs[name].update(done=done, total=total)
 
-            tmp = self.projects / (IMPORT_PREFIX + name)
+            tmp = self.projects / (self.prefix + name)
             shutil.rmtree(tmp, ignore_errors=True)
             try:
-                restore_project(self.client, job["id"], tmp, job["remote"], progress)
+                self.restore(self.client, job["id"], tmp, job["remote"], progress)
                 final = name
                 if (self.projects / final).exists():  # alguém criou um projeto com esse nome no meio
                     i = 2
@@ -1046,15 +1053,15 @@ class ImportQueue:
                     final = f"{name}-{i}"
                 tmp.rename(self.projects / final)
                 self.on_done(final, job["id"])
-                log.info("Drive: %s importado", final)
+                log.info("%s: %s importado", self.source, final)
                 with self.lock:
                     self.jobs.pop(name, None)
             except Exception as e:
                 shutil.rmtree(tmp, ignore_errors=True)
-                if isinstance(e, DriveError):
-                    log.warning("Drive: falha ao importar %s: %s", name, e)
+                if isinstance(e, self.expected):
+                    log.warning("%s: falha ao importar %s: %s", self.source, name, e)
                 else:
-                    log.exception("Drive: erro inesperado ao importar %s", name)
+                    log.exception("%s: erro inesperado ao importar %s", self.source, name)
                 with self.lock:
                     self.jobs[name].update(state="error", error=str(e) or e.__class__.__name__)
 

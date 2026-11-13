@@ -9,6 +9,7 @@ Sai com o código 3 se já houver um TexDesk rodando (aí só abre o navegador).
 """
 
 import logging
+import os
 import sys
 import threading
 import urllib.request
@@ -19,6 +20,54 @@ from .config import COMPILE_TIMEOUT, DATA, LOG_FILE, PORT, ROOT, URL
 
 # não __name__: rodando como "python -m texdesk" ele vale "__main__", fora do log "texdesk"
 log = logging.getLogger("texdesk.main")
+
+
+# O commit do GitHub espera 2 minutos sem edições. Se o TexDesk for fechado antes, ele tenta
+# enviar o que falta: ao fechar a janela do terminal o Windows encerra o processo uns 5 s
+# depois, então a tentativa dura no máximo CLOSE_FLUSH; no Ctrl+C e na parada normal, EXIT_FLUSH.
+# O que não der tempo vai no primeiro commit da próxima vez que o TexDesk abrir (os arquivos
+# estão salvos no disco, e cada projeto é comparado com o último commit ao iniciar).
+CLOSE_FLUSH = 4.5  # (um commit leva uns 3 s no GitHub de verdade)
+EXIT_FLUSH = 20.0
+
+
+def flush_github(services, timeout):
+    if not services.github_pending():
+        return
+    print("\n  Enviando para o GitHub as alterações que ainda não tinham ido...")
+    if services.flush(timeout):
+        print("  Pronto.")
+    else:
+        log.warning("GitHub: o TexDesk fechou antes do commit; ele sai na próxima abertura")
+        print("  Não deu tempo: o envio é feito na próxima vez que o TexDesk abrir.")
+
+
+def on_close(callback):
+    """Chama callback() quando a janela do terminal for fechada (ou o sistema desligar)."""
+    if os.name == "nt":
+        import ctypes
+        from ctypes import wintypes
+
+        handler_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.DWORD)
+
+        def handler(event):
+            # Ctrl+Break, janela fechada, fim da sessão, desligamento (o Ctrl+C vira KeyboardInterrupt)
+            if event in (1, 2, 5, 6):
+                callback()
+            return False  # segue o tratamento normal (o Ctrl+C continua virando KeyboardInterrupt)
+
+        ref = handler_type(handler)
+        ctypes.windll.kernel32.SetConsoleCtrlHandler(ref, True)
+        return ref  # quem chama guarda a referência (senão o coletor de lixo a apaga)
+    import signal
+
+    def on_signal(signum, frame):
+        callback()
+        raise SystemExit(0)
+
+    for sig in (signal.SIGHUP, signal.SIGTERM):  # terminal fechado; encerramento pelo sistema
+        signal.signal(sig, on_signal)
+    return None
 
 
 def already_running():
@@ -93,7 +142,7 @@ def main():
     log.info("TexDesk %s iniciado em %s (dados em %s)", __version__, URL, DATA)
     print(f"\n  TexDesk {__version__} rodando em {URL}")
     print("  NÃO feche esta janela enquanto estiver usando (pode minimizar).")
-    print("  Fechar esta janela desliga o editor e a sincronização com o Google Drive.")
+    print("  Fechar esta janela desliga o editor e a sincronização com o Google Drive e o GitHub.")
     print(f"  Registro de erros: {LOG_FILE}\n")
     if open_browser:
         threading.Timer(1.0, webbrowser.open, args=(URL,)).start()
@@ -109,6 +158,7 @@ def main():
         """Chamado pelo atualizador: para o Drive e o servidor, e o main() abre o novo."""
         restart.set()
         services.syncer.stop()
+        services.gitsync.stop()  # envia antes o que esperava o commit
 
         def close_all():  # na thread do servidor: sem conexões nem porta, o run() volta
             for channel in list(server._map.values()):
@@ -117,7 +167,14 @@ def main():
         server.trigger.pull_trigger(close_all)
 
     updater.restart_hook = stop_for_update
-    server.run()
+    close_ref = on_close(lambda: flush_github(services, CLOSE_FLUSH))  # noqa: F841 (referência guardada)
+    try:
+        server.run()
+    except KeyboardInterrupt:  # Ctrl+C
+        pass
+    finally:
+        if not restart.is_set():
+            flush_github(services, EXIT_FLUSH)
     server.task_dispatcher.shutdown()
     if restart.is_set():
         print("\n  TexDesk atualizado. Reiniciando...\n")

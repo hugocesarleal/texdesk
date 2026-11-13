@@ -19,6 +19,7 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 os.environ["TEXDESK_DATA"] = tempfile.mkdtemp(prefix="texdesk-test-")
 os.environ["TEXDESK_KEYRING"] = "0"  # nunca tocar no cofre de senhas real do computador
 os.environ["TEXDESK_UPDATE_CHECK"] = "0"  # nem consultar o GitHub
+os.environ["TEXDESK_GITHUB_CLIENT_ID"] = ""  # nem entrar no GitHub (os testes usam o falso)
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 

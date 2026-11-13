@@ -148,19 +148,37 @@ pageInput.addEventListener("input", () => { pageInput.classList.remove("invalid"
 pageInput.addEventListener("focus", () => pageInput.select());
 pageInput.addEventListener("blur", () => { pageInput.classList.remove("invalid"); updatePageNav(); });
 
+// Teto de pixels por página: com zoom alto numa tela de notebook (escala 1,5–2), uma página
+// passaria de 30 milhões de pixels. Acima disso a página é desenhada com menos resolução
+// e esticada pelo CSS (o mesmo que o visualizador do PDF.js faz).
+const MAX_CANVAS_PIXELS = 8e6;
+
 async function renderPage(div, token) {
   if (div.dataset.rendered === String(token)) return;
   div.dataset.rendered = String(token);
   const page = await state.pdf.getPage(+div.dataset.page);
-  if (token !== renderToken && div.isConnected === false) return;
+  if (token !== renderToken || !div.isConnected) return;
+  const base = page.getViewport({ scale: state.scale });
   const dpr = window.devicePixelRatio || 1;
-  const vp = page.getViewport({ scale: state.scale * dpr });
+  const out = Math.min(dpr, Math.sqrt(MAX_CANVAS_PIXELS / (base.width * base.height)));
+  const vp = page.getViewport({ scale: state.scale * out });
   const canvas = document.createElement("canvas");
   canvas.width = Math.floor(vp.width);
   canvas.height = Math.floor(vp.height);
-  await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
+  div._task?.cancel();  // um desenho anterior desta página que ainda não terminou
+  const task = (div._task = page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }));
+  try {
+    await task.promise;
+  } catch (e) {
+    return;  // cancelado por um zoom novo (ou página que não pôde ser desenhada)
+  } finally {
+    if (div._task === task) div._task = null;
+  }
+  if (token !== renderToken) return;
   div.querySelector("canvas")?.remove();
   div.prepend(canvas);
+  // a camada de texto muda de tamanho com o zoom só pelo CSS (--scale-factor): é criada uma vez
+  if (div.querySelector(".textLayer")) return;
   // camada de texto invisível por cima da imagem: permite selecionar e copiar o texto
   const layer = document.createElement("div");
   layer.className = "textLayer";
@@ -173,7 +191,8 @@ async function renderPage(div, token) {
       textDivs: [],
     }).promise;
   } catch (e) { return; /* sem texto selecionável nesta página */ }
-  div.querySelector(".textLayer")?.remove();
+  if (div.querySelector(".textLayer")) return;  // outra chamada já pôs a dela
+  layer.style.setProperty("--scale-factor", state.scale);  // o zoom pode ter mudado enquanto isso
   div.appendChild(layer);
 }
 
@@ -255,19 +274,82 @@ async function presentPdf() {
 }
 $("#pdf-present").onclick = presentPdf;
 
-function setZoom(z) {
-  const ratio = view.scrollHeight ? view.scrollTop / view.scrollHeight : 0;
+// ------------------------------------------------------------ zoom
+// Durante o zoom só o CSS muda: as páginas (com a imagem esticada) e o texto selecionável
+// mudam de tamanho na hora, sem desenhar nada. Quando o zoom para, as páginas visíveis são
+// redesenhadas nítidas. Antes, cada passo redesenhava as páginas inteiras, e um gesto de
+// pinça no touchpad (dezenas de passos por segundo) travava o notebook.
+let sharpenTimer = 0;
+
+function setZoom(z, anchor = null) {
   state.zoom = z;
   store.set("pdfZoom", z);
-  layoutPages(ratio);
+  resizePages(computeScale(), anchor);
 }
-$("#zoom-in").onclick = () => setZoom(Math.min(4, +(state.scale * 1.2).toFixed(2)));
-$("#zoom-out").onclick = () => setZoom(Math.max(0.25, +(state.scale / 1.2).toFixed(2)));
+
+// anchor: ponto da tela (clientX/Y) que fica parado durante o zoom; sem ele, o centro
+function resizePages(scale, anchor = null) {
+  if (!state.pdf || !view.querySelector(".pdf-page")) return;
+  scale = Math.max(0.25, Math.min(4, scale));
+  const old = state.scale;
+  if (Math.abs(scale - old) < 1e-4) return;
+  const box = view.getBoundingClientRect();
+  const ax = anchor ? anchor.x - box.left : view.clientWidth / 2;
+  const ay = anchor ? anchor.y - box.top : view.clientHeight / 2;
+  // a página sob o ponto e a posição nela (em pontos do PDF), para continuar no mesmo lugar
+  const y = view.scrollTop + ay, x = view.scrollLeft + ax;
+  const pages = [...view.querySelectorAll(".pdf-page")];
+  const pg = pages.find((p) => p.offsetTop + p.offsetHeight >= y) || pages[pages.length - 1];
+  const px = (x - pg.offsetLeft) / old, py = (y - pg.offsetTop) / old;
+
+  state.scale = scale;
+  zoomLabel();
+  // a camada de texto (milhares de trechos invisíveis) some durante o gesto: reescalar a cada
+  // passo custava mais que o próprio zoom. Volta, no tamanho novo, em sharpenPages()
+  view.classList.add("zooming");
+  pages.forEach((d) => {
+    const s = state.pageSizes[d.dataset.page - 1];
+    d.style.width = Math.floor(s.width * scale) + "px";
+    d.style.height = Math.floor(s.height * scale) + "px";
+  });
+  view.querySelectorAll(".sync-hl").forEach((h) => h.remove());
+  paintPdfMatches();
+  view.scrollTop = pg.offsetTop + py * scale - ay;
+  view.scrollLeft = pg.offsetLeft + px * scale - ax;
+
+  clearTimeout(sharpenTimer);
+  sharpenTimer = setTimeout(sharpenPages, 200);
+}
+
+// Redesenha na resolução do zoom novo, começando pelas páginas visíveis. As que estão longe
+// perdem a imagem antiga (memória) e são desenhadas quando aparecerem.
+function sharpenPages() {
+  const token = ++renderToken;
+  const top = view.scrollTop - view.clientHeight, bottom = view.scrollTop + 2 * view.clientHeight;
+  view.querySelectorAll(".pdf-page").forEach((d) => {
+    d._task?.cancel();
+    d.querySelector(".textLayer")?.style.setProperty("--scale-factor", state.scale);
+    if (d.offsetTop + d.offsetHeight < top || d.offsetTop > bottom) d.querySelector("canvas")?.remove();
+  });
+  view.classList.remove("zooming");
+  observer && observer.disconnect();
+  observer = new IntersectionObserver((ents) => {
+    ents.forEach((en) => { if (en.isIntersecting) renderPage(en.target, token); });
+  }, { root: view, rootMargin: "300px 0px" });
+  view.querySelectorAll(".pdf-page").forEach((d) => observer.observe(d));
+}
+
+$("#zoom-in").onclick = () => setZoom(Math.min(4, +(state.scale * 1.2).toFixed(3)));
+$("#zoom-out").onclick = () => setZoom(Math.max(0.25, +(state.scale / 1.2).toFixed(3)));
 $("#zoom-fit").onclick = () => setZoom("fit");
 view.addEventListener("wheel", (e) => {
   if (!e.ctrlKey) return;
   e.preventDefault();
-  setZoom(Math.max(0.25, Math.min(4, +(state.scale * (e.deltaY < 0 ? 1.1 : 1 / 1.1)).toFixed(2))));
+  // pinça no touchpad: muitos eventos pequenos, zoom proporcional ao movimento;
+  // roda do mouse: 10% por clique
+  const pinch = e.deltaMode === 0 && Math.abs(e.deltaY) < 50;
+  const factor = pinch ? Math.exp(-e.deltaY * 0.01) : e.deltaY < 0 ? 1.1 : 1 / 1.1;
+  setZoom(Math.max(0.25, Math.min(4, +(state.scale * factor).toFixed(3))), { x: e.clientX, y: e.clientY });
 }, { passive: false });
 
 let resizeTimer;
@@ -275,7 +357,7 @@ new ResizeObserver(() => {
   if (state.zoom !== "fit" || !state.pdf) return;
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
-    if (Math.abs(computeScale() - state.scale) > 0.01) layoutPages(view.scrollTop / view.scrollHeight);
+    if (Math.abs(computeScale() - state.scale) > 0.01) resizePages(computeScale());
   }, 150);
 }).observe(view);
 

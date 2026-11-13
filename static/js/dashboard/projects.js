@@ -53,7 +53,7 @@ function render() {
   $("#list").innerHTML = `<table class="proj-table"><thead><tr><th colspan="2">Nome</th><th class="when">Última modificação</th><th></th></tr></thead><tbody>
     ${items.map((p) => p.importing ? importRow(p) : `<tr data-name="${esc(p.name)}" class="${p.pinned ? "pinned" : ""}">
       <td class="thumb"><a href="/project/${encodeURIComponent(p.name)}" tabindex="-1">${thumbHtml(p)}</a></td>
-      <td class="name">${p.pinned ? `<span class="pin-mark" title="Fixado no topo">${icon("pin")}</span>` : ""}<a href="/project/${encodeURIComponent(p.name)}">${esc(p.name)}</a> ${driveIcon(p.drive)}
+      <td class="name">${p.pinned ? `<span class="pin-mark" title="Fixado no topo">${icon("pin")}</span>` : ""}<a href="/project/${encodeURIComponent(p.name)}">${esc(p.name)}</a> ${driveIcon(p.drive)}${githubIcon(p.github)}
         ${(p.tags || []).length ? `<div class="proj-tags">${p.tags.map((t) => `<button class="chip small" data-tag="${esc(t)}" title="Mostrar só os projetos com esta etiqueta">${esc(t)}</button>`).join("")}</div>` : ""}</td>
       <td class="when">${timeAgo(p.modified)}</td>
       <td class="acts">
@@ -69,18 +69,19 @@ function render() {
 // projeto vindo do Drive que ainda está sendo baixado (ou cuja importação falhou)
 function importRow(p) {
   const st = p.importing;
+  const src = IMPORT_SOURCES[st.source] || IMPORT_SOURCES.drive;
   const err = st.state === "error";
   const pct = st.total ? Math.round((st.done / st.total) * 100) : 0;
-  const what = err ? `Não foi possível importar do Google Drive: ${esc(st.error)}`
-    : st.state === "queued" ? "Na fila para importar do Google Drive"
-    : st.total == null ? "Importando do Google Drive…"
-    : `Importando do Google Drive: ${st.done} de ${st.total} ${st.total === 1 ? "arquivo" : "arquivos"}`;
-  return `<tr data-name="${esc(p.name)}" class="importing${err ? " import-err" : ""}">
+  const what = err ? `Não foi possível importar do ${src.label}: ${esc(st.error)}`
+    : st.state === "queued" ? `Na fila para importar do ${src.label}`
+    : st.total == null ? `Importando do ${src.label}…`
+    : `Importando do ${src.label}: ${st.done} de ${st.total} ${st.total === 1 ? "arquivo" : "arquivos"}`;
+  return `<tr data-name="${esc(p.name)}" data-source="${esc(st.source || "drive")}" class="importing${err ? " import-err" : ""}">
     <td class="thumb"><span class="thumb-slot"><span class="thumb-empty">${icon(err ? "cloudOff" : "cloud", err ? "" : "pulse")}</span></span></td>
     <td class="name"><span class="nm">${esc(p.name)}</span><div class="import-st">${what}</div>
       ${err ? "" : `<div class="import-bar"><span style="width:${pct}%"></span></div>`}</td>
     <td class="when">${err ? "" : st.state === "queued" ? "na fila" : `${pct}%`}</td>
-    <td class="acts">${err ? `<button class="btn small" data-imp="retry">Tentar de novo</button> <button class="btn small" data-imp="dismiss" title="O projeto continua no Drive, em Google Drive → Só no Drive">Descartar</button>` : ""}</td></tr>`;
+    <td class="acts">${err ? `<button class="btn small" data-imp="retry">Tentar de novo</button> <button class="btn small" data-imp="dismiss" title="O projeto continua no ${src.short}, em ${src.later}">Descartar</button>` : ""}</td></tr>`;
 }
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = "/static/vendor/pdfjs-3.11.174/pdf.worker.min.js";
@@ -171,21 +172,34 @@ function driveIcon(st) {
   return b ? `<span class="drive-ind ${b.cls}" title="${esc(b.text)}">${icon(b.icon)}</span>` : "";
 }
 
+function githubIcon(st) {
+  const b = githubBadge(st);
+  return b ? `<span class="drive-ind gh-ind ${b.cls}" title="${esc(b.text)}">${icon(b.icon)}</span>` : "";
+}
+
 // atualiza os ícones de sincronização enquanto há envio pendente
+// (inclusive a contagem até o commit do GitHub)
+const busySync = (st) => st && (st.pending || st.state === "syncing" || st.state === "waiting");
 setInterval(async () => {
-  if (!projects.some((p) => p.drive && (p.drive.pending || p.drive.state === "syncing"))) return;
+  if (!projects.some((p) => busySync(p.drive) || busySync(p.github))) return;
   const fresh = await api("/api/projects").catch(() => null);
   if (!fresh) return;
   for (const f of fresh) {
     const p = projects.find((x) => x.name === f.name);
     if (!p) continue;
     p.drive = f.drive;
+    p.github = f.github;
     const cell = document.querySelector(`tr[data-name="${CSS.escape(p.name)}"] td.name`);
-    if (cell) { cell.querySelector(".drive-ind")?.remove(); cell.insertAdjacentHTML("beforeend", driveIcon(p.drive)); }
+    if (cell) {
+      cell.querySelectorAll(".drive-ind").forEach((x) => x.remove());
+      const tags = cell.querySelector(".proj-tags");
+      const html = driveIcon(p.drive) + githubIcon(p.github);
+      if (tags) tags.insertAdjacentHTML("beforebegin", html); else cell.insertAdjacentHTML("beforeend", html);
+    }
   }
 }, 3000);
 
-// acompanha as importações do Drive: atualiza o andamento e mostra cada projeto quando chega
+// acompanha as importações do Drive e do GitHub: atualiza o andamento e mostra cada projeto quando chega
 const importSig = (list) => JSON.stringify(list.filter((p) => p.importing).map((p) => [p.name, p.importing.state]));
 setInterval(async () => {
   if (!projects.some((p) => p.importing && p.importing.state !== "error")) return;
@@ -206,7 +220,7 @@ setInterval(async () => {
   projects = fresh;
   render();
   fillThumbnails();
-  if (done.length) toast(done.length === 1 ? `${done[0]} foi importado do Google Drive` : `${done.length} projetos importados do Google Drive`);
+  if (done.length) toast(done.length === 1 ? `${done[0]} foi importado` : `${done.length} projetos importados`);
   if (failed.length) toast(`Não foi possível importar ${failed.join(", ")}. Veja na lista.`, 6000);
 }, 1000);
 
@@ -227,7 +241,8 @@ $("#list").onclick = async (e) => {
   if (imp) {
     const name = imp.closest("tr").dataset.name;
     try {
-      await api(`/api/drive/import/${imp.dataset.imp}`, { json: { name } });
+      const src = IMPORT_SOURCES[imp.closest("tr").dataset.source] || IMPORT_SOURCES.drive;
+      await api(`${src.api}/import/${imp.dataset.imp}`, { json: { name } });
       load();
     } catch (err) { toast(err.message); }
     return;

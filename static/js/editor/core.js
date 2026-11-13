@@ -195,6 +195,7 @@ async function saveDoc(path, force = false) {
     d.conflict = false;
     setSaveState("Salvo");
     if (state.settings.driveSync) setTimeout(pollDrive, 300);
+    if (state.settings.githubSync) setTimeout(pollGithub, 300);  // começa a contagem até o commit
   } catch (e) {
     if (e.data && e.data.conflict) { resolveConflict(path, e.data); return; }
     setSaveState("Erro ao salvar");

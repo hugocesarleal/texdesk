@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Hugo César Leal (https://github.com/hugocesarleal)
 // SPDX-License-Identifier: MIT
 
-// Indicador do Google Drive, dados do autocompletar e inicialização (carregado por último).
+// Indicadores do Google Drive e do GitHub, dados do autocompletar e inicialização (carregado por último).
 
 // ------------------------------------------------------------ Google Drive
 // Enquanto o projeto está aberto, o servidor confere a cada ~10 s se outro computador mexeu
@@ -61,9 +61,70 @@ function driveNews(st) {
   if (next && !conflictOpen) showDriveConflict(next);
 }
 
+// ------------------------------------------------------------ GitHub
+// O commit sai 2 minutos depois da última alteração (o indicador mostra quanto falta) e na
+// hora em que o projeto é fechado. Com o projeto aberto, o servidor confere o GitHub a cada
+// 30 s e traz o que outro computador enviou, como no Drive.
+const GITHUB_CHECK_MS = 30000;
+let githubTimer = null;
+let lastGithubCheck = 0;
+let seenGithub = Date.now() / 1000;
+
+async function pollGithub() {
+  clearTimeout(githubTimer);
+  const el = $("#github-state");
+  let st;
+  const every = document.hidden ? GITHUB_CHECK_MS * 4 : GITHUB_CHECK_MS;
+  const check = state.settings.githubSync && Date.now() - lastGithubCheck >= every;
+  try {
+    st = await api(`${P}/github${check ? "/check" : ""}`, check ? { method: "POST" } : {});
+    if (check) lastGithubCheck = Date.now();
+  } catch (e) { st = null; }
+  if (st) githubNews(st);
+  const b = githubBadge(st);
+  el.hidden = !b;
+  if (b) {
+    el.className = `tb-btn drive-ind ${b.cls}`;
+    el.title = b.text + (st.pending ? "\nClique para fazer o commit agora." : st.state === "error" ? "\nClique para tentar de novo." : "");
+    const label = st.state === "error" ? "Erro no GitHub" : st.state === "syncing" ? "Enviando…"
+      : st.pending && b.seconds ? `Commit em ${Math.floor(b.seconds / 60)}:${String(b.seconds % 60).padStart(2, "0")}`
+      : b.cls === "drive-off" ? "GitHub desconectado" : b.cls === "drive-busy" ? "Enviando…" : "No GitHub";
+    el.innerHTML = icon(b.icon) + `<span class="hide-sm">${label}</span>`;
+  }
+  // a contagem até o commit anda de segundo em segundo
+  githubTimer = setTimeout(pollGithub, st && st.pending ? 1000 : st && st.enabled ? 5000 : 15000);
+}
+$("#github-state").onclick = async () => {
+  await saveAll();
+  try { await api(`${P}/github/commit`, { method: "POST" }); } catch (e) { toast(e.message); }
+  pollGithub();
+};
+document.addEventListener("visibilitychange", () => { if (!document.hidden && state.settings.githubSync) pollGithub(); });
+
+function githubNews(st) {
+  const r = st.received;
+  if (r && r.at > seenGithub) {
+    seenGithub = r.at;
+    const names = r.files.slice(0, 3).join(", ") + (r.files.length > 3 ? ` e mais ${r.files.length - 3}` : "");
+    toast(`Alterações recebidas do GitHub: ${names}`, 5000);
+    checkExternalChanges();
+    loadMeta();
+  }
+  const next = (st.conflicts || []).find((c) => !shownConflicts.has(c.id));
+  if (next && !conflictOpen) showDriveConflict(next, "github");
+}
+
+// Fechar a aba ou sair do projeto: o commit sai na hora, sem esperar os 2 minutos. (keepalive:
+// o pedido termina mesmo com a página fechando. Se o TexDesk inteiro for fechado antes, o
+// servidor envia ao fechar ou na próxima abertura.)
+window.addEventListener("pagehide", () => {
+  if (!state.settings.githubSync) return;
+  fetch(`${P}/github/commit`, { method: "POST", keepalive: true, headers: { "X-TexDesk": "1" } }).catch(() => {});
+});
+
 // Um trecho foi alterado aqui e em outro computador ao mesmo tempo. O arquivo já está com o
 // trecho daqui (o resto foi juntado); o usuário escolhe se fica assim ou se usa o do outro.
-async function showDriveConflict(c) {
+async function showDriveConflict(c, kind = "drive") {
   conflictOpen = true;
   shownConflicts.add(c.id);
   const show = (t) => `<pre class="conflict-text">${esc(t) || '<span class="muted">(trecho apagado)</span>'}</pre>`;
@@ -80,37 +141,39 @@ async function showDriveConflict(c) {
   });
   try {
     await saveAll();  // a troca é feita no disco; nada daqui pode ficar por salvar
-    await api(`${P}/drive/conflict`, { json: { id: c.id, use: keepMine ? "mine" : "theirs" } });
+    await api(`${P}/${kind}/conflict`, { json: { id: c.id, use: keepMine ? "mine" : "theirs" } });
     if (!keepMine) checkExternalChanges();
   } catch (e) {
     toast(e.message, 6000);
   } finally {
     conflictOpen = false;
   }
-  pollDrive();
+  if (kind === "github") pollGithub(); else pollDrive();
 }
 
-// Ao abrir o projeto: antes de mostrar os arquivos, traz o que outro computador mudou. Espera
-// pouco: se o Drive demorar (internet lenta, muitos projetos sendo conferidos ao iniciar), o
-// projeto abre assim mesmo, e o que chegar depois aparece sendo digitado nos arquivos abertos.
+// Ao abrir o projeto: antes de mostrar os arquivos, traz o que outro computador mudou (pelo
+// Drive e pelo GitHub). Espera pouco: se demorar (internet lenta, muitos projetos sendo
+// conferidos ao iniciar), o projeto abre assim mesmo, e o que chegar depois aparece sendo
+// digitado nos arquivos abertos.
 const FIRST_CHECK_MAX_MS = 4000;
-async function firstDriveCheck() {
+const SYNC_LABEL = { drive: "Google Drive", github: "GitHub" };
+async function firstSyncCheck(kind) {
   const t0 = Date.now() / 1000;
   let st;
-  try { st = await api(`${P}/drive/check`, { method: "POST" }); } catch (e) { return; }
-  lastDriveCheck = Date.now();
+  try { st = await api(`${P}/${kind}/check`, { method: "POST" }); } catch (e) { return; }
+  if (kind === "drive") lastDriveCheck = Date.now(); else lastGithubCheck = Date.now();
   if (!st.enabled || !st.connected) return;
-  setSaveState("Buscando atualizações do Google Drive…");
+  setSaveState(`Buscando atualizações do ${SYNC_LABEL[kind]}…`);
   const end = Date.now() + FIRST_CHECK_MAX_MS;
   while (!(st.checkedAt >= t0)) {
     if (Date.now() > end) return;
     await new Promise((r) => setTimeout(r, 300));
-    try { st = await api(`${P}/drive`); } catch (e) { return; }
+    try { st = await api(`${P}/${kind}`); } catch (e) { return; }
   }
-  if (st.state === "error") toast("Não foi possível conferir o Google Drive agora: " + (st.error || ""), 6000);
+  if (st.state === "error") toast(`Não foi possível conferir o ${SYNC_LABEL[kind]} agora: ` + (st.error || ""), 6000);
   else if (st.received && st.received.at >= t0) {
-    seenReceived = st.received.at;
-    toast(`${st.received.files.length} arquivo(s) atualizado(s) com o que estava no Google Drive.`, 5000);
+    if (kind === "drive") seenReceived = st.received.at; else seenGithub = st.received.at;
+    toast(`${st.received.files.length} arquivo(s) atualizado(s) com o que estava no ${SYNC_LABEL[kind]}.`, 5000);
   }
 }
 
@@ -123,10 +186,10 @@ setInterval(loadMeta, 15000);
 (async function init() {
   try {
     state.settings = await api(`${P}/settings`);
-    if (state.settings.driveSync) {
-      await firstDriveCheck();
-      state.settings = await api(`${P}/settings`);  // podem ter vindo do outro computador
-    }
+    const { driveSync, githubSync } = state.settings;
+    if (driveSync) await firstSyncCheck("drive");
+    if (githubSync) await firstSyncCheck("github");
+    if (driveSync || githubSync) state.settings = await api(`${P}/settings`);  // podem ter vindo do outro computador
     await loadFiles();
   } catch (e) {
     document.body.innerHTML = `<div class="empty">Projeto não encontrado. <a href="/">Voltar</a></div>`;
@@ -141,6 +204,7 @@ setInterval(loadMeta, 15000);
   await openFile(first);
   loadMeta();
   pollDrive();
+  pollGithub();
   setSaveState("Salvo");
   showLastOrCompile();
 })();

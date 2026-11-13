@@ -74,6 +74,7 @@ def load_settings(d: Path):
     s.setdefault("autoCompile", False)
     s.setdefault("shellEscape", False)
     s.setdefault("driveSync", False)
+    s.setdefault("githubSync", False)
     return s
 
 

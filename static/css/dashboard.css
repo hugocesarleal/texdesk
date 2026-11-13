@@ -52,6 +52,11 @@
 .dp-status small { color: var(--muted); font-size: 12.5px; }
 .dp-status .btn { align-self: flex-start; margin-top: 6px; }
 .dp-status .bar { height: 6px; border-radius: 3px; background: var(--border); margin-top: 7px; overflow: hidden; }
+/* GitHub: código do "Entrar com GitHub" */
+.gh-steps li { margin-bottom: 12px; }
+.gh-code { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.gh-code code { font-size: 22px; letter-spacing: 3px; font-weight: 700; padding: 6px 12px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--border); }
+.dp-status .spin { animation: spin 1s linear infinite; }
 .dp-status .bar span { display: block; height: 100%; background: currentColor; border-radius: 3px; transition: width .4s; }
 .dp-status.ok { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
 .dp-status.busy { color: var(--info); background: var(--info-soft); border-color: transparent; }
@@ -112,10 +117,10 @@
 .wordmark b { font-weight: 700; color: #4cc874; }
 .home-logo { padding: 4px; }
 .home-logo img { display: block; border-radius: 5px; }
-.dash { max-width: 980px; margin: 0 auto; padding: 24px 16px; }
+.dash { max-width: 1040px; margin: 0 auto; padding: 24px 16px; }
 .dash-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
 .dash-head h1 { margin: 0 auto 0 0; font-size: 22px; }
-.dash-search { max-width: 240px; }
+.dash-search { flex: 1 1 150px; min-width: 130px; max-width: 220px; }
 .dash-sort { width: auto; max-width: 220px; }
 .dash-top .grow { flex: 1; }
 .dash-top .btn { background: transparent; color: var(--toolbar-text); border-color: rgba(255, 255, 255, .25); }
@@ -198,7 +203,7 @@
 .proj-table tr.importing .pulse { animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .35; } }
 .empty { text-align: center; color: var(--muted); padding: 48px 16px; }
-.dash-foot { max-width: 980px; margin: 0 auto; padding: 8px 16px 32px; text-align: center; font-size: 12.5px; color: var(--muted); line-height: 1.7; }
+.dash-foot { max-width: 1040px; margin: 0 auto; padding: 8px 16px 32px; text-align: center; font-size: 12.5px; color: var(--muted); line-height: 1.7; }
 .dash-foot a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
 .dash-foot a:hover { color: var(--accent); }
 @media (max-width: 640px) { .proj-table td.when, .proj-table th.when { display: none; } }

@@ -98,6 +98,9 @@ for tpl in templates/*/ tools/templates/*/; do
     name="$(basename "$tpl")"
     cp -R "$tpl" "$work/$name"
     mkdir -p "$work/$name/out"
+    # \include{capitulos/x} grava out/capitulos/x.aux, e o Tectonic não cria a pasta sozinho
+    # (o compilador do TexDesk faz o mesmo antes de cada compilação)
+    (cd "$work/$name" && find . -mindepth 1 -type d ! -path ./out ! -path './out/*' -exec mkdir -p out/{} \;)
     printf '  %-14s' "$name"
     inicio=$SECONDS
     if (cd "$work/$name" && "$OLDPWD/tools/tectonic" --keep-logs --outdir out --chatter minimal main.tex \

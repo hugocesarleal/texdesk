@@ -4,6 +4,6 @@
 
 """Rotas HTTP, uma área por módulo."""
 
-from . import compile, drive, files, pages, projects, tools
+from . import compile, drive, files, github, pages, projects, tools
 
-BLUEPRINTS = [pages.bp, projects.bp, files.bp, compile.bp, drive.bp, tools.bp]
+BLUEPRINTS = [pages.bp, projects.bp, files.bp, compile.bp, drive.bp, github.bp, tools.bp]

@@ -82,6 +82,7 @@ const ICONS = {
   bulb: '<path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.74V16h8v-1.26A7 7 0 0 0 12 2z"/>',
   restore: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
   info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+  git: '<circle cx="6" cy="5.5" r="2.2"/><circle cx="6" cy="18.5" r="2.2"/><circle cx="18" cy="8" r="2.2"/><path d="M6 7.7v8.6M18 10.2c0 4.2-5 3.6-10.6 6.6"/>',
   install: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 8v6M9 11l3 3 3-3M8 21h8"/>',
 };
 
@@ -93,6 +94,23 @@ function driveBadge(st) {
   if (st.state === "syncing" || st.pending) return { icon: "cloudUp", cls: "drive-busy", text: "Sincronizando com o Google Drive…" };
   if (st.lastSync) return { icon: "cloudCheck", cls: "drive-ok", text: "Salvo no Google Drive " + timeAgo(st.lastSync) };
   return { icon: "cloud", cls: "drive-ok", text: "Sincronização com o Google Drive ativada" };
+}
+
+// Estado de sincronização com o GitHub -> {icon, cls, text}. O commit sai 2 min depois da
+// última alteração: enquanto isso, mostra quanto falta.
+function githubBadge(st) {
+  if (!st || !st.enabled) return null;
+  if (!st.connected) return { icon: "git", cls: "drive-off", text: "GitHub desconectado" };
+  if (st.state === "error") return { icon: "git", cls: "drive-err", text: "Erro no GitHub: " + (st.error || "") };
+  if (st.state === "waiting" || st.waitUntil) return { icon: "git", cls: "drive-busy", text: st.error || "Esperando o limite do GitHub" };
+  if (st.state === "syncing") return { icon: "git", cls: "drive-busy", text: "Enviando para o GitHub…" };
+  if (st.pending) {
+    const s = Math.max(0, Math.round((st.commitAt || 0) - Date.now() / 1000));
+    return { icon: "git", cls: "drive-busy", text: s ? `Commit no GitHub em ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")} (2 min depois da última alteração)` : "Enviando para o GitHub…", seconds: s };
+  }
+  if (st.lastCommit) return { icon: "git", cls: "drive-ok", text: "No GitHub · último commit " + timeAgo(st.lastCommit.at) };
+  if (st.lastSync) return { icon: "git", cls: "drive-ok", text: "No GitHub · conferido " + timeAgo(st.lastSync) };
+  return { icon: "git", cls: "drive-ok", text: "Sincronização com o GitHub ativada" };
 }
 
 function icon(name, cls = "") {

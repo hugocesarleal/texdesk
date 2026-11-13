@@ -13,7 +13,7 @@
   else toast(q, 6000);
   openDrivePanel();
 })();
-offerDriveImport();
+offerDriveImport().then(offerGithubImport);  // uma pergunta de cada vez
 
 load();
 checkUpdate();

@@ -13,7 +13,7 @@ from urllib.parse import quote
 
 from flask import Blueprint, abort, jsonify, request, send_file
 
-from .. import drive_sync, external_templates, history, services, trash
+from .. import drive_sync, external_templates, github_sync, history, services, trash
 from ..config import OUTPUT, PROJECTS, TEMPLATE_META, TEMPLATES, THUMB_FILE
 from ..security import json_body
 from ..storage import (
@@ -60,17 +60,18 @@ def list_projects():
                 "pdf": pdf_mtime,
                 "pdfUrl": f"/api/projects/{quote(d.name)}/output/{quote(pdf.name)}" if pdf_mtime else None,
                 "drive": services.syncer.get_status(d.name) if settings["driveSync"] else None,
+                "github": services.gitsync.get_status(d.name) if settings["githubSync"] else None,
                 "tags": settings.get("tags", []),
                 "pinned": bool(settings.get("pinned")),
             }
         )
     # projetos vindos do Drive que ainda estão sendo baixados (ou cuja importação falhou)
-    for job in services.importer.items():
+    for job in services.importer.items() + services.gh_importer.items():
         items.append(
             {
                 "name": job["name"],
                 "modified": job["added"],
-                "importing": {k: job[k] for k in ("state", "done", "total", "error")},
+                "importing": {k: job[k] for k in ("state", "done", "total", "error", "source")},
                 "tags": [],
                 "pinned": False,
             }
@@ -163,6 +164,7 @@ def upload_project():
             shutil.rmtree(d, ignore_errors=True)  # .zip com caminho inválido não deixa projeto pela metade
             raise
     (d / drive_sync.MANIFEST).unlink(missing_ok=True)
+    (d / github_sync.MANIFEST).unlink(missing_ok=True)
     services.apply_sync_default(d)
     return jsonify({"name": name})
 
@@ -172,6 +174,7 @@ def delete_project(name):
     """Manda o projeto para a lixeira (fica trash.TRASH_DAYS dias, com o histórico)."""
     project_dir(name)
     services.syncer.forget(name)  # a cópia no Drive é mantida; pode ser restaurada pelo painel
+    services.gitsync.forget(name)  # a pasta no GitHub também
     tid = trash.put(name)
     shutil.rmtree(OUTPUT / name, ignore_errors=True)
     forget(name)
@@ -242,8 +245,9 @@ def rename_project(name):
         (OUTPUT / name).rename(OUTPUT / new)
     history.rename(name, new)
     services.syncer.forget(name)
+    services.gitsync.forget(name)
     forget(name)
-    services.changed(new)  # renomeia a pasta no Drive
+    services.changed(new)  # renomeia a pasta no Drive e no GitHub
     return jsonify({"name": new})
 
 
@@ -257,6 +261,7 @@ def clone_project(name):
     # a cópia é um projeto novo: não pode apontar para a mesma pasta do Drive
     (PROJECTS / new / drive_sync.MANIFEST).unlink(missing_ok=True)
     (PROJECTS / new / drive_sync.VERSION_FILE).unlink(missing_ok=True)
+    (PROJECTS / new / github_sync.MANIFEST).unlink(missing_ok=True)  # nem do GitHub
     services.changed(new)
     return jsonify({"name": new})
 
@@ -284,7 +289,7 @@ def set_settings(name):
     d = project_dir(name)
     s = load_settings(d)
     data = json_body()
-    for k in ("main", "autoCompile", "shellEscape", "driveSync"):
+    for k in ("main", "autoCompile", "shellEscape", "driveSync", "githubSync"):
         if k in data:
             s[k] = data[k]
     if s["main"]:

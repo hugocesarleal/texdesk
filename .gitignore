@@ -1,6 +1,8 @@
 # --- Dados pessoais e segredos (NUNCA publicar) ---
 # credenciais OAuth e token de acesso ao Google Drive
 .drive/
+# acesso e estado da sincronização com o GitHub
+.github-sync/
 # projetos do usuário, PDFs compilados, histórico de versões e lixeira
 projects/
 output/

@@ -126,6 +126,7 @@ $("#btn-settings").onclick = async () => {
       { name: "autoCompile", label: "Compilar sozinho enquanto edito", type: "check", value: state.settings.autoCompile },
       { name: "shellEscape", label: "Permitir shell-escape (necessário para o pacote minted)", type: "check", value: state.settings.shellEscape },
       { name: "driveSync", label: "Sincronizar com o Google Drive", type: "check", value: state.settings.driveSync },
+      { name: "githubSync", label: "Sincronizar com o GitHub (commit 2 min depois da última alteração)", type: "check", value: state.settings.githubSync },
       { type: "heading", label: "Aparência (todos os projetos)" },
       { name: "theme", type: "html", html: themePickerHtml() },
       { type: "heading", label: "Editor (todos os projetos)" },
@@ -141,7 +142,12 @@ $("#btn-settings").onclick = async () => {
   if (!r) { undoTheme(); return; }
   store.set("pdfDark", r.pdfDark);
   applyPdfDark();
-  state.settings = await api(`${P}/settings`, { json: { autoCompile: r.autoCompile, shellEscape: r.shellEscape, driveSync: r.driveSync } });
+  state.settings = await api(`${P}/settings`, { json: { autoCompile: r.autoCompile, shellEscape: r.shellEscape, driveSync: r.driveSync, githubSync: r.githubSync } });
+  if (r.githubSync) {
+    const gs = await api("/api/github/status").catch(() => ({}));
+    if (!gs.connected) toast("Conecte o GitHub no painel de projetos para os commits começarem.", 6000);
+  }
+  pollGithub();
   if (r.driveSync) {
     const ds = await api("/api/drive/status").catch(() => ({}));
     if (!ds.connected) toast("Conecte o Google Drive no painel de projetos para a sincronização começar.", 6000);
